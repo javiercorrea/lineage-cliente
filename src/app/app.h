@@ -1,0 +1,376 @@
+// Estado de la aplicación y pantallas. Cada pantalla es una función que, por frame, lee la
+// entrada, emite comandos de red y dibuja (UI inmediata).
+#pragma once
+#include <SDL3/SDL.h>
+#include <memory>
+#include <string>
+#include <vector>
+#include "mundo/chat.h"
+#include "mundo/mundo.h"
+#include "plataforma/rutas.h"
+#include "proto/comandos.h"
+#include "proto/decodificar.h"
+#include "proto/hilo_red.h"
+#include "recursos/fuente.h"
+#include "recursos/hechizos.h"
+#include "recursos/html.h"
+#include "recursos/tabla_sprites.h"
+#include "recursos/textos.h"
+#include "render/graficos.h"
+#include "ui/ui.h"
+
+namespace lin {
+
+enum class Pantalla { ELEGIR_CARPETA, LOGIN, PERSONAJES, CREAR, CARGANDO, JUEGO };
+
+struct PersonajeLista {
+    std::string nombre, clan;
+    i32 v[13];  // índices PJ_* de eventos.h
+};
+
+// Automatización para pruebas y capturas (argumentos --auto, --captura...).
+struct Automatizacion {
+    bool activa = false;
+    std::string personaje;          // a elegir en la lista (vacío = el primero)
+    bool crear = false;             // crear `personaje` si no existe
+    int clase = 0;                  // clase al crearlo: 0 príncipe, 1 caballero, 2 elfo, 3 mago, 4 elfo oscuro...
+    std::string captura;            // ruta .bmp
+    Pantalla pantalla_captura = Pantalla::JUEGO;
+    int espera_frames = 120;        // frames en esa pantalla antes de capturar
+    bool salir_tras_captura = false;
+    int pasos = 0;                  // pasos de prueba al entrar al juego (hacia la derecha)
+    std::string ruta;               // pasos de prueba con dirección fija: dígitos 0–7
+    std::string atacar;             // atacar al más cercano cuyo nombre contenga esto
+    bool reiniciar = false;         // al morir, reiniciar solo
+    struct AccionItem {
+        bool soltar;                // si no, usar (equipar, beber...)
+        std::string nombre;         // el primer ítem del inventario cuyo nombre lo contenga
+    };
+    std::vector<AccionItem> items;  // una cada 2 s después de entrar
+    size_t items_hechos = 0;
+    bool recoger = false;           // recoger el ítem del suelo más cercano
+    size_t ruta_hecha = 0;
+    std::vector<std::string> decir; // líneas a escribir en el chat al entrar (con prefijos)
+    size_t dichas = 0;
+    bool estado = false;            // abrir la ventana de estado al entrar
+    // Hechizos a lanzar, uno cada 3 s: "Nombre" o "Nombre@objetivo" (el más cercano cuyo nombre
+    // lo contenga). Se repite la lista en orden.
+    std::vector<std::string> lanzar;
+    size_t lanzados = 0;
+    bool hechizos = false;          // abrir la ventana de hechizos al entrar
+    std::string forma;              // polymorph: monstruo a elegir cuando se abre el diálogo
+    std::string hablar;             // caminar hasta el NPC más cercano cuyo nombre lo contenga y hablarle
+    std::vector<std::string> npc_acciones;  // vínculos de la página a seguir (o acciones), uno cada 2 s
+    size_t npc_hechas = 0;
+    std::vector<std::string> tienda;  // "Nombre:N" o "#fila:N": en la próxima lista, elegir N y confirmar
+    u64 t_npc = 0;
+    std::vector<int> alt;           // casilleros de la barra a usar (Alt+número), uno cada 3 s
+    int arrastre[4] = {-1, -1, -1, -1};
+    std::string captura_proyectil;
+    std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
+    bool aceptar = false;           // responder que sí a toda pregunta del servidor (S_MessageYN)
+    int girar = -1;                 // mirar hacia esa dirección al entrar (para quedar frente a frente)
+    std::string ofrecer;            // en un intercambio, ofrecer el primer ítem con ese nombre y aceptar
+    bool ofrecido = false;
+    u64 t_intercambio = 0;  // captura cuando un proyectil va por la mitad del vuelo (y sale)  // --arrastrar: simula un arrastre del mouse (x1, y1 -> x2, y2)
+    size_t alt_hechos = 0;
+};
+
+// Casillero de la barra de atajos. Un ítem se guarda por su id y su gfx: si el id ya no está (se
+// acabó la pila de pociones y se compró otra), se usa otro ítem con el mismo gfx.
+enum class TipoAtajo : u8 { VACIO, HECHIZO, ITEM };
+struct Atajo {
+    TipoAtajo tipo = TipoAtajo::VACIO;
+    u32 id = 0;   // skill id o id del ítem
+    u16 gfx = 0;  // ítems: gfx de inventario
+};
+constexpr int CASILLEROS_BARRA = 10;
+
+// Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
+// del ítem (venta, retiro, depósito).
+enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO };
+struct FilaTienda {
+    u32 id = 0;
+    u16 gfx = 0;
+    u8 bendicion = 0;
+    u32 precio = 0, maximo = 0, elegido = 0;
+    std::string nombre;  // con "$N" sin resolver
+};
+// Ventanas del juego (ventanas.cpp): se mueven arrastrando la barra de título.
+enum class IdVentana : u8 { ESTADO, INVENTARIO, HECHIZOS, NPC, OPCIONES, SALIDA, SOCIAL, INTERCAMBIO, CANTIDAD };
+struct Rect {
+    int x, y, w, h;
+};
+struct PosVentana {
+    int x = 0, y = 0;
+    bool movida = false;  // si no, va en su lugar de siempre
+};
+
+// Hasta dónde se camina para hablarle a un NPC (celdas).
+constexpr int DISTANCIA_HABLAR_NPC = 2;
+
+// Social (social_ui.cpp): preguntas de sí o no pendientes y el intercambio en curso.
+struct Pregunta {
+    u32 numero = 0;
+    u16 tipo = 0;
+    std::string texto;
+};
+struct ItemIntercambio {
+    u16 gfx = 0;
+    u8 bendicion = 0;
+    std::string nombre;  // con "$N" y la cantidad
+};
+struct Intercambio {
+    bool abierto = false;
+    std::string con;
+    std::vector<ItemIntercambio> propio, otro;
+    bool ok = false;  // ya se mandó C_TradeOK
+};
+
+// Cursor del mouse (cursores.cpp): mano, espada sobre un monstruo, círculo al elegir objetivo.
+enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, CANTIDAD };
+
+struct App {
+    Config cfg;
+    Automatizacion aut;
+    SDL_Window* ventana = nullptr;
+    bool salir = false;
+
+    Recursos rec;
+    FuenteBitmap fuente;
+    TablaSprites sprites;
+    TablaTexto desc, intro, mensajes;  // mensajes = string-e.tbl (S_ServerMessage)
+    TablaHechizos hechizos;
+    Gpu gpu;
+    std::unique_ptr<Graficos> g;
+
+    TablaOpcodes op{};
+    HiloRed red;
+    EstadoRed estado_red_previo = EstadoRed::INACTIVA;
+    std::vector<u8> paquete;
+    std::vector<Evento> eventos;
+    Arena arena{4u << 20};
+    Mundo mundo;
+    Chat chat;
+
+    Pantalla pantalla = Pantalla::LOGIN;
+    u64 frames_en_pantalla = 0;
+    EntradaFrame entrada;
+    u64 frame = 0;
+    bool depuracion = false;
+
+    // Login
+    std::string usuario, clave, aviso, noticias;
+    int foco = 0;
+    bool esperando = false, mostrando_noticias = false;
+
+    // Selección de personaje
+    int cantidad_pj = 0, max_pj = 0;
+    std::vector<PersonajeLista> pjs;
+    int pj_sel = -1, pagina = 0;
+    u64 t_anim = 0;
+
+    // Creación
+    std::string nombre_nuevo;
+    int clase_nueva = 0, sexo_nuevo = 0;
+    int extra[6] = {};  // puntos agregados a fue, des, con, sab, car, int
+
+    // Juego
+    u64 t_mantener_vivo = 0;
+    int pasos_auto_hechos = 0;
+    // Combate: lo que se dibujó en el frame anterior (para saber qué hay bajo el puntero), el
+    // objetivo del ataque y hasta cuándo dura el ataque en curso.
+    struct ObjetoEnPantalla {
+        ObjId id;
+        float x0, y0, x1, y1;
+        u32 profundidad;
+    };
+    std::vector<ObjetoEnPantalla> en_pantalla;
+    ObjId objetivo = 0;
+    u64 fin_ataque = 0;
+    u64 t_muerte = 0;  // cuándo se vio el aviso de muerte (0 = vivo)
+    std::string chat_entrada;
+    u32 chat_desplazamiento = 0;  // líneas hacia atrás desde la más reciente
+    bool ventana_estado = false;
+    // Hechizos (Alt+S, F5–F12). Un hechizo con objetivo espera el clic en el objetivo
+    // (hechizo_apuntando) y después se camina hasta tenerlo en alcance (hechizo_pendiente).
+    bool ventana_hechizos = false;
+    u32 hechizos_desplazamiento = 0;  // filas
+    int hechizos_pestana = 0;
+    int teclas_f_x = 0, teclas_f_y = -1;  // panel original: casilleros F5–F12 (-1 = no se dibujan)         // ventana original: nivel 1..10 (0..9) o habilidades de clase (10)
+    u32 hechizo_apuntando = 0;
+    u32 hechizo_pendiente = 0;
+    ObjId objetivo_hechizo = 0;
+    u64 fin_demora_hechizo = 0;       // useDelay del último hechizo
+    bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
+    u16 atajos[8] = {};               // F5..F12
+    std::string atajos_de;            // personaje cuyos atajos están cargados
+    // Barra de atajos (Alt+1..Alt+0; barra_ui.cpp): hechizos o ítems arrastrados a sus casilleros.
+    Atajo barra[CASILLEROS_BARRA];
+    std::string barra_de;             // personaje cuya barra está cargada
+    int barra_x = 0, barra_y = -1000; // posición del último frame (para el puntero)
+    u32 arrastrando_hechizo = 0;      // desde la ventana de hechizos
+    int arrastrando_atajo = -1;       // desde un casillero de la barra
+    int arrastre_x0 = 0, arrastre_y0 = 0;
+    // Polymorph (forma_ui.cpp): diálogo para escribir el monstruo.
+    bool ventana_forma = false;
+    ObjId forma_item = 0;             // pergamino usado; 0 = Shape Change (se responde con C_NPCAction)
+    std::string forma_texto;
+    std::vector<std::string> formas;  // nombres de polymorph.tbl (sugerencias)
+    // NPC (npc_ui.cpp): diálogo con la página HTML, y tienda o almacén en la misma ventana.
+    ObjId npc = 0;
+    std::string npc_pagina, npc_datos;
+    PaginaHtml npc_html;
+    int npc_desplazamiento = 0;  // px
+    TipoTienda tienda = TipoTienda::NINGUNA;
+    ObjId tienda_npc = 0;
+    std::vector<FilaTienda> tienda_filas;
+    u32 tienda_desplazamiento = 0;
+    bool aut_tienda_pendiente = false;
+    bool hablar_objetivo = false;  // a.objetivo es un NPC al que se camina para hablarle
+    // Ventanas: posiciones, la que se está arrastrando y la de opciones.
+    PosVentana pos_ventanas[static_cast<int>(IdVentana::CANTIDAD)];
+    bool ventanas_cargadas = false;
+    int ventana_arrastrada = -1;
+    int arrastre_dx = 0, arrastre_dy = 0;
+    bool ventana_opciones = false;
+    bool ventana_salida = false;  // Restart / Quit
+    bool ventana_social = false;
+    std::vector<Pregunta> preguntas;
+    Intercambio intercambio;
+    std::vector<u32> emblemas_pedidos;  // clanes cuyo emblema ya se pidió (C_Clan)
+    // Cursor: el que pide el frame (cada frame empieza en la mano) y el que está puesto.
+    SDL_Cursor* cursores[static_cast<int>(Cursor::CANTIDAD)] = {};
+    Cursor cursor = Cursor::MANO;
+    Cursor cursor_aplicado = Cursor::CANTIDAD;
+    // Inventario (Alt+I).
+    bool ventana_inventario = false;
+    u32 inventario_desplazamiento = 0;  // filas
+    ObjId arrastrando = 0;              // ítem que se arrastra (para soltarlo al suelo)
+    ObjId ultimo_clic_item = 0;         // para el doble clic
+    u64 t_ultimo_clic_item = 0;
+    float fps = 0;
+    // Medición por segundo (overlay F3 y, con --perf, una línea en el registro).
+    float ms_cpu = 0;      // CPU del frame (entrada, red, pantalla, armado y orden de la lista), promedio
+    float ms_cpu_max = 0;  // el peor frame
+    float ms_decod = 0;    // decodificando gráficos nuevos (en el hilo principal)
+    u32 decodificados = 0;
+    u64 asign_frame_max = 0, asign_total = 0;  // allocations del hilo principal (sin las del driver)
+    double acum_cpu = 0, max_cpu = 0;
+    u64 acum_asign = 0, max_asign = 0;
+    u64 t_fps = 0, frames_fps = 0;
+    bool perf = false;
+};
+
+bool iniciar_app(App& a, int argc, char** argv);
+void bucle_app(App& a);
+void cerrar_app(App& a);
+void cambiar_pantalla(App& a, Pantalla p);
+void enviar(App& a, Escritor e);
+
+void frame_login(App& a);
+void frame_personajes(App& a);
+void frame_crear(App& a);
+void frame_juego(App& a);
+
+const char* nombre_clase(int clase);
+
+// Ventanas (ventanas.cpp).
+Rect rect_ventana(const App& a, IdVentana v);
+bool sobre_ventana(const App& a, IdVentana v);  // abierta y con el puntero encima
+bool sobre_alguna_ventana(const App& a);
+// Al dibujar cada ventana, antes que nada: arrastrarla por la barra de título.
+void arrastrar_ventana(App& a, IdVentana v);
+u8 opacidad_ventanas(const App& a);
+// Botones para abrir las ventanas: los del panel original (esquina del panel derecho) o de texto
+// (UI simple; devuelve dónde terminan a la izquierda).
+void dibujar_botones_panel(App& a, int x, int y);
+int dibujar_botones_texto(App& a, int x_derecha, int y);
+void dibujar_opciones(App& a);
+// Cursores (cursores.cpp).
+void crear_cursores(App& a);
+void aplicar_cursor(App& a);  // al final del frame, si cambió
+void destruir_cursores(App& a);
+// Salida: "Restart" (C_Restart: vuelve al lugar de retorno de la zona, vivo o muerto) y "Quit".
+void dibujar_salida(App& a);
+void reiniciar(App& a);  // de pantalla_juego.cpp
+// Si el servidor manda a un mapa que esta instalación no tiene (map/<id>/), se avisa en el chat.
+void avisar_mapa(App& a, MapId mapa);
+
+// Inventario (inventario_ui.cpp).
+bool sobre_inventario(const App& a);
+void dibujar_inventario(App& a);
+void usar_item(App& a, ObjId item);
+void soltar_item(App& a, ObjId item);
+// Prueba automática (--usar, --soltar): ejecuta la próxima acción pendiente.
+void acciones_item_automaticas(App& a);
+
+// Hechizos (hechizos_ui.cpp).
+bool sobre_hechizos(const App& a);
+// Lanzar un hechizo: sin objetivo se lanza en cuanto se pueda; con objetivo y `objetivo` = 0,
+// espera el clic en el objetivo.
+void pedir_hechizo(App& a, u32 id, ObjId objetivo);
+// Al comienzo del frame del juego: F5–F12, Alt+S, elección del objetivo y prueba automática.
+void procesar_hechizos(App& a, u64 ahora);
+// Hechizo pendiente (desde mover_jugador): dirección de un paso hacia el objetivo si está lejos;
+// -2 si lo lanzó o espera la demora del anterior (no moverse); -1 si no hay.
+int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora);
+u32 hechizo_bajo_puntero(const App& a);
+// Panel original: los casilleros F5–F12 con sus hechizos (`x`, `y`: esquina del panel 1019).
+void dibujar_teclas_f(App& a, int x, int y);
+int tecla_f_bajo_puntero(const App& a);
+void dibujar_hechizos(App& a);
+// Efectos activos (haste, escudos...) arriba a la izquierda, y el aviso de elegir objetivo.
+void dibujar_efectos_activos(App& a, u64 ahora);
+size_t nombre_efecto_activo(const App& a, const EfectoActivo& ef, char* buf, size_t cap);
+
+// Barra de atajos (barra_ui.cpp), abajo al centro sobre el panel.
+std::string_view nombre_personaje(const App& a);
+// Casillero bajo el puntero, -1 si no hay.
+int casillero_bajo_puntero(const App& a);
+bool sobre_barra(const App& a);
+void poner_atajo(App& a, int casillero, Atajo atajo);
+// Al comienzo del frame del juego: Alt+número y carga de la barra del personaje.
+void procesar_barra(App& a);
+// `y`: fila de arriba de la barra.
+void dibujar_barra(App& a, int y);
+
+// Polymorph (forma_ui.cpp).
+bool cargar_formas(App& a);
+// Abre el diálogo: con el pergamino usado, o 0 para Shape Change.
+void abrir_forma(App& a, ObjId pergamino);
+void eventos_forma(App& a, const Evento& e);
+// Antes del chat: el diálogo se queda con el teclado.
+void dibujar_forma(App& a);
+bool sobre_forma(const App& a);
+
+// NPCs y comercio (npc_ui.cpp). El diálogo va arriba a la izquierda.
+bool es_npc(const App& a, Slot s);
+void eventos_npc(App& a, const Evento& e);
+bool sobre_npc(const App& a);
+// Al comienzo del frame del juego: prueba automática y cierre al alejarse.
+void procesar_npc(App& a, u64 ahora);
+void dibujar_npc(App& a);
+
+// Social (social_ui.cpp).
+void eventos_social(App& a, const Evento& e);
+// Comandos del cliente que empiezan con "/" (/invite, /trade, /pledge...); false si no es uno.
+bool comando_social(App& a, std::string_view linea);
+void ofrecer_en_intercambio(App& a, ObjId item);  // todo el montón
+void dibujar_pregunta(App& a);  // antes del chat: Enter y Escape responden
+void dibujar_intercambio(App& a);
+void dibujar_social(App& a);
+void procesar_social(App& a, u64 ahora);  // prueba automática
+Rect rect_social(const App& a);
+Rect rect_intercambio(const App& a);
+
+// De pantalla_juego.cpp: objeto vivo bajo el puntero (0 si no hay; el propio personaje solo con
+// `incluir_propio`) y dirección (0–7) de un paso hacia (dx, dy), -1 si es (0, 0).
+ObjId objeto_bajo_puntero(const App& a, bool incluir_propio = false);
+int direccion_de(int dx, int dy);
+
+// Eventos de la red que afectan a las pantallas previas al juego.
+void eventos_login(App& a, const Evento& e);
+void eventos_personajes(App& a, const Evento& e);
+
+}  // namespace lin

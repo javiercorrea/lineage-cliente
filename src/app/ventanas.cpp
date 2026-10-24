@@ -1,0 +1,254 @@
+// Ventanas del juego: dónde está cada una, moverlas arrastrando la barra de título (la posición se
+// guarda en settings.ini, "ventanas="), los botones para abrirlas y la ventana de opciones.
+//  - Sin moverlas, cada una va en su lugar de siempre: inventario contra el borde derecho, estado y
+//    hechizos a su izquierda (según cuáles estén abiertas) y el diálogo del NPC a la izquierda.
+//  - Botones: con la UI original, los del panel (1005–1012.img: magia, estado, opciones,
+//    inventario, cada uno con su versión resaltada); con la simple, botones de texto sobre la
+//    línea de entrada del chat.
+#include <charconv>
+#include <filesystem>
+#include "app/app.h"
+
+namespace lin {
+
+namespace {
+
+constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
+static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
+constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 200;
+constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 92;
+constexpr int SEPARACION = 4, MARGEN = 7;
+
+int indice(IdVentana v) { return static_cast<int>(v); }
+
+void cargar_posiciones(App& a) {
+    a.ventanas_cargadas = true;
+    for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i) {
+        std::string_view v = valor_de_personaje(a.cfg.ventanas, NOMBRES[i]);
+        size_t coma = v.find(',');
+        if (v.empty() || coma == std::string_view::npos) continue;
+        PosVentana& p = a.pos_ventanas[i];
+        std::from_chars(v.data(), v.data() + coma, p.x);
+        std::from_chars(v.data() + coma + 1, v.data() + v.size(), p.y);
+        p.movida = true;
+    }
+}
+
+void guardar_posiciones(App& a) {
+    for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i) {
+        const PosVentana& p = a.pos_ventanas[i];
+        if (p.movida) poner_valor_de_personaje(a.cfg.ventanas, NOMBRES[i], std::to_string(p.x) + ',' + std::to_string(p.y));
+    }
+    guardar_config(a.cfg);
+}
+
+// Lugar de siempre (sin moverla). Contra el borde derecho se apilan inventario, estado y hechizos:
+// cada una a la izquierda de las anteriores que estén abiertas y en su lugar (una movida deja libre
+// el suyo).
+Rect por_defecto(const App& a, IdVentana v) {
+    const int w = ui::VENTANA_ANCHO, h = ui::VENTANA_ALTO, y = ui::VENTANA_Y;
+    auto ocupa = [&](bool abierta_, IdVentana o) { return abierta_ && !a.pos_ventanas[indice(o)].movida ? w + SEPARACION : 0; };
+    const int x_inv = a.gpu.ancho() - w - MARGEN;
+    const int x_estado = x_inv - ocupa(a.ventana_inventario, IdVentana::INVENTARIO);
+    switch (v) {
+    case IdVentana::INVENTARIO: return {x_inv, y, w, h};
+    case IdVentana::ESTADO: return {x_estado, y, w, h};
+    case IdVentana::HECHIZOS: return {x_estado - ocupa(a.ventana_estado, IdVentana::ESTADO), y, w, h};
+    case IdVentana::NPC: return {MARGEN, y, w, h};
+    case IdVentana::OPCIONES: return {(a.gpu.ancho() - ANCHO_OPCIONES) / 2, y + 40, ANCHO_OPCIONES, ALTO_OPCIONES};
+    case IdVentana::SALIDA: return {(a.gpu.ancho() - ANCHO_SALIDA) / 2, a.gpu.alto() / 3, ANCHO_SALIDA, ALTO_SALIDA};
+    case IdVentana::SOCIAL: return rect_social(a);
+    case IdVentana::INTERCAMBIO: return rect_intercambio(a);
+    default: return {0, y, w, h};
+    }
+}
+
+bool abierta(const App& a, IdVentana v) {
+    switch (v) {
+    case IdVentana::ESTADO: return a.ventana_estado;
+    case IdVentana::INVENTARIO: return a.ventana_inventario;
+    case IdVentana::HECHIZOS: return a.ventana_hechizos;
+    case IdVentana::NPC: return a.npc || a.tienda != TipoTienda::NINGUNA;
+    case IdVentana::OPCIONES: return a.ventana_opciones;
+    case IdVentana::SALIDA: return a.ventana_salida;
+    case IdVentana::SOCIAL: return a.ventana_social;
+    case IdVentana::INTERCAMBIO: return a.intercambio.abierto;
+    default: return false;
+    }
+}
+
+}  // namespace
+
+Rect rect_ventana(const App& a, IdVentana v) {
+    Rect r = por_defecto(a, v);
+    const PosVentana& p = a.pos_ventanas[indice(v)];
+    if (p.movida) {
+        // Siempre con la barra de título dentro de la pantalla (la ventana puede haber quedado fuera
+        // al achicar la ventana del sistema o cambiar el zoom).
+        r.x = std::clamp(p.x, 40 - r.w, a.gpu.ancho() - 40);
+        r.y = std::clamp(p.y, 0, a.gpu.alto() - ui::ALTO_TITULO);
+    }
+    return r;
+}
+
+bool sobre_ventana(const App& a, IdVentana v) {
+    if (!abierta(a, v)) return false;
+    Rect r = rect_ventana(a, v);
+    return ui::sobre(a.entrada, r.x, r.y, r.w, r.h);
+}
+
+bool sobre_alguna_ventana(const App& a) {
+    for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i)
+        if (sobre_ventana(a, static_cast<IdVentana>(i))) return true;
+    return false;
+}
+
+void arrastrar_ventana(App& a, IdVentana v) {
+    if (!a.ventanas_cargadas) cargar_posiciones(a);
+    const EntradaFrame& e = a.entrada;
+    Rect r = rect_ventana(a, v);
+    PosVentana& p = a.pos_ventanas[indice(v)];
+    // Se toma de la barra de título, salvo el botón de cerrar (los últimos 30 px).
+    if (e.pulsado && a.ventana_arrastrada < 0 && ui::sobre(e, r.x, r.y, r.w - 30, ui::ALTO_TITULO)) {
+        a.ventana_arrastrada = indice(v);
+        a.arrastre_dx = e.mx - r.x;
+        a.arrastre_dy = e.my - r.y;
+        a.clic_consumido = true;  // no camina
+    }
+    if (a.ventana_arrastrada != indice(v)) return;
+    if (e.presionado) {
+        p.x = e.mx - a.arrastre_dx;
+        p.y = e.my - a.arrastre_dy;
+        p.movida = true;
+    } else {
+        a.ventana_arrastrada = -1;
+        guardar_posiciones(a);
+    }
+}
+
+u8 opacidad_ventanas(const App& a) { return static_cast<u8>(std::clamp(a.cfg.opacidad_ventanas, 60, 255)); }
+
+// Botón con imagen N (normal) y N+1 (resaltado): ui::boton, con la ayuda arriba al pasar el puntero.
+static bool boton_panel(App& a, u32 n, int x, int y, std::string_view ayuda) {
+    Graficos& g = *a.g;
+    bool encima = ui::sobre(a.entrada, x, y, g.img(n).w, g.img(n).h);
+    if (encima) {
+        int w = ancho_texto(ayuda.data(), ayuda.size());
+        g.gpu().rectangulo(x - 3, y - 19, w + 6, ALTO_GLIFO + 4, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 220));
+        g.texto(ayuda, static_cast<float>(x), static_cast<float>(y - 17), clave_orden(CAPA_UI_TEXTO, 30), rgba(255, 255, 254));
+    }
+    return ui::boton(g, a.entrada, n, x, y);
+}
+
+void dibujar_botones_panel(App& a, int x, int y) {
+    // Panel original: arriba del panel derecho (1019.img), en la franja sobre las teclas F.
+    if (boton_panel(a, 1005, x, y, "Magic (Alt+S)")) a.ventana_hechizos = !a.ventana_hechizos;
+    if (boton_panel(a, 1007, x + 22, y, "Status (Alt+C)")) a.ventana_estado = !a.ventana_estado;
+    if (boton_panel(a, 1011, x + 40, y, "Inventory (Alt+I)")) a.ventana_inventario = !a.ventana_inventario;
+    if (boton_panel(a, 1009, x + 58, y, "Options")) a.ventana_opciones = !a.ventana_opciones;
+    if (boton_panel(a, 1013, x + 74, y, "Restart / Quit")) a.ventana_salida = !a.ventana_salida;
+    if (boton_panel(a, 1015, x + 94, y, "Party, trade, clan")) a.ventana_social = !a.ventana_social;
+}
+
+int dibujar_botones_texto(App& a, int x_derecha, int y) {
+    // UI simple: [Magic] [Status] [Items] [Options], alineados a la derecha.
+    struct B {
+        std::string_view t;
+        bool* abierta;
+    } botones[] = {{"Exit", &a.ventana_salida}, {"Options", &a.ventana_opciones}, {"Social", &a.ventana_social}, {"Items", &a.ventana_inventario},
+                   {"Status", &a.ventana_estado}, {"Magic", &a.ventana_hechizos}};
+    int x = x_derecha;
+    for (const B& b : botones) {
+        int w = ancho_texto(b.t.data(), b.t.size()) + 10;
+        x -= w;
+        if (ui::boton_texto(*a.g, a.entrada, b.t, x, y, w, ALTO_GLIFO + 4)) *b.abierta = !*b.abierta;
+        x -= 4;
+    }
+    return x;
+}
+
+// Recuadro con título y "[x]" para las ventanas chicas (opciones, salida). Devuelve true al cerrar.
+static bool recuadro(App& a, Rect r, std::string_view titulo) {
+    Graficos& g = *a.g;
+    const u8 op = opacidad_ventanas(a);
+    g.gpu().rectangulo(r.x, r.y, r.w, r.h, clave_orden(CAPA_UI, 10), rgba(10, 8, 6, op));
+    g.gpu().rectangulo(r.x + 1, r.y + 1, r.w - 2, ui::ALTO_TITULO - 2, clave_orden(CAPA_UI, 11),
+                       rgba(40, 32, 22, static_cast<u8>(std::min(255, op + 60))));
+    const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
+    g.texto(titulo, static_cast<float>(r.x + 8), static_cast<float>(r.y + 6), kt, rgba(214, 190, 140));
+    g.texto("[x]", static_cast<float>(r.x + r.w - 26), static_cast<float>(r.y + 6), kt, rgba(255, 255, 254));
+    return (a.entrada.clic && ui::sobre(a.entrada, r.x + r.w - 28, r.y + 2, 26, 20)) || a.entrada.escape;
+}
+
+void dibujar_opciones(App& a) {
+    if (!a.ventana_opciones) return;
+    Graficos& g = *a.g;
+    const EntradaFrame& e = a.entrada;
+    arrastrar_ventana(a, IdVentana::OPCIONES);
+    Rect r = rect_ventana(a, IdVentana::OPCIONES);
+    // ui::ventana tiene el alto fijo de las demás: aquí se dibuja un recuadro propio del alto justo.
+    if (recuadro(a, r, "Options")) a.ventana_opciones = false;
+    const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
+
+    // Una fila por opción: el nombre y un botón con el valor (clic lo cambia).
+    char t[48];
+    int y = r.y + ui::ALTO_TITULO + 8;
+    auto fila = [&](std::string_view nombre, std::string_view valor) {
+        g.texto(nombre, static_cast<float>(r.x + 10), static_cast<float>(y + 3), kt, rgba(230, 220, 190));
+        bool clic = ui::boton_texto(g, e, valor, r.x + r.w - 100, y, 90, ALTO_GLIFO + 6);
+        y += ALTO_GLIFO + 12;
+        return clic;
+    };
+    bool cambio = false;
+    if (fila("Interface (F2)", a.cfg.ui_simple ? "Simple" : "Original")) a.cfg.ui_simple = !a.cfg.ui_simple, cambio = true;
+    if (fila("Camera (F4)", a.cfg.camara_a_saltos ? "Steps" : "Smooth")) a.cfg.camara_a_saltos = !a.cfg.camara_a_saltos, cambio = true;
+    if (fila("Shade in shadows", a.cfg.sombra_personajes ? "On" : "Off"))
+        a.cfg.sombra_personajes = !a.cfg.sombra_personajes, cambio = true;
+    std::snprintf(t, sizeof t, "%d%%", opacidad_ventanas(a) * 100 / 255);
+    if (fila("Window opacity", t)) {  // 40 % -> 55 % -> 70 % -> 85 % -> 100 % -> 40 %
+        int o = opacidad_ventanas(a) + 38;
+        a.cfg.opacidad_ventanas = o > 255 ? 102 : o;
+        cambio = true;
+    }
+    std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
+    if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
+        a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;
+        cambio = true;
+    }
+    if (fila("Window positions", "Reset")) {
+        for (PosVentana& p : a.pos_ventanas) p = {};
+        a.cfg.ventanas.clear();
+        cambio = true;
+    }
+    if (cambio) guardar_config(a.cfg);
+}
+
+void dibujar_salida(App& a) {
+    if (!a.ventana_salida) return;
+    arrastrar_ventana(a, IdVentana::SALIDA);
+    Rect r = rect_ventana(a, IdVentana::SALIDA);
+    if (recuadro(a, r, "Exit")) {
+        a.ventana_salida = false;
+        return;
+    }
+    // Restart: vuelve al lugar de retorno de la zona (también sirve para salir de un mapa que esta
+    // instalación no tiene). El servidor deja el HP en el nivel del personaje.
+    if (ui::boton_texto(*a.g, a.entrada, "Restart (back to town)", r.x + 12, r.y + 32, r.w - 24, 20)) {
+        reiniciar(a);
+        a.ventana_salida = false;
+    }
+    if (ui::boton_texto(*a.g, a.entrada, "Quit game", r.x + 12, r.y + 60, r.w - 24, 20)) a.salir = true;
+}
+
+void avisar_mapa(App& a, MapId mapa) {
+    char t[160];
+    std::snprintf(t, sizeof t, "map/%u", mapa);
+    std::error_code ec;
+    if (std::filesystem::is_directory(a.cfg.carpeta_juego + t, ec)) return;
+    std::snprintf(t, sizeof t,
+                  "The server sent you to map %u, which this game installation does not have. Use Exit > Restart to go back.",
+                  mapa);
+    a.chat.agregar(t, rgba(255, 120, 100), CHAT_SISTEMA);
+}
+
+}  // namespace lin

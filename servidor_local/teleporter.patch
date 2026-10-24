@@ -1,0 +1,27 @@
+diff --git a/data/xml/NpcActions/Teleporter.xml b/data/xml/NpcActions/Teleporter.xml
+index 7a909d1..be55c1f 100644
+--- a/data/xml/NpcActions/Teleporter.xml
++++ b/data/xml/NpcActions/Teleporter.xml
+@@ -22,7 +22,8 @@
+ 	</Action>
+ 
+ 	<!-- 隠された渓谷⇒シルバーナイトタウン -->
+-	<Action Name="teleport hidden-velley-for-newbie" NpcId="50004">
++	<!-- Cliente local: la página illdrath1 de esta instalación usa esta acción también para Illdrath (50003). -->
++	<Action Name="teleport hidden-velley-for-newbie" NpcId="50003,50004">
+ 		<Teleport X="33083" Y="33387" Map="4" Heading="5" Price="0"/>
+ 	</Action>
+ 	<!-- 新隠された渓谷⇒話せる島 -->
+@@ -73,9 +74,12 @@
+ 		<Teleport X="32922" Y="32802" Map="304" Heading="5" Price="0"/>
+ 	</Action>
+ 	<!-- シルバーナイトタウン、話せる島、エルフの森、沈黙の洞窟⇒歌う島 -->
++	<!-- Cliente local: esta instalación no tiene el mapa 8011 (Singing Island); el personaje quedaba
++	     en un mapa que el cliente no puede mostrar. Desactivado.
+ 	<Action Name="teleport si-in" NpcId="71035">
+ 		<Teleport X="32834" Y="32858" Map="8011" Heading="5" Price="0"/>
+ 	</Action>
++	-->
+ 	<!-- 歌う島ダンジョン⇒歌う島北部 -->
+ 	<Action Name="teleport town-in" NpcId="71028">
+ 		<Teleport X="32786" Y="32840" Map="8012" Heading="5" Price="0"/>

@@ -1,0 +1,226 @@
+// Paquetes cliente -> servidor. Se arman en un buffer reutilizable y se encolan al hilo de red.
+#pragma once
+#include <span>
+#include <string_view>
+#include <vector>
+#include "proto/opcodes.h"
+
+namespace lin {
+
+class Escritor {
+public:
+    Escritor(const TablaOpcodes& t, Cli op) { buf_.push_back(t.cli(op)); }
+    Escritor& c(u8 v) { buf_.push_back(v); return *this; }
+    Escritor& h(u16 v) { c(static_cast<u8>(v)); return c(static_cast<u8>(v >> 8)); }
+    Escritor& d(u32 v) { h(static_cast<u16>(v)); return h(static_cast<u16>(v >> 16)); }
+    Escritor& s(std::string_view t) {
+        buf_.insert(buf_.end(), t.begin(), t.end());
+        return c(0);
+    }
+    // Cuerpo con relleno a múltiplo de 4 (como mySend del cliente original; el cifrado necesita 4).
+    Bytes cuerpo() {
+        while (buf_.size() < 4 || buf_.size() % 4) buf_.push_back(0);
+        return buf_;
+    }
+
+private:
+    std::vector<u8> buf_;
+};
+
+// Tipos de C_Result: 0 comprar (ítem = índice en la lista de la tienda), 1 vender, 2 guardar en el
+// almacén, 3 retirar.
+enum TipoResultado : u8 { RESULTADO_COMPRA = 0, RESULTADO_VENTA = 1, RESULTADO_DEPOSITO = 2, RESULTADO_RETIRO = 3 };
+struct LineaResultado {
+    u32 item, cantidad;
+};
+
+namespace cmd {
+// Formatos: C_*.java de L1J-JP 3.63c.
+inline Escritor version(const TablaOpcodes& t) { return Escritor(t, Cli::CLIENTVERSION); }
+inline Escritor login(const TablaOpcodes& t, std::string_view usuario, std::string_view clave) {
+    Escritor e(t, Cli::LOGINPACKET);
+    e.s(usuario).s(clave);
+    return e;
+}
+inline Escritor lista_personajes(const TablaOpcodes& t) { return Escritor(t, Cli::COMMONCLICK); }
+// C_CreateChar: s nombre, c clase, c sexo, c fue, c des, c con, c sab, c car, c int
+Escritor crear_personaje(const TablaOpcodes& t, std::string_view nombre, u8 clase, u8 sexo, const u8 stats[6]);
+inline Escritor borrar_personaje(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::DELETECHAR);
+    e.s(nombre);
+    return e;
+}
+inline Escritor entrar(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::LOGINTOSERVER);
+    e.s(nombre);
+    return e;
+}
+// C_MoveChar: h x, h y (posición desde la que se mueve), c dirección
+inline Escritor mover(const TablaOpcodes& t, u16 x, u16 y, u8 dir) {
+    Escritor e(t, Cli::MOVECHAR);
+    e.h(x).h(y).c(dir);
+    return e;
+}
+inline Escritor girar(const TablaOpcodes& t, u8 dir) {
+    Escritor e(t, Cli::CHANGEHEADING);
+    e.c(dir);
+    return e;
+}
+inline Escritor mantener_vivo(const TablaOpcodes& t) { return Escritor(t, Cli::KEEPALIVE); }
+// C_Chat: c tipo (TipoChat), s texto. El servidor arma "Nombre: texto" y lo devuelve también a
+// quien habla, así que el cliente no muestra eco local.
+inline Escritor chat(const TablaOpcodes& t, u8 tipo, std::string_view texto) {
+    Escritor e(t, Cli::CHAT);
+    e.c(tipo).s(texto);
+    return e;
+}
+// C_Attack: d objetivo, h x, h y (celda del objetivo; 0 para golpear al aire)
+inline Escritor atacar(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y) {
+    Escritor e(t, Cli::ATTACK);
+    e.d(objetivo).h(x).h(y);
+    return e;
+}
+// C_Restart: sin cuerpo. El servidor devuelve al personaje al punto de reinicio con HP = nivel.
+inline Escritor reiniciar(const TablaOpcodes& t) { return Escritor(t, Cli::RESTART); }
+// C_UseItem: d ítem y, para pociones, armas y armaduras, c 0. Otros usos (pergaminos de
+// teletransporte, varitas...) llevan otros campos: llegan con sus entregables.
+inline Escritor usar_item(const TablaOpcodes& t, u32 item) {
+    Escritor e(t, Cli::USEITEM);
+    e.d(item).c(0);
+    return e;
+}
+// C_PickUpItem / C_DropItem: h x, h y, d ítem, d cantidad (recoger: a 3 celdas o menos)
+inline Escritor recoger(const TablaOpcodes& t, u16 x, u16 y, u32 item, u32 cantidad) {
+    Escritor e(t, Cli::PICKUPITEM);
+    e.h(x).h(y).d(item).d(cantidad);
+    return e;
+}
+inline Escritor soltar(const TablaOpcodes& t, u16 x, u16 y, u32 item, u32 cantidad) {
+    Escritor e(t, Cli::DROPITEM);
+    e.h(x).h(y).d(item).d(cantidad);
+    return e;
+}
+// C_UseSkill: c fila, c columna (skill id = fila * 8 + columna + 1) y, si tiene objetivo,
+// d objetivo, h x, h y. Sin objetivo el paquete queda en 4 bytes y el servidor no lee más.
+// (Teletransporte, muro de fuego y llamar al clan llevan otros campos: no se usan todavía.)
+inline Escritor usar_hechizo(const TablaOpcodes& t, u32 id, u32 objetivo, u16 x, u16 y) {
+    Escritor e(t, Cli::USESKILL);
+    e.c(static_cast<u8>((id - 1) / 8)).c(static_cast<u8>((id - 1) % 8));
+    if (objetivo) e.d(objetivo).h(x).h(y);
+    return e;
+}
+// C_UseItem de un pergamino de polymorph (uso 16): d ítem, s monstruo (como en PolyTable del
+// servidor; "none" vuelve a la forma normal).
+inline Escritor usar_item_texto(const TablaOpcodes& t, u32 item, std::string_view texto) {
+    Escritor e(t, Cli::USEITEM);
+    e.d(item).s(texto);
+    return e;
+}
+// C_NPCAction: d objeto, s acción. Shape Change responde así a la lista "monlist" (con el propio id).
+inline Escritor accion_npc(const TablaOpcodes& t, u32 objeto, std::string_view accion) {
+    Escritor e(t, Cli::NPCACTION);
+    e.d(objeto).s(accion);
+    return e;
+}
+// C_NPCTalk: d NPC. El servidor responde con su página (S_NPCTalkReturn).
+inline Escritor hablar_npc(const TablaOpcodes& t, u32 npc) {
+    Escritor e(t, Cli::NPCTALK);
+    e.d(npc);
+    return e;
+}
+// C_Result: d NPC, c tipo, c cantidad, c 0, cantidad × (d ítem, d cantidad).
+inline Escritor resultado(const TablaOpcodes& t, u32 npc, TipoResultado tipo, std::span<const LineaResultado> lineas) {
+    Escritor e(t, Cli::RESULT);
+    e.d(npc).c(tipo).c(static_cast<u8>(lineas.size())).c(0);
+    for (const LineaResultado& l : lineas) e.d(l.item).d(l.cantidad);
+    return e;
+}
+// C_Attr con el código 479 (S_BonusStats, la página "RaiseAttr" desde el nivel 51): c 1 (sí) y el
+// atributo a subir ("str", "dex", "con", "int", "wis", "cha"). Los vínculos de esa página son
+// "raise-str"...: el cliente los traduce a este paquete (C_NPCAction no los entiende).
+constexpr u16 ATTR_SUBIR_ATRIBUTO = 479;
+inline Escritor subir_atributo(const TablaOpcodes& t, std::string_view atributo) {
+    Escritor e(t, Cli::ATTR);
+    e.h(ATTR_SUBIR_ATRIBUTO).c(1).s(atributo);
+    return e;
+}
+// C_Attr como respuesta a S_MessageYN: h 0, d número, h tipo, h 1 sí / 0 no.
+inline Escritor responder(const TablaOpcodes& t, u32 numero, u16 tipo, bool si) {
+    Escritor e(t, Cli::ATTR);
+    e.h(0).d(numero).h(tipo).h(si ? 1 : 0);
+    return e;
+}
+// Grupo. C_CreateParty: c 0 (reparto normal; 1 automático), d personaje invitado.
+inline Escritor invitar_grupo(const TablaOpcodes& t, u32 personaje) {
+    Escritor e(t, Cli::CREATEPARTY);
+    e.c(0).d(personaje);
+    return e;
+}
+inline Escritor ver_grupo(const TablaOpcodes& t) { return Escritor(t, Cli::PARTYLIST); }  // S_Party "party"
+inline Escritor dejar_grupo(const TablaOpcodes& t) { return Escritor(t, Cli::LEAVEPARTY); }
+inline Escritor echar_del_grupo(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::BANPARTY);
+    e.s(nombre);
+    return e;
+}
+// Intercambio. C_Trade no lleva a quién: el servidor toma al personaje de enfrente (una celda en
+// la dirección propia, mirándose; FaceToFace). Después C_TradeAddItem (d ítem, d cantidad),
+// C_TradeOK y C_TradeCancel.
+inline Escritor pedir_intercambio(const TablaOpcodes& t) { return Escritor(t, Cli::TRADE); }
+inline Escritor ofrecer_item(const TablaOpcodes& t, u32 item, u32 cantidad) {
+    Escritor e(t, Cli::TRADEADDITEM);
+    e.d(item).d(cantidad);
+    return e;
+}
+inline Escritor aceptar_intercambio(const TablaOpcodes& t) { return Escritor(t, Cli::TRADEADDOK); }
+inline Escritor cancelar_intercambio(const TablaOpcodes& t) { return Escritor(t, Cli::TRADEADDCANCEL); }
+// Clan. Crear (s nombre; solo príncipes, 30 000 adena), entrar (frente a frente con su príncipe,
+// sin cuerpo), dejarlo, echar a alguien (s nombre), ver los miembros (S_Pledge "pledge") y pedir el
+// emblema de un clan (d clan -> S_Emblem).
+inline Escritor crear_clan(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::CREATECLAN);
+    e.s(nombre);
+    return e;
+}
+inline Escritor entrar_clan(const TablaOpcodes& t) { return Escritor(t, Cli::JOINCLAN); }
+inline Escritor dejar_clan(const TablaOpcodes& t) { return Escritor(t, Cli::LEAVECLAN); }
+inline Escritor echar_del_clan(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::BANCLAN);
+    e.s(nombre);
+    return e;
+}
+inline Escritor ver_clan(const TablaOpcodes& t) { return Escritor(t, Cli::PLEDGE); }
+inline Escritor pedir_emblema(const TablaOpcodes& t, u32 clan) {
+    Escritor e(t, Cli::CLAN);
+    e.d(clan);
+    return e;
+}
+// C_Emblem: 384 bytes (16 × 12 píxeles RGB555): el emblema del propio clan (solo su príncipe).
+inline Escritor subir_emblema(const TablaOpcodes& t, std::span<const u8> datos) {
+    Escritor e(t, Cli::EMBLEM);
+    for (u8 b : datos) e.c(b);
+    return e;
+}
+// C_Title: s personaje, s título (el propio desde nivel 40; el príncipe a los de su clan).
+inline Escritor poner_titulo(const TablaOpcodes& t, std::string_view personaje, std::string_view titulo) {
+    Escritor e(t, Cli::TITLE);
+    e.s(personaje).s(titulo);
+    return e;
+}
+// C_Who: s nombre (vacío: cuántos hay conectados).
+inline Escritor quien(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::WHO);
+    e.s(nombre);
+    return e;
+}
+// C_Teleport: sin cuerpo. Respuesta a S_Teleport: recién ahí el servidor mueve al personaje.
+inline Escritor teletransporte(const TablaOpcodes& t) { return Escritor(t, Cli::TELEPORT); }
+// C_ChatWhisper: s destinatario, s texto
+inline Escritor susurrar(const TablaOpcodes& t, std::string_view destino, std::string_view texto) {
+    Escritor e(t, Cli::CHATWHISPER);
+    e.s(destino).s(texto);
+    return e;
+}
+}  // namespace cmd
+
+}  // namespace lin

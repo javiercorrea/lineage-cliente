@@ -1,0 +1,49 @@
+// Opcodes: el código trabaja con ids internos; el número de cable depende de la versión de
+// protocolo y se traduce con una tabla (PLAN_CLIENTE.md §4.2).
+#pragma once
+#include <string_view>
+#include "core/tipos.h"
+
+namespace lin {
+
+// Servidor -> cliente (nombres de L1J).
+enum class Srv : u8 {
+    DESCONOCIDO = 0,
+    INITPACKET, SERVERVERSION, LOGINRESULT, COMMONNEWS, CHARAMOUNT, CHARLIST, NEWCHARPACK,
+    NEWCHARWRONG, DETELECHAROK, LOGINTOGAME, DISCONNECT, OWNCHARSTATUS, MAPID, CHARPACK,
+    MOVEOBJECT, REMOVE_OBJECT, CHANGEHEADING, LIGHT, GAMETIME, WEATHER, SERVERMSG, HPUPDATE,
+    MPUPDATE, NORMALCHAT, GLOBALCHAT, CHARVISUALUPDATE, TELEPORT, DOACTIONGFX, SPMR,
+    OWNCHARATTRDEF, CHARTITLE, EXP, LAWFUL, WHISPERCHAT, NPCSHOUT, OWNCHARSTATUS2, PACKETBOX,
+    BLUEMESSAGE, ATTACKPACKET, HPMETER, INVLIST, ADDITEM, DELETEINVENTORYITEM, ITEMNAME, ITEMAMOUNT,
+    ITEMCOLOR, ADDSKILL, DELSKILL, SKILLSOUNDGFX, EFFECTLOCATION, SKILLHASTE, SKILLBRAVE, SKILLICONSHIELD,
+    RANGESKILLS, POLY, SHOWHTML, SHOWSHOPBUYLIST, SHOWSHOPSELLLIST, SHOWRETRIEVELIST,
+    YES_NO, TRADE, TRADEADDITEM, TRADESTATUS, EMBLEM,
+    CANTIDAD
+};
+
+// Cliente -> servidor.
+enum class Cli : u8 {
+    CLIENTVERSION, LOGINPACKET, COMMONCLICK, NEWCHAR, DELETECHAR, LOGINTOSERVER, MOVECHAR,
+    CHANGEHEADING, KEEPALIVE, QUITGAME, CHAT, CHATWHISPER, ATTACK, RESTART, USEITEM, PICKUPITEM,
+    DROPITEM, USESKILL, NPCACTION, NPCTALK, RESULT, TELEPORT, ATTR,
+    CREATEPARTY, PARTYLIST, LEAVEPARTY, BANPARTY, TRADE, TRADEADDITEM, TRADEADDOK, TRADEADDCANCEL,
+    CREATECLAN, JOINCLAN, LEAVECLAN, BANCLAN, TITLE, PLEDGE, WHO, CLAN, EMBLEM,
+    CANTIDAD
+};
+
+struct TablaOpcodes {
+    Srv srv_de_cable[256];                          // número de cable -> interno
+    u8 cable_de_cli[static_cast<int>(Cli::CANTIDAD)];  // interno -> número de cable
+    u8 cable_init;                                  // opcode del paquete inicial (sin cifrar)
+
+    Srv srv(u8 cable) const { return srv_de_cable[cable]; }
+    u8 cli(Cli c) const { return cable_de_cli[static_cast<int>(c)]; }
+};
+
+// Versiones disponibles: "jp363" (L1J-JP 3.63c, servidor local de pruebas).
+// PENDIENTE: cargar las demás desde los opcodes.txt de docs/analisis/opcodes (s3ep1, kr380...).
+bool tabla_opcodes(std::string_view version, TablaOpcodes& salida);
+
+const char* nombre_srv(Srv s);
+
+}  // namespace lin

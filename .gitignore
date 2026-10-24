@@ -1,0 +1,36 @@
+# Compilación (usar los presets: build/<preset>)
+build/
+_deps/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+compile_commands.json
+*.a
+/lineage
+/lin_tests
+/explorador
+.cache/
+
+# Capturas sueltas y temporales
+captura.bmp
+*.bmp
+*.swp
+.DS_Store
+
+# Servidor local: se baja y genera con servidor_local/instalar.sh
+servidor_local/l1j-jp/
+servidor_local/datos/
+servidor_local/servidor.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Nunca subir recursos del juego (se leen de la instalación del usuario)
+*.pak
+*.idx
+*.s32
+*.til
+*.spr

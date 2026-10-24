@@ -1,0 +1,74 @@
+== lin.bin 4725240 bytes
+   compilado: 2014-11-12 07:56:06
+   b'   \x00    ' va=0x0001000 raw=0x02b4600 entropia=7.99
+   b'.rsrc'   va=0x0e61000 raw=0x0011200 entropia=7.75
+   b'.idata  ' va=0x0eca000 raw=0x0000200 entropia=1.45
+   b'        ' va=0x0ecb000 raw=0x0000200 entropia=0.26
+   b'hsebmuhf' va=0x111e000 raw=0x01afa00 entropia=7.75
+   b'yxptbvvg' va=0x12ce000 raw=0x000a800 entropia=7.97
+== Lineage.exe 1295176 bytes
+   compilado: 2014-10-23 01:41:57
+   b'.text'   va=0x0001000 raw=0x00c3000 entropia=6.48
+   b'.rdata'  va=0x00c4000 raw=0x0028a00 entropia=5.31
+   b'.data'   va=0x00ed000 raw=0x0006c00 entropia=5.42
+   b'.rsrc'   va=0x0180000 raw=0x0047e00 entropia=6.32
+== TW13032701.bin 2582376 bytes
+   compilado: 2013-03-27 03:19:43
+   b'   \x00    ' va=0x0001000 raw=0x0129600 entropia=7.99
+   b'.rsrc'   va=0x05e5000 raw=0x000f600 entropia=7.78
+   b'.idata  ' va=0x0641000 raw=0x0000200 entropia=1.01
+   b'        ' va=0x0642000 raw=0x0000200 entropia=0.26
+   b'oxidrvyk' va=0x0775000 raw=0x013aa00 entropia=7.58
+   b'oaimzskl' va=0x08b0000 raw=0x0000200 entropia=4.01
+== S3EP1.bin 1552467 bytes
+   compilado: 2009-01-19 10:57:38
+   b'louwyvph' va=0x0001000 raw=0x00a9000 entropia=7.99
+   b'.rsrc'   va=0x04f4000 raw=0x0002000 entropia=4.48
+   b'igswrpom' va=0x04f7000 raw=0x0001000 entropia=0.23
+   b'fausulsy' va=0x04f8000 raw=0x00cd000 entropia=7.87
+   b'ohmsalbf' va=0x06c2000 raw=0x0001000 entropia=0.29
+== S3EP1U.bin 6639845 bytes
+   compilado: 2009-01-19 10:57:38
+   b'louwyvph' va=0x0001000 raw=0x04f3000 entropia=3.88
+   b'.rsrc'   va=0x04f4000 raw=0x0003000 entropia=3.51
+   b'zelgo'   va=0x04f7000 raw=0x0001000 entropia=0.21
+   b'fausulsy' va=0x04f8000 raw=0x01ca000 entropia=7.64
+   b'ohmsalbf' va=0x06c2000 raw=0x0001000 entropia=0.00
+   b'PE_ADS'  va=0x07e0000 raw=0x000d000 entropia=0.00
+== Login.exe 3086848 bytes
+   compilado: 2013-04-27 22:51:18
+   b'.text'   va=0x0001000 raw=0x0000000 entropia=0.00
+   b'.rdata'  va=0x0069000 raw=0x0000000 entropia=0.00
+   b'.data'   va=0x0080000 raw=0x0000000 entropia=0.00
+   b'.rsrc'   va=0x00c3000 raw=0x001e800 entropia=5.06
+   b'.le0'    va=0x04bb000 raw=0x0000000 entropia=0.00
+   b'.le1'    va=0x04ca000 raw=0x0000000 entropia=0.00
+   b'.le2'    va=0x0582000 raw=0x02d2c00 entropia=7.95
+   b'.reloc'  va=0x0855000 raw=0x0000200 entropia=0.95
+== Login.dll 656384 bytes
+   compilado: 2013-04-27 22:50:20
+   b'.text'   va=0x0001000 raw=0x0039400 entropia=6.63
+   b'.rdata'  va=0x003b000 raw=0x000f800 entropia=5.09
+   b'.data'   va=0x004b000 raw=0x001d800 entropia=7.84
+   b'.rsrc'   va=0x006e000 raw=0x0003e00 entropia=4.24
+   b'.ld0'    va=0x0072000 raw=0x0009200 entropia=4.64
+   b'.ld1'    va=0x007c000 raw=0x0028400 entropia=8.00
+   b'.reloc'  va=0x00a5000 raw=0x0004800 entropia=6.52
+== eat.exe 1158104 bytes
+   compilado: 2011-06-08 07:27:06
+   b'   \x00    ' va=0x0001000 raw=0x0028000 entropia=7.98
+   b'.rsrc'   va=0x01a9000 raw=0x0002000 entropia=5.99
+   b'.idata  ' va=0x01ae000 raw=0x0001000 entropia=0.12
+   b'        ' va=0x01af000 raw=0x0001000 entropia=0.04
+   b'uuuhxylb' va=0x02d1000 raw=0x00ec000 entropia=7.90
+   b'qbxjsmls' va=0x03bd000 raw=0x0001000 entropia=0.71
+   b'.Silvana' va=0x03be000 raw=0x0000052 entropia=2.23
+== aegisty.bin 1940296 bytes
+   compilado: 2014-03-21 05:23:17
+   b'   \x00    ' va=0x0001000 raw=0x006f000 entropia=7.98
+   b'.rsrc'   va=0x00fc000 raw=0x0001000 entropia=1.47
+   b'.v-lizer' va=0x00fd000 raw=0x0070616 entropia=7.83
+   b'.idata  ' va=0x016e000 raw=0x0001000 entropia=0.22
+   b'        ' va=0x016f000 raw=0x0001000 entropia=0.04
+   b'tzaduqbw' va=0x02bc000 raw=0x00f3000 entropia=7.91
+   b'xkrsnvww' va=0x03af000 raw=0x0001000 entropia=0.62
