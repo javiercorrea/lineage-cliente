@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include "mundo/mundo.h"
 #include "proto/comandos.h"
 #include "proto/decodificar.h"
 
@@ -256,4 +257,108 @@ TEST_CASE("Maestro de magia: S_SkillBuy, C_SkillBuy y C_SkillBuyOK") {
     const u8 eo[] = {207, 2, 0, 1, 0, 0, 0, 2, 0, 0, 0};
     REQUIRE(ok.cuerpo().size() >= sizeof eo);
     CHECK(std::memcmp(ok.cuerpo().data(), eo, sizeof eo) == 0);
+}
+
+TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(4096);
+    std::vector<Evento> ev;
+    auto uno = [&](std::vector<u8> p) {
+        ev.clear();
+        REQUIRE(decodificar(p, t, arena, ev));
+        REQUIRE(ev.size() == 1);
+        return ev[0];
+    };
+    // S_Door de la posada de Talking Island (de la traza): (32597, 32935), cerrada y después abierta.
+    Evento e = uno({35, 0x55, 0x7f, 0xa7, 0x80, 0x00, 0x01});
+    CHECK(e.tipo == Ev::PUERTA);
+    CHECK(e.v[PU_X] == 32597);
+    CHECK(e.v[PU_Y] == 32935);
+    CHECK(e.v[PU_BLOQUEADA] == 1);
+    Mundo m;
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.puertas_cerradas.buscar((32597ull << 16) | 32935));
+    e = uno({35, 0x55, 0x7f, 0xa7, 0x80, 0x00, 0x00});
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(!m.puertas_cerradas.buscar((32597ull << 16) | 32935));
+
+    // S_Paralysis: sueño (10) y su fin (11); el fin de otro estado no lo quita.
+    e = uno({165, 10});
+    CHECK(e.tipo == Ev::PARALISIS);
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.jugador.inmovil == SUENO);
+    e = uno({165, 3});
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.jugador.inmovil == SUENO);
+    e = uno({165, 11});
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.jugador.inmovil == 0);
+
+    // S_Poison sobre un objeto: verde y después gris.
+    Evento p{};
+    p.tipo = Ev::PONER_OBJETO;
+    p.id = 77;
+    aplicar_eventos(m, std::span(&p, 1), 0);
+    e = uno({93, 77, 0, 0, 0, 1, 0});
+    CHECK(e.tipo == Ev::VENENO);
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.objetos.col<O_FLAGS>()[m.objetos.buscar(77)] == FLAG_VENENO);
+    e = uno({93, 77, 0, 0, 0, 0, 1});
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.objetos.col<O_FLAGS>()[m.objetos.buscar(77)] == FLAG_CONGELADO);
+
+    // S_CurseBlind (de la traza: Blinding Potion).
+    e = uno({238, 1, 0});
+    CHECK(e.tipo == Ev::CEGUERA);
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    CHECK(m.jugador.ceguera == 1);
+
+    // S_InputAmount: S_HowManyMake devuelve la acción (segundo texto); S_HowManyKey la página.
+    std::vector<u8> fab = {253, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0, 0, 0};
+    for (char c : std::string_view("request")) fab.push_back(static_cast<u8>(c));
+    fab.push_back(0);
+    for (char c : std::string_view("make1")) fab.push_back(static_cast<u8>(c));
+    fab.push_back(0);
+    e = uno(fab);
+    CHECK(e.tipo == Ev::PEDIR_CANTIDAD);
+    CHECK(e.id == 9);
+    CHECK(e.v[PC_MIN] == 1);
+    CHECK(e.v[PC_MAX] == 5);
+    CHECK(e.s[0] == "make1");
+    std::vector<u8> llave = {253, 9, 0, 0, 0, 44, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 8, 0, 0, 0, 0, 0,
+                             'i', 'n', 'n', '2', 0, 1, 0, 2, 0, 'S', 'e', 'l', 'e', 'n', 'a', 0, '3', '0', '0', 0};
+    e = uno(llave);
+    CHECK(e.v[PC_PRECIO] == 300);
+    CHECK(e.v[PC_MAX] == 8);
+    CHECK(e.s[0] == "inn2");
+    CHECK(e.s[1] == "Selena");
+
+    // S_PetCtrlMenu: entra (con nombre) y sale; con otro primer byte (S_CharReset) se ignora.
+    e = uno({33, 0x0c, 3, 0, 0, 0, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x7f, 0x20, 0x80, 'D', 'o', 'g', 0});
+    CHECK(e.tipo == Ev::MASCOTA);
+    CHECK(e.id == 5);
+    CHECK(e.v[MA_AGREGAR] == 1);
+    CHECK(e.s[0] == "Dog");
+    e = uno({33, 0x0c, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0});
+    CHECK(e.v[MA_AGREGAR] == 0);
+    ev.clear();
+    std::vector<u8> reinicio = {33, 0x01, 0, 0};
+    REQUIRE(decodificar(reinicio, t, arena, ev));
+    CHECK(ev.empty());  // S_CharReset (mismo número): ignorado
+    e = uno({177, 5, 0, 0, 0, 0, 0, 2});
+    CHECK(e.tipo == Ev::ELEGIR_OBJETIVO_MASCOTA);
+    CHECK(e.id == 5);
+
+    // Comandos.
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    igual(cmd::puerta(t, 32597, 32934, 0x100359d7), {199, 0x55, 0x7f, 0xa6, 0x80, 0xd7, 0x59, 0x03, 0x10});
+    igual(cmd::dar_item(t, 5, 1, 2, 7, 3), {244, 5, 0, 0, 0, 1, 0, 2, 0, 7, 0, 0, 0, 3, 0, 0, 0});
+    igual(cmd::cantidad(t, 9, 2, "make1"), {109, 9, 0, 0, 0, 2, 0, 0, 0, 0, 'm', 'a', 'k', 'e', '1', 0});
+    igual(cmd::inventario_mascota(t, 5), {217, 5, 0, 0, 0});
+    igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
+    igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }

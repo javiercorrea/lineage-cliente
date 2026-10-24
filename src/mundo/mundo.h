@@ -61,6 +61,8 @@ struct EstadoJugador {
     u8 hechizos[FILAS_HECHIZOS] = {};  // S_AddSkill: fila = nivel, bit c = hechizo fila*8+c+1
     u8 haste = 0;  // 0 normal, 1 rápido, 2 lento (S_SkillHaste)
     u8 brave = 0;  // 0 nada, 1 poción, 3 waffle, 4 caminar rápido, 6 bloodlust (S_SkillBrave)
+    u8 inmovil = 0;   // S_Paralysis: el que empezó (PARALISIS_*), 0 = puede moverse y actuar
+    u8 ceguera = 0;   // S_CurseBlind: 0 ve, 1 ciego, 2 ciego con Floating Eye
     EfectoActivo efectos[MAX_EFECTOS_ACTIVOS];
     u32 n_efectos = 0;
 
@@ -68,6 +70,16 @@ struct EstadoJugador {
         return id >= 1 && id <= FILAS_HECHIZOS * 8u && ((hechizos[(id - 1) / 8] >> ((id - 1) % 8)) & 1);
     }
 };
+
+// S_Paralysis: subtipos que empiezan cada estado (el siguiente número lo termina). El 7 (fin de la
+// espera tras un teleport) no cambia nada aquí.
+enum Paralisis : u8 {
+    PARALISIS = 2, PARALISIS_2 = 4, SUENO = 10, CONGELADO = 12, ATURDIDO = 22, ATADO = 24,
+};
+// Flags de S_CharPack (y S_Poison): veneno (verde), invisible, congelado (gris).
+constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8;
+// Tipo de gfx de las puertas (atributo 102): sus acciones son abrir (28) y cerrar (29).
+constexpr u8 TIPO_PUERTA = 8, ACC_ABRIR = 28, ACC_CERRAR = 29;
 
 // Gráfico de un hechizo en el mundo: sobre un objeto (lo sigue), en una celda, o un proyectil que
 // vuela de (x0, y0) a (x1, y1) durante vuelo_ms. Se dibuja la acción 0 del gfx una vez (el
@@ -139,6 +151,8 @@ struct Mundo {
     MapaHash indice_segmentos;
     std::unique_ptr<CargadorSegmentos> cargador;
     std::vector<CargadorSegmentos::Hecho> segmentos_hechos;  // reutilizado por actualizar_segmentos
+    // Celdas de puertas cerradas (S_Door; clave x << 16 | y): no se pasa aunque el mapa diga que sí.
+    MapaHash puertas_cerradas{64};
 
     // Textos de los objetos (nombres, títulos): arena que crece y se compacta (compactar_textos).
     std::vector<char> textos;

@@ -161,6 +161,8 @@ void eventos_personajes(App& a, const Evento& e) {
         a.pj_sel = -1;
         break;
     case Ev::ENTRAR_JUEGO:
+        a.mascotas.clear();  // las de esta sesión llegan con S_PetCtrlMenu
+        a.mascota_eligiendo = 0;
         cambiar_pantalla(a, Pantalla::JUEGO);
         break;
     default: break;

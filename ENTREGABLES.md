@@ -644,6 +644,36 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Monstruos de prueba:** quedaron en el pueblo de Talking Island un Cotrot y un Depraved Soul invocados con `.spawn`; desaparecen al reiniciar el servidor.
 - **Personajes al final:** Charla quedó de vuelta en el valle (2005) y el clima del servidor, despejado (`.weather 0`).
 
+## Puertas, estados alterados, cantidad y mascotas
+
+Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`).
+
+- **Puertas** (`S_Door`, `C_Door`):
+  - una puerta llega como cualquier objeto (`S_CharPack`, gfx de tipo 8) con su estado: 28 abierta, 29 cerrada. Se dibuja quieta en el último frame de esa acción, y `S_DoActionGFX` 28/29 la cambia;
+  - `S_Door` dice si la celda de la puerta (y las de su ancho) se puede pasar: las cerradas quedan en `Mundo::puertas_cerradas` y `celda_pasable` las bloquea;
+  - clic sobre una puerta: se camina hasta 2 celdas y se manda `C_Door` (las de llave la consumen en el servidor);
+  - **verificado:** la puerta de la posada de Talking Island (32597, 32934): `C_Door`, el servidor responde con la acción 28 y `S_Door` pasable, y se ve abierta (`docs/capturas/11_puerta_abierta.png`).
+- **Estados alterados:**
+  - `S_Paralysis`: parálisis, sueño, congelado, aturdido y atado. Mientras dura, el personaje no se mueve ni actúa y arriba se lee el estado. El fin solo quita el estado que empezó;
+  - `S_Poison` (y los flags de `S_CharPack`): verde si está envenenado, gris si congelado, para cualquier personaje o monstruo;
+  - `S_CurseBlind`: velo negro sobre el mundo (con Floating Eye, menos), sin nombres, y el propio personaje encima;
+  - **verificado:** la ceguera en vivo con una Blinding Potion (`docs/capturas/11_ceguera.png`); parálisis y veneno con bytes en `tests/test_proto.cpp`.
+- **Diálogo de cantidad** (`S_InputAmount`, `C_Amount`; `app/cantidad_ui.cpp`): número con el teclado, −/+, la rueda y "Max"; con precio, el total. Responde con la acción que mandó el servidor. **Verificado:** en la posada, "room" pidió cantidad (300 adena cada llave, 1 a 8); con 2, el servidor cobró 600 y dio 2 llaves.
+- **Dar ítems** (`C_GiveItem`): soltar un ítem del inventario sobre un NPC, monstruo o mascota se lo da; de una pila, el diálogo pregunta cuántos. **Verificado:** 5 de adena a una invocación (39.295 → 39.290), y aparecen en su bolsa.
+- **Mascotas** (`app/mascotas_ui.cpp`):
+  - `S_PetCtrlMenu` (opcode 33, compartido con `S_CharReset`: se distinguen por el primer byte) agrega o quita una mascota o invocación de la lista, a la izquierda de la barra de atajos, con su vida;
+  - clic en el nombre le habla (menú del servidor: atacar, defender, quedarse, dispersar...); "Bag" pide su inventario (`C_PetMenu` → `S_PetInventory`, que llega como lista de almacén con tipo 0x0b), y un clic en un ítem lo usa o equipa (`C_UsePetItem`);
+  - "Attack" hace que el servidor mande `S_SelectTarget`: el próximo clic elige el objetivo (`C_SelectTarget`); clic derecho o Esc cancelan;
+  - `S_TrueTarget`: una marca roja y el mensaje sobre el objetivo, 16 s;
+  - **verificado** con `.summon 45034` (Shepherd): la lista, su menú, `S_SelectTarget` → `C_SelectTarget`, y la bolsa con lo que se le dio (`docs/capturas/11_mascota_menu.png`, `11_mascota_bolsa.png`), también con ASan.
+- **Corregido de paso:** dos accesos fuera de rango que el tipo nuevo de lista habría disparado (el arreglo de tipos de tienda y el de títulos de la ventana), ahora con `static_assert`.
+
+**Pendiente o conocido:**
+- `C_SelectTarget` manda el tipo 0 (el servidor no lo usa).
+- El índice de la fila de `C_UsePetItem` es el orden de la lista; si el servidor salteara un ítem nulo, no coincidiría.
+- No hay ventana propia de mascota como en el original: lista, menú del servidor y bolsa.
+- **Estado del servidor de pruebas:** Charla quedó en la posada de Talking Island con 2 llaves y 605 adena menos; hay dos invocaciones Shepherd que se van solas con el tiempo o al reiniciar el servidor.
+
 ## Aprender magia: maestros y libros
 
 ![Lista del maestro de magia](docs/capturas/8_aprender_magia.png)
@@ -803,7 +833,7 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 59 | 59 passed | 0 failed
+[doctest] test cases: 60 | 60 passed | 0 failed
 ```
 
 Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).

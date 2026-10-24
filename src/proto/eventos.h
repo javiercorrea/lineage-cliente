@@ -18,6 +18,7 @@ enum class Ev : u8 {
     INVENTARIO_VACIAR, ITEM, ITEM_QUITAR, ITEM_NOMBRE, ITEM_CANTIDAD, ITEM_BENDICION,
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
+    PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
     IGNORADO,
 };
 
@@ -81,7 +82,7 @@ enum : int { HT_DATOS };
 // ITEM_TIENDA (id = índice en la tienda o id del ítem, IT_GFX, TI_PRECIO, IT_CANTIDAD,
 // IT_BENDICION, s[0] = nombre).
 enum : int { LT_TIPO, LT_CANTIDAD };
-enum TipoLista : u8 { LISTA_COMPRA, LISTA_VENTA, LISTA_RETIRO };
+enum TipoLista : u8 { LISTA_COMPRA, LISTA_VENTA, LISTA_RETIRO, LISTA_MASCOTA };
 constexpr int TI_PRECIO = 6;  // en Evento::v, después de los campos IT_*
 // PREGUNTA (S_MessageYN): una pregunta de sí o no. PR_NUMERO y PR_TIPO (id en string-e.tbl: 252
 // intercambio, 953/954 grupo, 97 entrar al clan...) se devuelven en la respuesta (C_Attr);
@@ -98,6 +99,19 @@ enum : int { IN_CANCELADO };
 // TITULO (S_CharTitle; id = personaje, s[0] = título). EMBLEMA (S_Emblem; id = clan, s[0] = los
 // 384 bytes: 16 × 12 píxeles RGB555).
 constexpr size_t BYTES_EMBLEMA = 384;
+// PUERTA (S_Door): la celda (PU_X, PU_Y) de una puerta se puede pasar o no (PU_BLOQUEADA).
+enum : int { PU_X, PU_Y, PU_BLOQUEADA };
+// PARALISIS (S_Paralysis): v[0] = subtipo (ver Paralisis en mundo.h). VENENO (S_Poison; id =
+// objeto): VE_VERDE (veneno) y VE_GRIS (congelado). CEGUERA (S_CurseBlind): v[0] 0 ve, 1 ciego,
+// 2 ciego con Floating Eye.
+enum : int { VE_VERDE, VE_GRIS };
+// PEDIR_CANTIDAD (S_InputAmount; id = NPC u objeto): PC_PRECIO, PC_INICIAL, PC_MIN, PC_MAX y
+// s[0] = la acción que se devuelve con la cantidad (C_Amount), s[1] = el nombre del NPC si viene.
+enum : int { PC_PRECIO, PC_INICIAL, PC_MIN, PC_MAX };
+// MASCOTA (S_PetCtrlMenu; id = mascota): MA_AGREGAR (1 entra a la lista, 0 sale), s[0] = nombre.
+// ELEGIR_OBJETIVO_MASCOTA (S_SelectTarget; id = mascota): el servidor pide elegir a quién ataca.
+// MARCA_OBJETIVO (S_TrueTarget; id = objetivo marcado, s[0] = mensaje).
+enum : int { MA_AGREGAR };
 // CHAT: v[0] = tipo de chat del servidor (TipoChat), id = quien habla (0 si no se sabe),
 // s[0] = texto ya armado por el servidor ("Nombre: hola"), s[1] = remitente (solo susurros).
 enum TipoChat : u8 {

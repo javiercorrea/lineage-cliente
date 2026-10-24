@@ -103,6 +103,8 @@ add_executable(lineage
     src/app/social_ui.cpp
     src/app/sonido.cpp
     src/app/clima.cpp
+    src/app/cantidad_ui.cpp
+    src/app/mascotas_ui.cpp
     src/core/asignaciones.cpp)  # operator new instrumentado (ver core/asignaciones.h)
 target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
 if(APPLE)

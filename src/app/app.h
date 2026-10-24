@@ -3,6 +3,7 @@
 #pragma once
 #include <SDL3/SDL.h>
 #include <memory>
+#include <array>
 #include <string>
 #include <vector>
 #include "audio/audio.h"
@@ -68,9 +69,10 @@ struct Automatizacion {
     std::vector<std::string> tienda;  // "Nombre:N" o "#fila:N": en la próxima lista, elegir N y confirmar
     u64 t_npc = 0;
     std::vector<int> alt;           // casilleros de la barra a usar (Alt+número), uno cada 3 s
-    int arrastre[4] = {-1, -1, -1, -1};
+    std::vector<std::array<int, 4>> arrastres;  // --arrastrar (repetible): x1, y1 -> x2, y2
     int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
     std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
+    int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
     size_t pulsadas = 0;
     std::string captura_proyectil;
     std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
@@ -78,7 +80,7 @@ struct Automatizacion {
     int girar = -1;                 // mirar hacia esa dirección al entrar (para quedar frente a frente)
     std::string ofrecer;            // en un intercambio, ofrecer el primer ítem con ese nombre y aceptar
     bool ofrecido = false;
-    u64 t_intercambio = 0;  // captura cuando un proyectil va por la mitad del vuelo (y sale)  // --arrastrar: simula un arrastre del mouse (x1, y1 -> x2, y2)
+    u64 t_intercambio = 0;
     size_t alt_hechos = 0;
 };
 
@@ -94,7 +96,8 @@ constexpr int CASILLEROS_BARRA = 10;
 
 // Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
 // del ítem (venta, retiro, depósito).
-enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO, MAGIA };
+// MASCOTA: el inventario de una mascota (S_PetInventory); un clic usa o equipa el ítem.
+enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO, MAGIA, MASCOTA };
 struct FilaTienda {
     u32 id = 0;
     u16 gfx = 0;
@@ -107,6 +110,22 @@ enum class IdVentana : u8 { ESTADO, INVENTARIO, HECHIZOS, NPC, OPCIONES, SALIDA,
 struct Rect {
     int x, y, w, h;
 };
+// Mascota o invocación propia (S_PetCtrlMenu; mascotas_ui.cpp).
+struct Mascota {
+    ObjId id = 0;
+    std::string nombre;  // con "$N" sin resolver
+};
+
+// Diálogo de cantidad (cantidad_ui.cpp): S_InputAmount del servidor, o cuántos dar de una pila.
+struct DialogoCantidad {
+    bool abierto = false;
+    bool dar = false;         // true: C_GiveItem del `item` a `objeto`; false: C_Amount a `objeto`
+    bool escribiendo = false; // ya se escribió un número (el siguiente se agrega en vez de reemplazar)
+    ObjId objeto = 0, item = 0;
+    i32 valor = 1, min = 1, max = 1, precio = 0;
+    std::string accion, titulo;
+};
+
 struct PosVentana {
     int x = 0, y = 0;
     bool movida = false;    // si no, va en su lugar de siempre
@@ -261,7 +280,13 @@ struct App {
     bool ventana_abierta_antes[static_cast<int>(IdVentana::CANTIDAD)] = {};
     int ventana_arriba = -1;
     bool ventana_sobre_otra = false;
-    bool escribiendo_chat = false;  // con chat_con_enter: la línea del chat está abierta (Enter la abrió)  // la que se está dibujando tapa a otra abierta (fondo opaco)
+    bool escribiendo_chat = false;
+    DialogoCantidad cantidad;
+    std::vector<Mascota> mascotas;
+    ObjId mascota_eligiendo = 0;      // S_SelectTarget: el próximo clic elige a quién ataca esta mascota
+    ObjId marca_objetivo = 0;         // S_TrueTarget: objetivo marcado hasta fin_marca
+    u64 fin_marca = 0;
+    std::string marca_texto;  // con chat_con_enter: la línea del chat está abierta (Enter la abrió)  // la que se está dibujando tapa a otra abierta (fondo opaco)
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
@@ -406,6 +431,19 @@ void dibujar_npc(App& a);
 
 // Social (social_ui.cpp).
 void eventos_social(App& a, const Evento& e);
+
+// Diálogo de cantidad y dar ítems (cantidad_ui.cpp).
+void eventos_cantidad(App& a, const Evento& e);
+// Dar un ítem del inventario a un NPC o una mascota; de una pila, pregunta cuántos.
+void dar_item(App& a, ObjId objetivo, ObjId item);
+void dibujar_cantidad(App& a);
+bool sobre_cantidad(const App& a);
+
+// Mascotas e invocaciones (mascotas_ui.cpp).
+void eventos_mascotas(App& a, const Evento& e);
+void procesar_mascotas(App& a);  // antes del movimiento: elegir el objetivo de una mascota
+void dibujar_mascotas(App& a);
+bool sobre_mascotas(const App& a);
 // Comandos del cliente que empiezan con "/" (/invite, /trade, /pledge...); false si no es uno.
 bool comando_social(App& a, std::string_view linea);
 void ofrecer_en_intercambio(App& a, ObjId item);  // todo el montón

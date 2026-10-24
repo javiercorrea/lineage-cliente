@@ -214,6 +214,55 @@ inline Escritor aprender_magia(const TablaOpcodes& t, std::span<const u32> indic
     for (u32 i : indices) e.d(i);
     return e;
 }
+// C_Door: h x, h y, d puerta (abre o cierra; las de llave consumen la llave).
+inline Escritor puerta(const TablaOpcodes& t, u16 x, u16 y, u32 id) {
+    Escritor e(t, Cli::DOOR);
+    e.h(x);
+    e.h(y);
+    e.d(id);
+    return e;
+}
+// C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.
+inline Escritor dar_item(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y, u32 item, u32 cantidad) {
+    Escritor e(t, Cli::GIVEITEM);
+    e.d(objetivo);
+    e.h(x);
+    e.h(y);
+    e.d(item);
+    e.d(cantidad);
+    return e;
+}
+// C_Amount: d objeto (el de S_InputAmount), d cantidad, c 0, s acción.
+inline Escritor cantidad(const TablaOpcodes& t, u32 objeto, u32 n, std::string_view accion) {
+    Escritor e(t, Cli::AMOUNT);
+    e.d(objeto);
+    e.d(n);
+    e.c(0);
+    e.s(accion);
+    return e;
+}
+// C_PetMenu: d mascota (responde S_PetInventory).
+inline Escritor inventario_mascota(const TablaOpcodes& t, u32 mascota) {
+    Escritor e(t, Cli::PETMENU);
+    e.d(mascota);
+    return e;
+}
+// C_UsePetItem: c ? (se devuelve en S_PetEquipment), d mascota, c fila de su inventario.
+inline Escritor usar_item_mascota(const TablaOpcodes& t, u32 mascota, u8 fila) {
+    Escritor e(t, Cli::USEPETITEM);
+    e.c(0);
+    e.d(mascota);
+    e.c(fila);
+    return e;
+}
+// C_SelectTarget: d mascota, c 0, d objetivo (respuesta a S_SelectTarget).
+inline Escritor objetivo_mascota(const TablaOpcodes& t, u32 mascota, u32 objetivo) {
+    Escritor e(t, Cli::SELECTTARGET);
+    e.d(mascota);
+    e.c(0);
+    e.d(objetivo);
+    return e;
+}
 // C_Title: s personaje, s título (el propio desde nivel 40; el príncipe a los de su clan).
 inline Escritor poner_titulo(const TablaOpcodes& t, std::string_view personaje, std::string_view titulo) {
     Escritor e(t, Cli::TITLE);

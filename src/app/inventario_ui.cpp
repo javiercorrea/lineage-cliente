@@ -142,7 +142,13 @@ void dibujar_inventario(App& a) {
             Slot s = t.buscar(a.arrastrando);
             if (s != SIN_SLOT) poner_atajo(a, casillero_bajo_puntero(a), {TipoAtajo::ITEM, a.arrastrando, t.col<I_GFX>()[s]});
         } else if (a.arrastrando && !sobre_alguna_ventana(a) && !sobre_barra(a)) {  // solo sobre el mundo
-            soltar_item(a, a.arrastrando);
+            // Sobre un NPC o una mascota se le da (C_GiveItem; el servidor decide si lo acepta); si
+            // no, va al suelo.
+            const ObjId obj = objeto_bajo_puntero(a);
+            const Slot so = obj ? a.mundo.objetos.buscar(obj) : SIN_SLOT;
+            const u8 tipo = so != SIN_SLOT ? tipo_objeto(a, so) : 0;
+            if (so != SIN_SLOT && tipo != TIPO_PERSONAJE && tipo != TIPO_ITEM && tipo != TIPO_PUERTA) dar_item(a, obj, a.arrastrando);
+            else soltar_item(a, a.arrastrando);
         } else if (bajo >= 0) {
             // Doble clic: usar (equipar/quitar armas y armaduras, beber pociones...).
             ObjId id = t.ids()[static_cast<Slot>(bajo)];

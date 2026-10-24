@@ -123,6 +123,10 @@ u64 total(const App& a) {
 }
 
 void confirmar(App& a) {
+    if (a.tienda == TipoTienda::MASCOTA) {
+        cerrar(a);
+        return;
+    }
     if (a.tienda == TipoTienda::MAGIA) {
         u32 indices[64];
         size_t n = 0;
@@ -284,7 +288,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
         while (m > 0 && ancho_texto(buf, m) > w - 40) --m;
         g.texto({buf, m}, static_cast<float>(x + 38), static_cast<float>(y + 3), kt, color);
         char linea[64];
-        if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO)
+        if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO || a.tienda == TipoTienda::MASCOTA)
             std::snprintf(linea, sizeof linea, "x%u", f.maximo);
         else
             std::snprintf(linea, sizeof linea, "%u adena", f.precio);
@@ -293,6 +297,12 @@ void dibujar_tienda(App& a, int x0, int y0) {
             std::snprintf(linea, sizeof linea, "%u", f.elegido);
             g.texto(linea, static_cast<float>(x + w - 6 - ancho_texto(linea, std::strlen(linea))), static_cast<float>(y + 17), kt,
                     rgba(255, 230, 120));
+        }
+        if (encima && e.clic && a.tienda == TipoTienda::MASCOTA) {
+            // Usar o equipar el ítem de la mascota (por su fila) y volver a pedir la lista.
+            enviar(a, cmd::usar_item_mascota(a.op, a.tienda_npc, static_cast<u8>(i)));
+            enviar(a, cmd::inventario_mascota(a.op, a.tienda_npc));
+            continue;
         }
         if (encima && e.clic) f.elegido = std::min(f.maximo, f.elegido + (e.shift ? (f.maximo > 10 ? 10u : f.maximo) : 1u));
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
@@ -310,6 +320,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
     case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena(a)); break;
     case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
     case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
+    case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
     default: std::snprintf(pie, sizeof pie, "Click: +1  Shift: +10  Right: -1"); break;
     }
     g.texto(pie, static_cast<float>(x0 + MARGEN), static_cast<float>(yp), kt, rgba(214, 190, 140));
@@ -352,7 +363,8 @@ void eventos_npc(App& a, const Evento& e) {
         }
         break;
     case Ev::LISTA_TIENDA: {
-        static constexpr TipoTienda TIPOS[] = {TipoTienda::COMPRA, TipoTienda::VENTA, TipoTienda::RETIRO};
+        static constexpr TipoTienda TIPOS[] = {TipoTienda::COMPRA, TipoTienda::VENTA, TipoTienda::RETIRO, TipoTienda::MASCOTA};
+        static_assert(std::size(TIPOS) == LISTA_MASCOTA + 1);
         if (a.npc == 0) a.npc = e.id;
         abrir_tienda(a, e.id, TIPOS[e.v[LT_TIPO]]);
         break;
@@ -389,6 +401,7 @@ void eventos_npc(App& a, const Evento& e) {
             f.maximo = a.tienda == TipoTienda::COMPRA ? 9999 : static_cast<u32>(e.v[IT_CANTIDAD]);
             f.bendicion = static_cast<u8>(e.v[IT_BENDICION]);
             f.nombre = e.s[0];
+            if (a.tienda == TipoTienda::MASCOTA && e.v[IT_IDENTIFICADO] >= 2) f.nombre += " (worn)";  // 2/3: equipado
         }
         a.tienda_filas.push_back(std::move(f));
         break;
@@ -409,7 +422,8 @@ void dibujar_npc(App& a) {
     Graficos& g = *a.g;
     char titulo[96] = "";
     if (a.tienda != TipoTienda::NINGUNA) {
-        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit", "Learn magic"};
+        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit", "Learn magic", "Pet's bag"};
+        static_assert(std::size(NOMBRES) == static_cast<size_t>(TipoTienda::MASCOTA) + 1);
         std::snprintf(titulo, sizeof titulo, "%s", NOMBRES[static_cast<int>(a.tienda)]);
     } else if (Slot s = a.mundo.objetos.buscar(a.npc); s != SIN_SLOT) {
         size_t n = expandir_desc(a.desc, texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s]), titulo, sizeof titulo - 1);

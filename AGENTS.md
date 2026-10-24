@@ -40,7 +40,7 @@ cmake --preset debug && cmake --build --preset debug        # también: release,
 servidor_local/instalar.sh                                   # una vez (OpenJDK, MariaDB en 3307, base, parches)
 servidor_local/arrancar.sh                                   # deja el servidor en primer plano; servidor.log
 export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con Sprite*.pak, Text.pak, map/
-LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 59 casos; sin LINEAGE_DIR se saltan 7
+LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 60 casos; sin LINEAGE_DIR se saltan 7
 ```
 
 - **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en

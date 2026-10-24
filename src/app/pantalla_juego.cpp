@@ -95,6 +95,13 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     const u8 accion = o.col<O_ACCION>()[s];
     u8 arma = muerto ? 0 : o.col<O_ESTADO>()[s];
     AccionVisible v;
+    // Puerta: la última de abrir o cerrar, detenida en su último frame (el estado la recuerda).
+    if (a.sprites.tipo(gfx) == TIPO_PUERTA && (o.col<O_ESTADO>()[s] == ACC_ABRIR || o.col<O_ESTADO>()[s] == ACC_CERRAR)) {
+        v.rango = a.sprites.accion(gfx, o.col<O_ESTADO>()[s]);
+        v.inicio = o.col<O_TACCION>()[s];
+        v.bucle = false;
+        return v;
+    }
     u8 base;
     if (muerto) {
         base = ACC_MORIR;
@@ -181,6 +188,9 @@ int radio_segmentos(const Vista& vi) { return radio_dibujo(vi) / 64 + 3; }
 constexpr u8 ALFA_TAPA = 110;
 constexpr int CELDAS_TAPA = 6;  // una pieza que cubre al personaje está a pocas celdas
 constexpr u8 ALFA_SILUETA = 120;
+// Ceguera (S_CurseBlind): un velo negro sobre el mundo, nombres y efectos incluidos, y el propio
+// personaje encima. Con Floating Eye se ve algo a través.
+constexpr u32 PROF_CEGUERA = 0xF00000;
 
 void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double oy) {
     Graficos& g = *a.g;
@@ -345,10 +355,15 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             u32 color = BLANCO;
             if (a.cfg.sombra_personajes && en_sombra(a, static_cast<int>(std::lround(vis_x)), static_cast<int>(std::lround(vis_y))))
                 color = rgba(LUZ_EN_SOMBRA, LUZ_EN_SOMBRA, LUZ_EN_SOMBRA);
+            // Envenenado: verdoso; congelado: gris azulado (S_Poison y los flags de S_CharPack).
+            if (o.col<O_FLAGS>()[s] & FLAG_CONGELADO) color = rgba(150, 160, 185);
+            else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
             g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
             // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
             // translúcidas superpuestas casi lo esconden).
-            if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
+            if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
+                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
+            else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
                 g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
@@ -389,6 +404,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (personaje) color = color_alineamiento(o.col<O_LEGAL>()[s]);
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
+            // Marcado con True Target: la marca y su mensaje encima del nombre.
+            if (o.ids()[s] == a.marca_objetivo) {
+                const int wm = ancho_texto(a.marca_texto.data(), a.marca_texto.size());
+                g.texto_sombra("V", sx + 24 - 3, top - 28, clave_orden(CAPA_EFECTOS, 0), rgba(255, 80, 60));
+                if (wm) g.texto_sombra(a.marca_texto, sx + 24 - wm / 2, top - 42, clave_orden(CAPA_EFECTOS, 0), rgba(255, 160, 140));
+            }
             // Emblema del clan a la izquierda del nombre (se pide una vez por clan).
             if (u32 clan = o.col<O_CLAN>()[s]) {
                 const RegionAtlas& em = g.emblema(clan);
@@ -571,6 +592,7 @@ void mover_jugador(App& a, u64 ahora) {
     TablaObjetos& o = a.mundo.objetos;
     Slot s = o.buscar(a.mundo.jugador.id);
     if (s == SIN_SLOT || a.mundo.jugador.muerto || moviendose(a.mundo, s, ahora) || ahora < a.fin_ataque) return;
+    if (a.mundo.jugador.inmovil) return;  // paralizado, dormido, congelado...: el servidor no lo dejaría
     u64 fin_paso = o.col<O_TMOV>()[s] + o.col<O_DURMOV>()[s];
     u64 inicio_paso = (o.col<O_TMOV>()[s] > 0 && ahora - fin_paso < MS_ENCADENAR_PASO) ? fin_paso : ahora;
     const EntradaFrame& e = a.entrada;
@@ -579,7 +601,7 @@ void mover_jugador(App& a, u64 ahora) {
     bool ruta = false;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
     // Objetivo: lo que hay bajo el puntero mientras se mantiene el clic (soltar lo abandona),
     // según su tipo de gfx: un ítem se recoge, un monstruo se ataca, y a otros personajes y NPCs
@@ -616,7 +638,11 @@ void mover_jugador(App& a, u64 ahora) {
     if (dir < 0 && obj != SIN_SLOT) {
         int dx = o.col<O_X>()[obj] - o.col<O_X>()[s], dy = o.col<O_Y>()[obj] - o.col<O_Y>()[s];
         if (a.hablar_objetivo && std::max(std::abs(dx), std::abs(dy)) <= DISTANCIA_HABLAR_NPC) {
-            enviar(a, cmd::hablar_npc(a.op, a.objetivo));
+            // A una puerta no se le habla: se abre o se cierra (C_Door).
+            if (tipo_objeto(a, obj) == TIPO_PUERTA)
+                enviar(a, cmd::puerta(a.op, static_cast<u16>(o.col<O_X>()[obj]), static_cast<u16>(o.col<O_Y>()[obj]), a.objetivo));
+            else
+                enviar(a, cmd::hablar_npc(a.op, a.objetivo));
             a.objetivo = 0;
             a.hablar_objetivo = false;
             a.clic_consumido = true;  // mantener el clic no le vuelve a hablar
@@ -970,6 +996,26 @@ void dibujar_ventanas(App& a) {
     a.gpu.nivel_ventana(0);
 }
 
+// Ceguera y el aviso de parálisis, sueño, congelamiento... (arriba al centro del mundo).
+void dibujar_estados_alterados(App& a, int w, int h) {
+    const EstadoJugador& j = a.mundo.jugador;
+    if (j.ceguera)
+        a.g->gpu().rectangulo(0, 0, w, h, clave_orden(CAPA_EFECTOS, PROF_CEGUERA), rgba(0, 0, 0, j.ceguera == 2 ? 200 : 245));
+    const char* t = nullptr;
+    switch (j.inmovil) {
+    case PARALISIS: case PARALISIS_2: t = "Paralyzed"; break;
+    case SUENO: t = "Asleep"; break;
+    case CONGELADO: t = "Frozen"; break;
+    case ATURDIDO: t = "Stunned"; break;
+    case ATADO: t = "Bound"; break;
+    default: break;
+    }
+    if (!t) return;
+    const int tw = ancho_texto(t, std::strlen(t));
+    a.g->gpu().rectangulo(w / 2 - tw / 2 - 8, 40, tw + 16, ALTO_GLIFO + 8, clave_orden(CAPA_UI, 20), rgba(60, 20, 20, 210));
+    a.g->texto_sombra(t, static_cast<float>(w / 2 - tw / 2), 44.0f, clave_orden(CAPA_UI_TEXTO, 20), rgba(255, 200, 160));
+}
+
 void dibujar_muerte(App& a) {
     if (!a.mundo.jugador.muerto) return;
     Graficos& g = *a.g;
@@ -1000,7 +1046,7 @@ void dibujar_depuracion(App& a) {
 // Cursor: círculo si un hechizo espera su objetivo; espada sobre un monstruo (o con Ctrl sobre otro
 // personaje o NPC, que es atacarlo); si no, la mano (también sobre la interfaz).
 void elegir_cursor(App& a) {
-    if (a.hechizo_apuntando) {
+    if (a.hechizo_apuntando || a.mascota_eligiendo) {
         a.cursor = Cursor::OBJETIVO;
         return;
     }
@@ -1070,6 +1116,7 @@ void frame_juego(App& a) {
     // la cámara y el personaje usen la misma posición. El jugador queda siempre en el centro.
     actualizar_ventanas(a);
     procesar_hechizos(a, ahora);
+    procesar_mascotas(a);
     procesar_barra(a);
     procesar_npc(a, ahora);
     procesar_social(a, ahora);
@@ -1097,6 +1144,7 @@ void frame_juego(App& a) {
     dibujar_personajes(a, ahora, ox, oy);
     dibujar_efectos(a, ahora, ox, oy);
     dibujar_clima(a, vi.w, vi.panel_y, ahora);
+    dibujar_estados_alterados(a, vi.w, vi.h);
     a.teclas_f_y = -1;  // dibujar_panel los ubica si se dibuja el panel original
     if (a.cfg.ui_simple) {
         dibujar_panel_simple(a);
@@ -1105,9 +1153,11 @@ void frame_juego(App& a) {
         dibujar_panel(a);
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
+    dibujar_mascotas(a);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
+    dibujar_cantidad(a);
     a.gpu.nivel_ventana(0);
     dibujar_chat(a);
     dibujar_ventanas(a);

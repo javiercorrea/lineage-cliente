@@ -187,11 +187,12 @@ void leer_entrada(App& a) {
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
     e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
     e.shift = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
-    // Prueba automática (--arrastrar): apretar en (x1, y1) en el frame 300 del juego, moverse en
-    // 30 frames hasta (x2, y2) y soltar.
-    const int* ar = a.aut.arrastre;
-    if (ar[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 331) {
-        int k = static_cast<int>(a.frames_en_pantalla - 300);
+    // Prueba automática (--arrastrar, repetible): el n-ésimo aprieta en (x1, y1) en el frame
+    // 300 + 180·n del juego, se mueve en 30 frames hasta (x2, y2) y suelta.
+    const u64 desde = a.frames_en_pantalla >= 300 ? a.frames_en_pantalla - 300 : ~0ull;
+    if (a.pantalla == Pantalla::JUEGO && desde / 180 < a.aut.arrastres.size() && desde % 180 <= 31) {
+        const int* ar = a.aut.arrastres[desde / 180].data();
+        int k = static_cast<int>(desde % 180);
         e.mx = ar[0] + (ar[2] - ar[0]) * std::min(k, 30) / 30;
         e.my = ar[1] + (ar[3] - ar[1]) * std::min(k, 30) / 30;
         e.pulsado = k == 0;
@@ -244,6 +245,8 @@ void procesar_red(App& a) {
         eventos_forma(a, e);
         eventos_npc(a, e);
         eventos_social(a, e);
+        eventos_cantidad(a, e);
+        eventos_mascotas(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
     }
     aplicar_eventos(a.mundo, a.eventos, a.entrada.ahora_ms);
@@ -317,8 +320,13 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--npc-accion=", 0) == 0) a.aut.npc_acciones.push_back(valor("--npc-accion="));
         else if (s.rfind("--tienda=", 0) == 0) a.aut.tienda.push_back(valor("--tienda="));
         else if (s.rfind("--arrastrar=", 0) == 0)
-            std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &a.aut.arrastre[0], &a.aut.arrastre[1], &a.aut.arrastre[2], &a.aut.arrastre[3]);
+        {
+            std::array<int, 4> ar{};
+            std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &ar[0], &ar[1], &ar[2], &ar[3]);
+            a.aut.arrastres.push_back(ar);
+        }
         else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
+        else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
         else if (s.rfind("--medio=", 0) == 0)
             std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
         else if (s == "--opciones") a.ventana_opciones = true;

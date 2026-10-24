@@ -32,6 +32,9 @@ constexpr ParSrv JP363_SRV[] = {
     {164, Srv::POLY},         {119, Srv::SHOWHTML},      {254, Srv::SHOWSHOPBUYLIST}, {170, Srv::SHOWSHOPSELLLIST},
     {250, Srv::SHOWRETRIEVELIST}, {155, Srv::YES_NO},     {77, Srv::TRADE},          {86, Srv::TRADEADDITEM},
     {239, Srv::TRADESTATUS},  {50, Srv::EMBLEM},        {222, Srv::SKILLBUY},
+    {35, Srv::DOOR},          {165, Srv::PARALYSIS},     {93, Srv::POISON},        {238, Srv::CURSEBLIND},
+    {253, Srv::INPUTAMOUNT},  {33, Srv::PETCTRL},        {177, Srv::SELECTTARGET}, {110, Srv::TRUETARGET},
+    // PETCTRL (33) es también S_CharReset: se distinguen por el primer byte (0x0c, la mascota).
     // SKILLICONGFX y SKILLICONAURA usan el número de PACKETBOX (40): son subtipos de esa caja.
 };
 constexpr ParCli JP363_CLI[] = {
@@ -46,6 +49,8 @@ constexpr ParCli JP363_CLI[] = {
     {Cli::CREATECLAN, 154},    {Cli::JOINCLAN, 30},      {Cli::LEAVECLAN, 121},    {Cli::BANCLAN, 222},
     {Cli::TITLE, 96},          {Cli::PLEDGE, 225},       {Cli::WHO, 49},           {Cli::CLAN, 246},
     {Cli::EMBLEM, 107},        {Cli::SKILLBUY, 173},     {Cli::SKILLBUYOK, 207},
+    {Cli::DOOR, 199},          {Cli::GIVEITEM, 244},     {Cli::AMOUNT, 109},       {Cli::PETMENU, 217},
+    {Cli::USEPETITEM, 213},    {Cli::SELECTTARGET, 155},
 };
 
 const char* NOMBRES[] = {
@@ -58,6 +63,7 @@ const char* NOMBRES[] = {
     "ITEMAMOUNT", "ITEMCOLOR", "ADDSKILL", "DELSKILL", "SKILLSOUNDGFX", "EFFECTLOCATION", "SKILLHASTE",
     "SKILLBRAVE", "SKILLICONSHIELD", "RANGESKILLS", "POLY", "SHOWHTML", "SHOWSHOPBUYLIST",
     "SHOWSHOPSELLLIST", "SHOWRETRIEVELIST", "YES_NO", "TRADE", "TRADEADDITEM", "TRADESTATUS", "EMBLEM", "SKILLBUY",
+    "DOOR", "PARALYSIS", "POISON", "CURSEBLIND", "INPUTAMOUNT", "PETCTRL", "SELECTTARGET", "TRUETARGET",
 };
 static_assert(sizeof(NOMBRES) / sizeof(NOMBRES[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

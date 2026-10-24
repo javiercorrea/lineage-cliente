@@ -387,6 +387,82 @@ bool magia_en_venta(Lector& l, Evento& e) {
     }
     return true;
 }
+// S_Door: h x, h y, c dirección (0 ／, 1 ＼), c 0 se puede pasar / 1 no
+bool puerta(Lector& l, Evento& e) {
+    e.tipo = Ev::PUERTA;
+    e.v[PU_X] = l.h();
+    e.v[PU_Y] = l.h();
+    l.c();
+    e.v[PU_BLOQUEADA] = l.c() != 0;
+    return true;
+}
+// S_Paralysis: c subtipo (2/3 parálisis, 4/5 parálisis 2, 7 fin de la espera del teleport, 10/11
+// sueño, 12/13 congelado, 22/23 aturdido, 24/25 atado; el par empieza y termina)
+bool paralisis(Lector& l, Evento& e) { e.tipo = Ev::PARALISIS; e.v[0] = l.c(); return true; }
+// S_Poison: d objeto, c verde (veneno), c gris (congelado)
+bool veneno(Lector& l, Evento& e) {
+    e.tipo = Ev::VENENO;
+    e.id = l.d();
+    e.v[VE_VERDE] = l.c();
+    e.v[VE_GRIS] = l.c();
+    return true;
+}
+// S_CurseBlind: h 0 ve, 1 ciego, 2 ciego con Floating Eye
+bool ceguera(Lector& l, Evento& e) { e.tipo = Ev::CEGUERA; e.v[0] = l.h(); return true; }
+// S_InputAmount: d objeto, d precio, d inicial, d mínimo, d máximo, h ?, y textos según quién lo
+// manda: S_HowManyMake "request", acción; S_ApplyAuction/S_SellHouse "agapply", "agapply N";
+// S_HowManyKey (posada): página, h 1, h 2, s NPC, s precio. Se devuelve la acción: el segundo
+// texto si el primero es "request" o su prefijo; si no, el primero.
+bool pedir_cantidad(Lector& l, Evento& e) {
+    e.tipo = Ev::PEDIR_CANTIDAD;
+    e.id = l.d();
+    e.v[PC_PRECIO] = static_cast<i32>(l.d());
+    e.v[PC_INICIAL] = static_cast<i32>(l.d());
+    e.v[PC_MIN] = static_cast<i32>(l.d());
+    e.v[PC_MAX] = static_cast<i32>(l.d());
+    l.h();
+    std::string_view s1 = l.s();
+    if (l.error) return false;
+    std::string_view s2 = l.quedan(1) ? l.s() : std::string_view{};
+    const bool segundo = s1 == "request" || (s2.size() > s1.size() && s2.substr(0, s1.size()) == s1 && s2[s1.size()] == ' ');
+    e.s[0] = segundo ? s2 : s1;
+    if (!segundo && l.quedan(4)) {  // posada: h 1 (se leyó como el segundo texto), h 2, s NPC
+        l.h();
+        e.s[1] = l.s();
+    }
+    l.error = false;
+    return true;
+}
+// S_PetCtrlMenu: c 0x0c, h ?, d 0 entra / 1 sale, d mascota y, si entra: h mapa, h 0, h x, h y,
+// s nombre. Con otro primer byte es S_CharReset (mismo número), que se ignora.
+bool mascota(Lector& l, Evento& e) {
+    if (l.c() != 0x0c) {
+        e.tipo = Ev::IGNORADO;
+        return true;
+    }
+    e.tipo = Ev::MASCOTA;
+    l.h();
+    e.v[MA_AGREGAR] = l.d() == 0;
+    e.id = l.d();
+    if (e.v[MA_AGREGAR]) {
+        l.h();
+        l.h();
+        l.h();
+        l.h();
+        e.s[0] = l.s();
+    }
+    return true;
+}
+// S_SelectTarget: d mascota, c 0, c 0, c 2
+bool elegir_objetivo_mascota(Lector& l, Evento& e) { e.tipo = Ev::ELEGIR_OBJETIVO_MASCOTA; e.id = l.d(); return true; }
+// S_TrueTarget: d objetivo, d quien lo marcó, s mensaje
+bool marca_objetivo(Lector& l, Evento& e) {
+    e.tipo = Ev::MARCA_OBJETIVO;
+    e.id = l.d();
+    l.d();
+    e.s[0] = l.s();
+    return true;
+}
 // S_Teleport: c 0, c 0x40, d personaje
 bool teletransporte(Lector& l, Evento& e) {
     e.tipo = Ev::TELETRANSPORTE;
@@ -485,6 +561,14 @@ constexpr Decodificador TABLA[] = {
     intercambio_fin,    // TRADESTATUS
     emblema,        // EMBLEM
     magia_en_venta, // SKILLBUY
+    puerta,         // DOOR
+    paralisis,      // PARALYSIS
+    veneno,         // POISON
+    ceguera,        // CURSEBLIND
+    pedir_cantidad, // INPUTAMOUNT
+    mascota,        // PETCTRL
+    elegir_objetivo_mascota,  // SELECTTARGET
+    marca_objetivo, // TRUETARGET
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -525,7 +609,8 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
         lista.v[LT_TIPO] = e.origen == Srv::SHOWSHOPBUYLIST ? LISTA_COMPRA
                            : e.origen == Srv::SHOWSHOPSELLLIST ? LISTA_VENTA : LISTA_RETIRO;
         lista.v[LT_CANTIDAD] = n;
-        if (e.origen == Srv::SHOWRETRIEVELIST) l.c();
+        // Almacén: c 3; inventario de una mascota (S_PetInventory, mismo formato de ítems): c 0x0b.
+        if (e.origen == Srv::SHOWRETRIEVELIST && l.c() == 0x0b) lista.v[LT_TIPO] = LISTA_MASCOTA;
         if (l.error) return false;
         salida.push_back(lista);
         for (int i = 0; i < n && !l.error; ++i) {

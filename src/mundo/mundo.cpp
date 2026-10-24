@@ -9,6 +9,7 @@ void Mundo::limpiar() {
     jugador = {};
     segmentos.clear();
     indice_segmentos.limpiar();
+    puertas_cerradas.limpiar();
     textos.clear();
     inventario.limpiar();
     en_juego = false;
@@ -134,6 +135,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
                 o.limpiar();
                 m.segmentos.clear();
                 m.indice_segmentos.limpiar();
+                m.puertas_cerradas.limpiar();
                 if (conservar) o.col<O_GFX>()[o.insertar(yo)] = gfx;
             }
             m.mapa = static_cast<MapId>(e.v[0]);
@@ -214,6 +216,11 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             if (e.id == m.jugador.id && o.col<O_ACCION>()[s] == e.v[0] && ahora - o.col<O_TACCION>()[s] < 500) break;
             o.col<O_ACCION>()[s] = static_cast<u8>(e.v[0]);
             o.col<O_TACCION>()[s] = ahora;
+            // Una puerta queda abierta o cerrada: el estado guarda la última (ver elegir_accion).
+            if ((e.v[0] == ACC_ABRIR || e.v[0] == ACC_CERRAR) && m.sprites && m.sprites->tipo(o.col<O_GFX>()[s]) == TIPO_PUERTA) {
+                o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
+                o.col<O_ACCION>()[s] = 0xFF;
+            }
             break;
         }
         case Ev::ATAQUE: {
@@ -347,6 +354,29 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
         // 240 que S_OwnCharStatus (verificado: 106 en los dos paquetes para el mismo personaje).
         case Ev::PESO: m.jugador.peso = e.v[0]; break;
         case Ev::COMIDA: m.jugador.comida = e.v[0]; break;
+        case Ev::PUERTA: {
+            const u64 k = (static_cast<u64>(e.v[PU_X]) << 16) | static_cast<u64>(e.v[PU_Y]);
+            if (e.v[PU_BLOQUEADA]) m.puertas_cerradas.poner(k, 1);
+            else m.puertas_cerradas.quitar(k);
+            break;
+        }
+        case Ev::VENENO: {
+            Slot s = o.buscar(e.id);
+            if (s == SIN_SLOT) break;
+            u8& f = o.col<O_FLAGS>()[s];
+            f = static_cast<u8>((f & ~(FLAG_VENENO | FLAG_CONGELADO)) | (e.v[VE_VERDE] ? FLAG_VENENO : 0) |
+                                (e.v[VE_GRIS] ? FLAG_CONGELADO : 0));
+            break;
+        }
+        case Ev::PARALISIS: {
+            const u8 t = static_cast<u8>(e.v[0]);
+            if (t == PARALISIS || t == PARALISIS_2 || t == SUENO || t == CONGELADO || t == ATURDIDO || t == ATADO)
+                m.jugador.inmovil = t;
+            else if (t != 7 && t == m.jugador.inmovil + 1)
+                m.jugador.inmovil = 0;
+            break;
+        }
+        case Ev::CEGUERA: m.jugador.ceguera = static_cast<u8>(e.v[0]); break;
         default: break;
         }
     }
@@ -427,6 +457,7 @@ const SegmentoMapa* segmento(Mundo& m, const Recursos& rec, int x, int y) {
 bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y) {
     const SegmentoMapa* s = segmento(m, rec, x, y);
     if (!s) return false;
+    if (m.puertas_cerradas.buscar((static_cast<u64>(x) << 16) | static_cast<u64>(y))) return false;
     int lx = x - s->base_x, ly = y - s->base_y;
     // Bit 0 del atributo = media celda bloqueada (verificado contra los mapas del servidor).
     return !((s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1));
@@ -444,6 +475,8 @@ void reiniciar_jugador(Mundo& m) {
         o.col<O_ACCION>()[n] = 0xFF;
     }
     m.jugador.muerto = false;
+    m.jugador.inmovil = 0;
+    m.jugador.ceguera = 0;
 }
 
 u16 duracion_paso(const Mundo& m, GfxId gfx, u8 arma, u8 velocidad) {

@@ -74,6 +74,10 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
   - Doble clic usa el ítem: equipa o quita armas y armaduras, bebe pociones.
   - Arrastrar un ítem fuera de la ventana lo suelta al suelo.
 - **Techos y árboles:** al entrar a una casa o pasar detrás de un árbol, lo que tapa al personaje se vuelve translúcido y se ve su silueta.
+- **Puertas:** clic sobre una puerta para abrirla o cerrarla (se camina hasta ella). Las cerradas no se pueden atravesar.
+- **Dar ítems:** arrastrar un ítem del inventario sobre un NPC o una mascota se lo da; de una pila, pregunta cuántos.
+- **Mascotas e invocaciones:** su lista va a la izquierda de la barra de atajos, con la vida. Clic en el nombre abre su menú de órdenes (atacar, defender, quedarse...); "Bag" muestra su inventario, donde un clic usa o equipa el ítem. Con "Attack", el próximo clic elige su objetivo.
+- **Estados alterados:** envenenado (verde), congelado (gris), ciego (pantalla negra salvo el propio personaje) y un aviso arriba si está paralizado, dormido, aturdido o atado (no se puede mover ni actuar).
 - **Monstruos sin sprite:** los que faltan en esta instalación se ven como un bloque magenta y se atacan con el clic como cualquier otro.
 - **Ítems del suelo:** clic sobre un ítem para recogerlo; si está lejos, el personaje camina hasta él. El nombre aparece al pasar el mouse por encima.
 - **Chat:**
@@ -137,7 +141,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--salida` | Abre la ventana Exit (Restart / Quit) al entrar |
 | `--opciones` | Abre la ventana de opciones al entrar |
 | `--captura-proyectil=x.bmp` | Guarda una captura cuando el primer proyectil (flecha o hechizo) va por la mitad del vuelo, y sale |
-| `--arrastrar=x1,y1,x2,y2` | Simula arrastrar el mouse (coordenadas lógicas) desde el frame 300 del juego: apretar, mover en 30 frames y soltar |
+| `--arrastrar=x1,y1,x2,y2` | Simula arrastrar el mouse (coordenadas lógicas) desde el frame 300 del juego: apretar, mover en 30 frames y soltar. Se puede repetir: cada uno empieza 180 frames después del anterior |
 | `--alt=3` | Como apretar Alt+3 (barra de atajos); se puede repetir, uno cada 3 s. La barra se puede precargar con `--barra="Nombre:h3,i80:0,..."` |
 | `--lanzar="Energy Bolt@Goblin"` / `--lanzar=Shield` | Lanza ese hechizo (sobre el más cercano cuyo nombre contenga lo que sigue a `@`); se puede repetir, uno cada 3 s |
 | `--aceptar` | Responde que sí a toda pregunta del servidor (grupo, intercambio, clan) y da OK en el intercambio cuando el otro ya ofreció algo |
@@ -148,6 +152,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--teclas` | Abre la ayuda de teclas (F1) al entrar |
 | `--medio=x,y,N` | Mantiene el botón del medio en (x, y) desde el frame 300 del juego durante N frames (usar el casillero elegido de la barra) |
 | `--pulsar=1#hola#` | Desde el frame 300 del juego, inyecta esas teclas una cada 10 frames como eventos de teclado (`#` Enter, `~` Esc) |
+| `--cantidad=N` | En el próximo diálogo de cantidad (del servidor, o al dar una pila a un NPC o mascota), elige N y acepta |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |
