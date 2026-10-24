@@ -230,7 +230,7 @@ void dibujar_barra(App& a, int y) {
     }
     if (a.arrastrando_atajo >= 0 && e.presionado && movio(a)) {
         const RegionAtlas& ic = icono_atajo(a, a.barra[a.arrastrando_atajo]);
-        g.gpu().dibujar(ic, e.mx - 16, e.my - 16, clave_orden(CAPA_UI, 31));
+        g.gpu().dibujar(ic, e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic && a.arrastrando_atajo >= 0) {
         int desde = a.arrastrando_atajo;

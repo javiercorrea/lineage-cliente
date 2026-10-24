@@ -220,6 +220,14 @@ void Gpu::dibujar_escalado(const RegionAtlas& r, float x, float y, float w, floa
     constexpr float inv = 1.0f / TAM_PAGINA;
     inst_.push_back({x, y, w, h, r.x * inv, r.y * inv, (r.x + r.w) * inv, (r.y + r.h) * inv, r.pagina, color,
                      static_cast<u32>(mezcla), 0});
+    const u64 capa = clave >> 56;
+    if (nivel_ventana_ && (capa == CAPA_UI || capa == CAPA_UI_TEXTO)) {
+        // Profundidad: nivel de la ventana (5 bits), texto sobre lo demás (1 bit) y la profundidad
+        // original (26 bits; la UI usa valores chicos).
+        const u64 prof = std::min<u64>((clave >> 24) & 0xFFFFFFFFu, (1u << 26) - 1);
+        clave = (static_cast<u64>(CAPA_VENTANAS) << 56) | (static_cast<u64>(nivel_ventana_ & 31) << 51) |
+                ((capa - CAPA_UI) << 50) | (prof << 24);
+    }
     claves_.push_back(clave);
 }
 

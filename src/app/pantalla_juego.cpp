@@ -921,6 +921,38 @@ void cambiar_zoom(App& a) {
 }
 
 // Aviso de muerte con el botón para reiniciar (C_Restart). PENDIENTE: el diálogo original.
+// Las ventanas, de atrás hacia adelante, cada una en su nivel (Gpu::nivel_ventana). Las que no
+// son la de más arriba bajo el puntero no lo ven, así sus botones no reciben el clic de otra;
+// salvo mientras se arrastra algo: soltarlo lo resuelve la ventana de donde salió.
+constexpr u32 NIVEL_SOBRE_VENTANAS = 31;
+
+void dibujar_ventanas(App& a) {
+    EntradaFrame& e = a.entrada;
+    const int mx = e.mx, my = e.my;
+    const bool arrastre = a.arrastrando || a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || a.ventana_arrastrada >= 0;
+    for (int i = 0; i < static_cast<int>(IdVentana::CANTIDAD); ++i) {
+        const IdVentana v = static_cast<IdVentana>(a.orden_ventanas[i]);
+        if (!arrastre && a.ventana_arriba >= 0 && a.ventana_arriba != static_cast<int>(v)) e.mx = e.my = -10000;
+        a.gpu.nivel_ventana(static_cast<u32>(i + 1));
+        a.ventana_sobre_otra = tapa_a_otra(a, v);
+        switch (v) {
+        case IdVentana::ESTADO: if (a.ventana_estado) dibujar_estado(a); break;
+        case IdVentana::INVENTARIO: if (a.ventana_inventario) dibujar_inventario(a); break;
+        case IdVentana::HECHIZOS: if (a.ventana_hechizos) dibujar_hechizos(a); break;
+        case IdVentana::NPC: dibujar_npc(a); break;
+        case IdVentana::OPCIONES: dibujar_opciones(a); break;
+        case IdVentana::SALIDA: dibujar_salida(a); break;
+        case IdVentana::SOCIAL: dibujar_social(a); break;
+        case IdVentana::INTERCAMBIO: dibujar_intercambio(a); break;
+        default: break;
+        }
+        e.mx = mx;
+        e.my = my;
+    }
+    a.ventana_sobre_otra = false;
+    a.gpu.nivel_ventana(0);
+}
+
 void dibujar_muerte(App& a) {
     if (!a.mundo.jugador.muerto) return;
     Graficos& g = *a.g;
@@ -1019,6 +1051,7 @@ void frame_juego(App& a) {
     const Vista vi = vista(a);
     // Primero el movimiento y después la cámara, para que en el frame en que empieza un paso
     // la cámara y el personaje usen la misma posición. El jugador queda siempre en el centro.
+    actualizar_ventanas(a);
     procesar_hechizos(a, ahora);
     procesar_barra(a);
     procesar_npc(a, ahora);
@@ -1055,20 +1088,18 @@ void frame_juego(App& a) {
         dibujar_panel(a);
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
+    a.gpu.nivel_ventana(0);
     dibujar_chat(a);
-    if (a.ventana_estado) dibujar_estado(a);
-    if (a.ventana_inventario) dibujar_inventario(a);
-    if (a.ventana_hechizos) dibujar_hechizos(a);
-    dibujar_npc(a);
-    dibujar_opciones(a);
-    dibujar_ayuda_teclas(a);
-    dibujar_salida(a);
-    dibujar_social(a);
-    dibujar_intercambio(a);
+    dibujar_ventanas(a);
     dibujar_efectos_activos(a, ahora);
+    // Diálogos y avisos: encima de todas las ventanas.
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
+    dibujar_ayuda_teclas(a);
     dibujar_muerte(a);
+    a.gpu.nivel_ventana(0);
     if (a.depuracion) dibujar_depuracion(a);
 }
 

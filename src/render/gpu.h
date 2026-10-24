@@ -32,8 +32,13 @@ static_assert(sizeof(Instancia) == 48, "debe coincidir con el struct del shader"
 // Normal (tapa según el alfa) o aditiva (suma su luz al fondo: efectos de hechizos).
 enum class Mezcla : u32 { NORMAL = 0, ADITIVA = 1 };
 
-// Capas de dibujo (byte alto de la clave de orden).
-enum Capa : u8 { CAPA_FONDO = 0, CAPA_SUELO = 1, CAPA_MUNDO = 2, CAPA_EFECTOS = 3, CAPA_UI = 4, CAPA_UI_TEXTO = 5 };
+// Capas de dibujo (byte alto de la clave de orden). CAPA_VENTANAS no se usa directo: es donde
+// Gpu::nivel_ventana lleva lo que se dibuja en CAPA_UI y CAPA_UI_TEXTO mientras se dibuja una
+// ventana. CAPA_ARRASTRE: lo que se arrastra con el mouse, encima de todo.
+enum Capa : u8 {
+    CAPA_FONDO = 0, CAPA_SUELO = 1, CAPA_MUNDO = 2, CAPA_EFECTOS = 3, CAPA_UI = 4, CAPA_UI_TEXTO = 5,
+    CAPA_VENTANAS = 6, CAPA_ARRASTRE = 7,
+};
 
 inline u64 clave_orden(Capa capa, u32 profundidad) { return (static_cast<u64>(capa) << 56) | (static_cast<u64>(profundidad) << 24); }
 
@@ -68,6 +73,10 @@ public:
     void dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color = BLANCO,
                           Mezcla mezcla = Mezcla::NORMAL);
     void rectangulo(int x, int y, int w, int h, u64 clave, u32 color);
+    // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
+    // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
+    // ventana tapa entera a las de abajo, su texto incluido.
+    void nivel_ventana(u32 nivel) { nivel_ventana_ = nivel; }
 
     // Ordena la lista del frame (lo hace presentar si no se llamó antes; separado para medirlo
     // aparte de la espera del vsync).
@@ -121,6 +130,7 @@ private:
     // Lista de dibujo del frame.
     std::vector<Instancia> inst_;
     std::vector<u64> claves_;
+    u32 nivel_ventana_ = 0;
     std::vector<u32> orden_, orden_tmp_;
     std::vector<Instancia> inst_ordenadas_;
     u32 llamadas_ = 0, instancias_previas_ = 0;

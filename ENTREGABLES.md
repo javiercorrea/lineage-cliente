@@ -698,16 +698,23 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
   - estado, inventario, hechizos, diálogo de NPC y opciones se arrastran por la barra de título;
   - la posición se guarda en `settings.ini` (`ventanas=`) y se mantiene siempre con el título dentro de la pantalla;
   - las que no se movieron siguen en su lugar de siempre y se acomodan solo junto a las que también siguen en su lugar.
-- **Semitransparentes:** el fondo de las ventanas deja ver el juego; el marco y el texto quedan algo más opacos. La opacidad se elige en Opciones (40–100 %; `opacidad_ventanas=` en `settings.ini`, 170 de 255 por defecto).
+- **Semitransparentes:** el fondo de las ventanas deja ver el juego; el marco y el texto quedan algo más opacos. La opacidad se elige en Opciones (40–100 %; `opacidad_ventanas=` en `settings.ini`, 170 de 255 por defecto). Una ventana que tapa a otra se dibuja con fondo opaco: si no, se leía el texto de la de abajo.
+- **Orden entre ventanas** (`actualizar_ventanas` y `dibujar_ventanas`):
+  - la que se abre y la que se toca con el clic pasan adelante (`App::orden_ventanas`, de atrás hacia adelante);
+  - cada una se dibuja en su propio nivel: mientras se dibuja, `Gpu::nivel_ventana` lleva sus claves de `CAPA_UI` y `CAPA_UI_TEXTO` a `CAPA_VENTANAS` con el nivel por encima de la profundidad, así una ventana tapa entera a las de abajo, texto incluido. Lo que se arrastra va en `CAPA_ARRASTRE`, encima de todo; los diálogos (pregunta, polymorph, F1, muerte), encima de las ventanas;
+  - solo la de más arriba bajo el puntero recibe el mouse: a las demás se les esconde el puntero mientras se dibujan (salvo durante un arrastre, que lo resuelve la ventana de donde salió). `sobre_ventana` también es solo la de más arriba;
+  - un ítem arrastrado del inventario va al suelo solo si se suelta sobre el mundo, no sobre otra ventana.
+- **Sin solaparse al abrir:** si el lugar de siempre de una ventana que se abre tapa a otra abierta, se busca el primer lugar libre, de arriba a la derecha hacia abajo a la izquierda, sobre la barra de atajos (no se guarda; al cerrarla vuelve a su lugar de siempre). Si no hay lugar, queda en el de siempre y adelante. Las que el usuario movió no se tocan.
 - **Botones para abrir las ventanas**, además de las teclas:
   - **UI original:** los botones del juego (`1005`, `1007`, `1011` y `1009.img`, con su versión resaltada), en la franja de arriba del panel derecho: magia, estado, inventario y opciones. Con el puntero encima se ve cuál es y su tecla.
   - **UI simple:** botones de texto a la derecha de la línea del chat: Magic, Status, Items y Options.
 - **Ventana de opciones:** interfaz (simple u original), cámara, oscurecimiento en la sombra, opacidad de las ventanas, zoom y "Reset" para devolver las ventanas a su lugar.
 - **Verificado:**
   - arrastrar el inventario con `--arrastrar=1100,45,700,300` lo mueve, guarda `ventanas=inventario:626,291` y el estado ocupa el lugar que dejó;
-  - capturas con las dos interfaces.
+  - capturas con las dos interfaces;
+  - cinco ventanas abiertas a la vez con 1600×900 lógicos: ninguna se solapa (`docs/capturas/ui_ventanas_sin_solapar.png`); con 1008×552 no entran y se apilan con fondo opaco, y un clic simulado en una parte visible de Opciones la trae adelante (`ui_ventanas_al_frente.png`).
 - **Pendiente o conocido:**
-  - **Ventana al frente:** no hay orden entre ventanas; si dos se superponen, el clic va a las dos.
+  - **Ventana que se abre:** se ve un frame en su lugar de siempre antes de pasar al lugar libre (se detecta al frame siguiente).
   - **Botones del panel original:** su lugar es aproximado (la franja libre del panel). Los otros tres botones de la serie (salir 1013, grupo/intercambio 1015, ayuda 1017) llegan con sus funciones.
   - **Arrastrar a mano:** el arrastre se probó simulado; falta probarlo con el mouse.
 

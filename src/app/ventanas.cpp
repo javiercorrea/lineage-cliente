@@ -5,6 +5,7 @@
 //  - Botones: con la UI original, los del panel (1005–1012.img: magia, estado, opciones,
 //    inventario, cada uno con su versión resaltada); con la simple, botones de texto sobre la
 //    línea de entrada del chat.
+#include <algorithm>
 #include <charconv>
 #include <filesystem>
 #include "app/app.h"
@@ -15,9 +16,11 @@ namespace {
 
 constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
+static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
 constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 252;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 92;
 constexpr int SEPARACION = 4, MARGEN = 7;
+constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
 
 int indice(IdVentana v) { return static_cast<int>(v); }
 
@@ -47,7 +50,10 @@ void guardar_posiciones(App& a) {
 // el suyo).
 Rect por_defecto(const App& a, IdVentana v) {
     const int w = ui::VENTANA_ANCHO, h = ui::VENTANA_ALTO, y = ui::VENTANA_Y;
-    auto ocupa = [&](bool abierta_, IdVentana o) { return abierta_ && !a.pos_ventanas[indice(o)].movida ? w + SEPARACION : 0; };
+    auto ocupa = [&](bool abierta_, IdVentana o) {
+        const PosVentana& p = a.pos_ventanas[indice(o)];
+        return abierta_ && !p.movida && !p.colocada ? w + SEPARACION : 0;
+    };
     const int x_inv = a.gpu.ancho() - w - MARGEN;
     const int x_estado = x_inv - ocupa(a.ventana_inventario, IdVentana::INVENTARIO);
     switch (v) {
@@ -77,12 +83,77 @@ bool abierta(const App& a, IdVentana v) {
     }
 }
 
+bool solapan(const Rect& a, const Rect& b) { return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h; }
+
+bool contiene_puntero(const App& a, IdVentana v) {
+    if (!abierta(a, v)) return false;
+    Rect r = rect_ventana(a, v);
+    return ui::sobre(a.entrada, r.x, r.y, r.w, r.h);
+}
+
+// La de más arriba abierta bajo el puntero (índice), o -1.
+int ventana_bajo_puntero(const App& a) {
+    for (int i = indice(IdVentana::CANTIDAD) - 1; i >= 0; --i)
+        if (contiene_puntero(a, static_cast<IdVentana>(a.orden_ventanas[i]))) return a.orden_ventanas[i];
+    return -1;
+}
+
+void al_frente(App& a, IdVentana v) {
+    u8* o = a.orden_ventanas;
+    u8* fin = o + indice(IdVentana::CANTIDAD);
+    std::rotate(std::find(o, fin, static_cast<u8>(v)), std::find(o, fin, static_cast<u8>(v)) + 1, fin);
+}
+
+// Lugar para una ventana que se abre sin haberla movido: el de siempre si no tapa a otra abierta;
+// si no, el primero libre recorriendo de arriba a la derecha hacia abajo a la izquierda, sobre la
+// barra de atajos. Si no hay ninguno, el de siempre (y queda adelante).
+void colocar(App& a, IdVentana v) {
+    PosVentana& p = a.pos_ventanas[indice(v)];
+    p.colocada = false;
+    if (p.movida) return;
+    const Rect r = rect_ventana(a, v);
+    auto libre = [&](const Rect& c) {
+        for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i) {
+            const IdVentana o = static_cast<IdVentana>(i);
+            if (o != v && abierta(a, o) && solapan(c, rect_ventana(a, o))) return false;
+        }
+        return true;
+    };
+    if (libre(r)) return;
+    const int abajo = a.barra_y > r.h ? a.barra_y - SEPARACION : a.gpu.alto();
+    for (int y = ui::VENTANA_Y; y + r.h <= abajo; y += PASO_LUGAR) {
+        for (int x = a.gpu.ancho() - r.w - MARGEN; x >= MARGEN; x -= PASO_LUGAR) {
+            if (!libre({x, y, r.w, r.h})) continue;
+            p.x = x;
+            p.y = y;
+            p.colocada = true;
+            return;
+        }
+    }
+}
+
 }  // namespace
+
+void actualizar_ventanas(App& a) {
+    if (!a.ventanas_cargadas) cargar_posiciones(a);
+    for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i) {
+        const IdVentana v = static_cast<IdVentana>(i);
+        const bool ab = abierta(a, v);
+        if (ab && !a.ventana_abierta_antes[i]) {
+            colocar(a, v);
+            al_frente(a, v);
+        }
+        if (!ab) a.pos_ventanas[i].colocada = false;
+        a.ventana_abierta_antes[i] = ab;
+    }
+    a.ventana_arriba = ventana_bajo_puntero(a);
+    if (a.entrada.pulsado && a.ventana_arriba >= 0) al_frente(a, static_cast<IdVentana>(a.ventana_arriba));
+}
 
 Rect rect_ventana(const App& a, IdVentana v) {
     Rect r = por_defecto(a, v);
     const PosVentana& p = a.pos_ventanas[indice(v)];
-    if (p.movida) {
+    if (p.movida || p.colocada) {
         // Siempre con la barra de título dentro de la pantalla (la ventana puede haber quedado fuera
         // al achicar la ventana del sistema o cambiar el zoom).
         r.x = std::clamp(p.x, 40 - r.w, a.gpu.ancho() - 40);
@@ -91,17 +162,9 @@ Rect rect_ventana(const App& a, IdVentana v) {
     return r;
 }
 
-bool sobre_ventana(const App& a, IdVentana v) {
-    if (!abierta(a, v)) return false;
-    Rect r = rect_ventana(a, v);
-    return ui::sobre(a.entrada, r.x, r.y, r.w, r.h);
-}
+bool sobre_ventana(const App& a, IdVentana v) { return ventana_bajo_puntero(a) == indice(v); }
 
-bool sobre_alguna_ventana(const App& a) {
-    for (int i = 0; i < indice(IdVentana::CANTIDAD); ++i)
-        if (sobre_ventana(a, static_cast<IdVentana>(i))) return true;
-    return false;
-}
+bool sobre_alguna_ventana(const App& a) { return ventana_bajo_puntero(a) >= 0; }
 
 void arrastrar_ventana(App& a, IdVentana v) {
     if (!a.ventanas_cargadas) cargar_posiciones(a);
@@ -120,13 +183,27 @@ void arrastrar_ventana(App& a, IdVentana v) {
         p.x = e.mx - a.arrastre_dx;
         p.y = e.my - a.arrastre_dy;
         p.movida = true;
+        p.colocada = false;
     } else {
         a.ventana_arrastrada = -1;
         guardar_posiciones(a);
     }
 }
 
-u8 opacidad_ventanas(const App& a) { return static_cast<u8>(std::clamp(a.cfg.opacidad_ventanas, 60, 255)); }
+// La de las opciones; opaca para la ventana que se está dibujando si tapa a otra (se leería el
+// texto de la de abajo a través de su fondo).
+u8 opacidad_ventanas(const App& a) {
+    return a.ventana_sobre_otra ? 255 : static_cast<u8>(std::clamp(a.cfg.opacidad_ventanas, 60, 255));
+}
+
+bool tapa_a_otra(const App& a, IdVentana v) {
+    const Rect r = rect_ventana(a, v);
+    for (int i = 0; i < indice(IdVentana::CANTIDAD) && a.orden_ventanas[i] != indice(v); ++i) {
+        const IdVentana o = static_cast<IdVentana>(a.orden_ventanas[i]);
+        if (abierta(a, o) && solapan(r, rect_ventana(a, o))) return true;
+    }
+    return false;
+}
 
 // Botón con imagen N (normal) y N+1 (resaltado): ui::boton, con la ayuda arriba al pasar el puntero.
 static bool boton_panel(App& a, u32 n, int x, int y, std::string_view ayuda) {
@@ -204,9 +281,10 @@ void dibujar_opciones(App& a) {
     if (fila("Camera (F4)", a.cfg.camara_a_saltos ? "Steps" : "Smooth")) a.cfg.camara_a_saltos = !a.cfg.camara_a_saltos, cambio = true;
     if (fila("Shade in shadows", a.cfg.sombra_personajes ? "On" : "Off"))
         a.cfg.sombra_personajes = !a.cfg.sombra_personajes, cambio = true;
-    std::snprintf(t, sizeof t, "%d%%", opacidad_ventanas(a) * 100 / 255);
+    const int opacidad = std::clamp(a.cfg.opacidad_ventanas, 60, 255);  // la configurada, no la de esta ventana
+    std::snprintf(t, sizeof t, "%d%%", opacidad * 100 / 255);
     if (fila("Window opacity", t)) {  // 40 % -> 55 % -> 70 % -> 85 % -> 100 % -> 40 %
-        int o = opacidad_ventanas(a) + 38;
+        int o = opacidad + 38;
         a.cfg.opacidad_ventanas = o > 255 ? 102 : o;
         cambio = true;
     }

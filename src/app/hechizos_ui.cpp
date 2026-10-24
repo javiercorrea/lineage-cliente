@@ -406,8 +406,8 @@ void dibujar_arrastre(App& a) {
     const bool movio = std::abs(e.mx - a.arrastre_x0) > 4 || std::abs(e.my - a.arrastre_y0) > 4;
     if (a.arrastrando_hechizo && e.presionado && movio) {
         const Hechizo& h = a.hechizos[a.arrastrando_hechizo];
-        if (h.icono) g.gpu().dibujar(g.icono(h.icono), e.mx - 16, e.my - 16, clave_orden(CAPA_UI, 31));
-        else g.texto_sombra(h.nombre, static_cast<float>(e.mx), static_cast<float>(e.my), clave_orden(CAPA_UI_TEXTO, 31), rgba(255, 230, 120));
+        if (h.icono) g.gpu().dibujar(g.icono(h.icono), e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
+        else g.texto_sombra(h.nombre, static_cast<float>(e.mx), static_cast<float>(e.my), clave_orden(CAPA_ARRASTRE, 1), rgba(255, 230, 120));
     }
     if (e.clic && a.arrastrando_hechizo) {
         const u32 id = a.arrastrando_hechizo;
@@ -508,7 +508,7 @@ void dibujar_efectos_activos(App& a, u64 ahora) {
         std::string_view n = a.hechizos[a.hechizo_apuntando].nombre;
         std::snprintf(t, sizeof t, "%.*s: choose a target", static_cast<int>(n.size()), n.data());
         a.g->texto_sombra(t, static_cast<float>(a.entrada.mx + 14), static_cast<float>(a.entrada.my + 4),
-                          clave_orden(CAPA_UI_TEXTO, 31), rgba(255, 230, 120));
+                          clave_orden(CAPA_ARRASTRE, 1), rgba(255, 230, 120));
     }
 }
 

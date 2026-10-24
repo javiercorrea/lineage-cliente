@@ -127,11 +127,12 @@ void dibujar_inventario(App& a) {
         g.texto({buf, n}, tx, ty, clave_orden(CAPA_UI_TEXTO, 30), color);
     }
 
-    // Arrastrar: empieza al apretar sobre un ítem; al soltar fuera de la ventana va al suelo.
+    // Arrastrar: empieza al apretar sobre un ítem; al soltarlo sobre el mundo (fuera de toda
+    // ventana) va al suelo.
     if (e.pulsado && bajo >= 0) a.arrastrando = t.ids()[static_cast<Slot>(bajo)];
     if (a.arrastrando && e.presionado) {
         Slot s = t.buscar(a.arrastrando);
-        if (s != SIN_SLOT) g.gpu().dibujar(g.icono(t.col<I_GFX>()[s]), e.mx - 16, e.my - 16, clave_orden(CAPA_UI, 31));
+        if (s != SIN_SLOT) g.gpu().dibujar(g.icono(t.col<I_GFX>()[s]), e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic) {
         if (a.arrastrando && sobre_ventana(a, IdVentana::INTERCAMBIO)) {
@@ -140,7 +141,7 @@ void dibujar_inventario(App& a) {
             // A la barra de atajos (Alt+número lo usa).
             Slot s = t.buscar(a.arrastrando);
             if (s != SIN_SLOT) poner_atajo(a, casillero_bajo_puntero(a), {TipoAtajo::ITEM, a.arrastrando, t.col<I_GFX>()[s]});
-        } else if (a.arrastrando && !sobre_inventario(a) && !sobre_barra(a)) {
+        } else if (a.arrastrando && !sobre_alguna_ventana(a) && !sobre_barra(a)) {  // solo sobre el mundo
             soltar_item(a, a.arrastrando);
         } else if (bajo >= 0) {
             // Doble clic: usar (equipar/quitar armas y armaduras, beber pociones...).

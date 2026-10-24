@@ -106,7 +106,8 @@ struct Rect {
 };
 struct PosVentana {
     int x = 0, y = 0;
-    bool movida = false;  // si no, va en su lugar de siempre
+    bool movida = false;    // si no, va en su lugar de siempre
+    bool colocada = false;  // al abrirla, su lugar de siempre tapaba a otra: va en (x, y) sin guardarse
 };
 
 // Hasta dónde se camina para hablarle a un NPC (celdas).
@@ -248,6 +249,11 @@ struct App {
     // Ventanas: posiciones, la que se está arrastrando y la de opciones.
     PosVentana pos_ventanas[static_cast<int>(IdVentana::CANTIDAD)];
     bool ventanas_cargadas = false;
+    // De atrás hacia adelante (IdVentana); la de más arriba abierta bajo el puntero, o -1.
+    u8 orden_ventanas[static_cast<int>(IdVentana::CANTIDAD)] = {0, 1, 2, 3, 4, 5, 6, 7};
+    bool ventana_abierta_antes[static_cast<int>(IdVentana::CANTIDAD)] = {};
+    int ventana_arriba = -1;
+    bool ventana_sobre_otra = false;  // la que se está dibujando tapa a otra abierta (fondo opaco)
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
@@ -294,10 +300,14 @@ const char* nombre_clase(int clase);
 
 // Ventanas (ventanas.cpp).
 Rect rect_ventana(const App& a, IdVentana v);
-bool sobre_ventana(const App& a, IdVentana v);  // abierta y con el puntero encima
+bool sobre_ventana(const App& a, IdVentana v);  // abierta, con el puntero encima y sin otra ventana encima
 bool sobre_alguna_ventana(const App& a);
 // Al dibujar cada ventana, antes que nada: arrastrarla por la barra de título.
 void arrastrar_ventana(App& a, IdVentana v);
+// Una vez por frame, antes de procesar la entrada: las que se abren pasan adelante (y a un lugar
+// libre), y la que se toca con el clic también.
+void actualizar_ventanas(App& a);
+bool tapa_a_otra(const App& a, IdVentana v);  // se solapa con otra abierta que está detrás
 u8 opacidad_ventanas(const App& a);
 // Botones para abrir las ventanas: los del panel original (esquina del panel derecho) o de texto
 // (UI simple; devuelve dónde terminan a la izquierda).
