@@ -178,6 +178,8 @@ int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora) {
     u32 ms = a.sprites.duracion_ms(o.col<O_GFX>()[yo], accion);
     a.fin_ataque = ahora + intervalo_propio(a.mundo.jugador, Intervalo::HECHIZO, ms ? ms : 1000);
     a.fin_demora_hechizo = ahora + h.demora_ms;
+    a.hechizo_lanzado_ms = ahora;
+    a.hechizo_listo_ms = std::max(a.fin_ataque, a.fin_demora_hechizo);
     return -2;
 }
 
@@ -231,6 +233,22 @@ int tecla_f_bajo_puntero(const App& a) {
     return (cy / TECLA) * 4 + cx / TECLA;
 }
 
+void dibujar_espera_hechizo(App& a, int x, int y, int w, int h) {
+    const u64 ahora = a.entrada.ahora_ms;
+    if (ahora >= a.hechizo_listo_ms || a.hechizo_listo_ms <= a.hechizo_lanzado_ms) return;
+    // Lo que falta, como una sombra que baja desde arriba hasta vaciarse.
+    const u64 total = a.hechizo_listo_ms - a.hechizo_lanzado_ms, falta = a.hechizo_listo_ms - ahora;
+    const int alto = static_cast<int>(h * falta / total);
+    a.g->gpu().rectangulo(x, y + h - alto, w, alto, clave_orden(CAPA_UI, 7), rgba(0, 0, 0, 160));
+    // Y los segundos que faltan, con centésimas: el número corre mientras se espera.
+    {
+        char t[12];
+        std::snprintf(t, sizeof t, "%.2f", static_cast<double>(falta) / 1000.0);
+        a.g->texto_sombra(t, static_cast<float>(x + (w - ancho_texto(t, std::strlen(t))) / 2),
+                          static_cast<float>(y + (h - ALTO_GLIFO) / 2), clave_orden(CAPA_UI_TEXTO, 7), rgba(255, 255, 254));
+    }
+}
+
 void dibujar_teclas_f(App& a, int x, int y) {
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
@@ -243,6 +261,7 @@ void dibujar_teclas_f(App& a, int x, int y) {
         const int cx = x + TECLAS_X + (k % 4) * TECLA, cy = y + TECLAS_Y + (k / 4) * TECLA;
         g.gpu().dibujar(g.icono(h.icono), cx, cy, clave_orden(CAPA_UI, 3),
                         a.mundo.jugador.mp >= h.mp ? BLANCO : rgba(110, 110, 110));
+        dibujar_espera_hechizo(a, cx, cy, 32, 32);
     }
     if (bajo >= 0 && a.atajos[bajo]) {
         if (e.clic && !a.arrastrando_hechizo && a.arrastrando_atajo < 0) pedir_hechizo(a, a.atajos[bajo], 0);

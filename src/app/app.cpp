@@ -72,12 +72,13 @@ void leer_entrada(App& a) {
             a.gpu.a_logico(ev.button.x, ev.button.y, e.mx, e.my);
             if (ev.button.button == SDL_BUTTON_LEFT) e.presionado = e.pulsado = true;
             if (ev.button.button == SDL_BUTTON_RIGHT) e.derecho_presionado = true;
+            if (ev.button.button == SDL_BUTTON_MIDDLE) e.medio_presionado = true;
             break;
         case SDL_EVENT_MOUSE_BUTTON_UP:
             a.gpu.a_logico(ev.button.x, ev.button.y, e.mx, e.my);
             if (ev.button.button == SDL_BUTTON_LEFT) { e.presionado = false; e.clic = true; }
             if (ev.button.button == SDL_BUTTON_RIGHT) { e.derecho_presionado = false; e.clic_derecho = true; }
-            if (ev.button.button == SDL_BUTTON_MIDDLE) e.clic_medio = true;
+            if (ev.button.button == SDL_BUTTON_MIDDLE) { e.medio_presionado = false; e.clic_medio = true; }
             break;
         case SDL_EVENT_MOUSE_WHEEL: e.rueda += ev.wheel.y > 0 ? 1 : (ev.wheel.y < 0 ? -1 : 0); break;
         case SDL_EVENT_TEXT_INPUT:
@@ -173,6 +174,15 @@ void leer_entrada(App& a) {
         e.pulsado = k == 0;
         e.presionado = k < 31;
         e.clic = k == 31;
+    }
+    // Prueba automática (--medio=x,y,N): mantener el botón del medio en (x, y) desde el frame 300
+    // durante N frames.
+    const int* me = a.aut.medio;
+    if (me[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + me[2]) {
+        e.mx = me[0];
+        e.my = me[1];
+        e.medio_presionado = a.frames_en_pantalla < 300u + me[2];
+        e.clic_medio = a.frames_en_pantalla == 300u + me[2];
     }
 }
 
@@ -285,6 +295,8 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--tienda=", 0) == 0) a.aut.tienda.push_back(valor("--tienda="));
         else if (s.rfind("--arrastrar=", 0) == 0)
             std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &a.aut.arrastre[0], &a.aut.arrastre[1], &a.aut.arrastre[2], &a.aut.arrastre[3]);
+        else if (s.rfind("--medio=", 0) == 0)
+            std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
         else if (s == "--opciones") a.ventana_opciones = true;
         else if (s == "--teclas") a.ayuda_teclas = true;
         else if (s == "--salida") a.ventana_salida = true;

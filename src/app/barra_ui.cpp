@@ -3,8 +3,8 @@
 // (Alt+I); entre casilleros se arrastra para mover, y clic derecho o soltar fuera los vacía. Clic
 // o Alt+número usa: el hechizo (si pide objetivo, espera el clic) o el ítem (como el doble clic en
 // el inventario). Clic del medio sobre un casillero lo elige (marco dorado; otra vez lo suelta) y
-// clic del medio sobre el mundo usa el elegido sobre lo que haya bajo el puntero, como en el
-// original. Se guarda por personaje en settings.ini ("barra="; "*" tras el elegido).
+// el botón del medio sobre el mundo usa el elegido sobre lo que haya bajo el puntero, como en el
+// original; mantenido, lo repite. Los hechizos muestran la espera hasta poder lanzar otro. Se guarda por personaje en settings.ini ("barra="; "*" tras el elegido).
 #include <charconv>
 #include <cstring>
 #include "app/app.h"
@@ -81,19 +81,28 @@ void usar_casillero(App& a, int i) {
     }
 }
 
-// Clic del medio: sobre un casillero lo elige; sobre el mundo usa el elegido. Un hechizo con
-// objetivo va a lo que haya bajo el puntero (uno mismo incluido) y sin nada ahí no se lanza.
-void clic_medio(App& a) {
-    if (int c = casillero_bajo_puntero(a); c >= 0) {
-        a.casillero_elegido = a.casillero_elegido == c || a.barra[c].tipo == TipoAtajo::VACIO ? -1 : c;
-        guardar_barra(a);
-        return;
-    }
+// Clic del medio sobre un casillero: lo elige (otra vez lo suelta).
+void elegir_casillero(App& a, int c) {
+    a.casillero_elegido = a.casillero_elegido == c || a.barra[c].tipo == TipoAtajo::VACIO ? -1 : c;
+    guardar_barra(a);
+}
+
+// Botón del medio apretado sobre el mundo: usa el elegido, y mientras se mantiene lo repite en
+// cuanto se puede (un hechizo, al terminar la espera; un ítem, cada MS_REPETIR_ITEM). Un hechizo
+// con objetivo va a lo que haya bajo el puntero en ese momento (uno mismo incluido); sin nada ahí
+// no se lanza.
+constexpr u64 MS_REPETIR_ITEM = 500;
+
+void usar_elegido(App& a) {
     if (a.casillero_elegido < 0 || sobre_barra(a) || sobre_alguna_ventana(a)) return;
+    const u64 ahora = a.entrada.ahora_ms;
     const Atajo& b = a.barra[a.casillero_elegido];
-    if (b.tipo == TipoAtajo::HECHIZO && a.hechizos[b.id].con_objetivo) {
-        if (ObjId obj = objeto_bajo_puntero(a, true)) pedir_hechizo(a, b.id, obj);
-    } else {
+    if (b.tipo == TipoAtajo::HECHIZO) {
+        if (a.hechizo_pendiente || ahora < a.hechizo_listo_ms) return;  // uno en camino, o esperando
+        if (!a.hechizos[b.id].con_objetivo) pedir_hechizo(a, b.id, 0);
+        else if (ObjId obj = objeto_bajo_puntero(a, true)) pedir_hechizo(a, b.id, obj);
+    } else if (b.tipo == TipoAtajo::ITEM && ahora >= a.t_repetir_medio + MS_REPETIR_ITEM) {
+        a.t_repetir_medio = ahora;
         usar_casillero(a, a.casillero_elegido);
     }
 }
@@ -139,7 +148,8 @@ void poner_atajo(App& a, int casillero, Atajo atajo) {
 void procesar_barra(App& a) {
     if (a.barra_de != nombre_personaje(a)) cargar_barra(a);
     if (a.entrada.alt_numero) usar_casillero(a, a.entrada.alt_numero - 1);
-    if (a.entrada.clic_medio) clic_medio(a);
+    if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
+    if (a.entrada.medio_presionado) usar_elegido(a);
     // Prueba automática (--alt=N): como apretar Alt+N, uno cada 3 s.
     Automatizacion& au = a.aut;
     if (au.alt_hechos < au.alt.size() && a.frames_en_pantalla >= 300 + 360 * au.alt_hechos) {
@@ -186,6 +196,7 @@ void dibujar_barra(App& a, int y) {
                 if (s != SIN_SLOT) cantidad = a.mundo.inventario.items.col<I_CANTIDAD>()[s];
             }
             const u32 color = disponible ? BLANCO : rgba(110, 110, 110);
+            if (b.tipo == TipoAtajo::HECHIZO) dibujar_espera_hechizo(a, x + 2, y + 2, CELDA - 4, CELDA - 4);
             if (ic.valida()) {
                 g.gpu().dibujar(ic, x + 2, y + 2, ki, color);
             } else if (b.tipo == TipoAtajo::HECHIZO) {  // sin ícono: las primeras letras del nombre

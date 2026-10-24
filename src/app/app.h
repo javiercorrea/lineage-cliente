@@ -69,6 +69,7 @@ struct Automatizacion {
     u64 t_npc = 0;
     std::vector<int> alt;           // casilleros de la barra a usar (Alt+número), uno cada 3 s
     int arrastre[4] = {-1, -1, -1, -1};
+    int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
     std::string captura_proyectil;
     std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
     bool aceptar = false;           // responder que sí a toda pregunta del servidor (S_MessageYN)
@@ -219,6 +220,10 @@ struct App {
     u32 hechizo_pendiente = 0;
     ObjId objetivo_hechizo = 0;
     u64 fin_demora_hechizo = 0;       // useDelay del último hechizo
+    // Espera hasta el próximo hechizo (la animación del lanzado o su useDelay, la mayor): se
+    // muestra sobre los casilleros de hechizos.
+    u64 hechizo_lanzado_ms = 0, hechizo_listo_ms = 0;
+    u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12
     std::string atajos_de;            // personaje cuyos atajos están cargados
@@ -355,6 +360,9 @@ void procesar_hechizos(App& a, u64 ahora);
 // -2 si lo lanzó o espera la demora del anterior (no moverse); -1 si no hay.
 int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora);
 u32 hechizo_bajo_puntero(const App& a);
+// Sobre el casillero de un hechizo: la espera que falta hasta poder lanzar otro (todos comparten
+// la misma: el servidor no acepta otro hechizo hasta que termina).
+void dibujar_espera_hechizo(App& a, int x, int y, int w, int h);
 // Panel original: los casilleros F5–F12 con sus hechizos (`x`, `y`: esquina del panel 1019).
 void dibujar_teclas_f(App& a, int x, int y);
 int tecla_f_bajo_puntero(const App& a);
