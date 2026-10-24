@@ -6,6 +6,7 @@
 // imágenes de interfaz, los íconos y los glifos se leen en el momento (son pocos y van en las
 // pantallas fijas).
 #pragma once
+#include <string>
 #include <string_view>
 #include <vector>
 #include "core/mapa_hash.h"
@@ -27,6 +28,8 @@ public:
     const RegionAtlas& img(u32 n);
     // Imagen N.png (fondos de pantalla, animaciones de la selección de personaje).
     const RegionAtlas& png(u32 n);
+    // PNG fuera del juego (logo propio), con su alfa. Región vacía si no se pudo leer.
+    const RegionAtlas& png_archivo(const std::string& ruta);
     // Medio tile de suelo: valor del .s32 (juego << 8 | tile) y mitad.
     const RegionAtlas& medio_tile(u32 valor, bool derecha);
     // Tile translúcido (sombra; ver tiles.h). `pendiente`: su .til todavía no está en memoria.
@@ -54,7 +57,7 @@ public:
     u32 tomar_decodificados() { u32 v = decodificados_; decodificados_ = 0; return v; }
 
 private:
-    enum Tipo : u64 { T_IMG = 1, T_PNG, T_TILE, T_SPR, T_GLIFO, T_ICONO, T_EMBLEMA };
+    enum Tipo : u64 { T_IMG = 1, T_PNG, T_TILE, T_SPR, T_GLIFO, T_ICONO, T_EMBLEMA, T_ARCHIVO };
     static u64 clave(Tipo t, u64 v) { return (static_cast<u64>(t) << 56) | v; }
     enum class Carga { OK, FALLO, PENDIENTE };
     // Busca k; si no está, decodifica en tmp_ con `decodificar` (devuelve Carga) y lo sube al atlas.

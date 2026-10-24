@@ -58,7 +58,7 @@ void quitar_fondo_negro(ImagenRGBA& img) {
     }
 }
 
-bool decodificar_png(Bytes datos, ImagenRGBA& salida) {
+bool decodificar_png(Bytes datos, ImagenRGBA& salida, bool fondo_negro) {
     if (datos.size() < 8) return false;
     std::vector<u8> copia;
     const u8* p = datos.data();
@@ -78,7 +78,7 @@ bool decodificar_png(Bytes datos, ImagenRGBA& salida) {
     salida.preparar(static_cast<u16>(w), static_cast<u16>(h));
     std::memcpy(salida.px.data(), rgba, salida.px.size() * 4);
     stbi_image_free(rgba);
-    quitar_fondo_negro(salida);
+    if (fondo_negro) quitar_fondo_negro(salida);
     return true;
 }
 

@@ -27,6 +27,9 @@ struct Config {
     std::string ventanas;
     int opacidad_ventanas = 170;
     int volumen_musica = 60, volumen_efectos = 80;  // 0–100
+    // Logo propio de la pantalla de login con la UI simple: un PNG (de hasta 2048×2048; se achica
+    // para entrar). Ruta absoluta o relativa a la carpeta de settings.ini; vacío = el título en texto.
+    std::string logo;
 };
 
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").

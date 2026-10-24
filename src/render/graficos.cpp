@@ -1,4 +1,6 @@
 #include "render/graficos.h"
+#include <cstdio>
+#include "plataforma/archivo_mapeado.h"
 
 namespace lin {
 
@@ -98,6 +100,15 @@ const RegionAtlas& Graficos::png(u32 n) {
         std::snprintf(nombre, sizeof nombre, "%u.png", n);
         Bytes b = rec_.sprite(nombre);
         return !b.empty() && decodificar_png(b, tmp_) ? Carga::OK : Carga::FALLO;
+    });
+}
+
+const RegionAtlas& Graficos::png_archivo(const std::string& ruta) {
+    return cargar(clave(T_ARCHIVO, std::hash<std::string>{}(ruta) >> 8), [&] {
+        std::vector<u8> b;
+        bool ok = leer_archivo(ruta, b) && decodificar_png(b, tmp_, false) && tmp_.ancho <= TAM_PAGINA && tmp_.alto <= TAM_PAGINA;
+        if (!ok) std::fprintf(stderr, "No se pudo cargar la imagen %s (PNG de hasta %d×%d)\n", ruta.c_str(), TAM_PAGINA, TAM_PAGINA);
+        return ok ? Carga::OK : Carga::FALLO;
     });
 }
 

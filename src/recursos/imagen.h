@@ -32,8 +32,9 @@ inline u32 rgb555(u16 c) {
 // .img: u16 ancho, u16 alto, u16 ?, u16 color transparente, luego ancho×alto píxeles RGB555.
 bool decodificar_img(Bytes datos, ImagenRGBA& salida);
 // .png: algunos vienen "mangled" (firma \x89PNX y XOR encadenado con 0x52); se reparan antes de
-// decodificar. El fondo negro se vuelve transparente (quitar_fondo_negro).
-bool decodificar_png(Bytes datos, ImagenRGBA& salida);
+// decodificar. Con `fondo_negro`, el negro se vuelve transparente (quitar_fondo_negro); las
+// imágenes propias (logo) traen su alfa.
+bool decodificar_png(Bytes datos, ImagenRGBA& salida, bool fondo_negro = true);
 // Negro puro -> transparente, y los oscuros unidos a él (resplandores) -> translúcidos (ver imagen.cpp).
 void quitar_fondo_negro(ImagenRGBA& img);
 

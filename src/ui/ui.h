@@ -46,6 +46,15 @@ bool caja_texto(Graficos& g, const EntradaFrame& e, std::string& valor, int x, i
 // Botón de texto simple (para controles que el original no tiene como imagen).
 bool boton_texto(Graficos& g, const EntradaFrame& e, std::string_view t, int x, int y, int w, int h);
 
+// UI simple (login, selección y creación de personaje): recuadro oscuro con borde, y caja de
+// texto con fondo (como caja_texto; true con Enter). Colores de la UI simple del juego.
+constexpr u32 COLOR_FONDO_SIMPLE = 0xFF080A0Cu, COLOR_TITULO = 0xFF8CBED6u, COLOR_TEXTO = 0xFFFEFFFFu;
+void recuadro(Graficos& g, int x, int y, int w, int h, u8 opacidad = 235);
+bool campo(Graficos& g, const EntradaFrame& e, std::string& valor, int x, int y, int ancho, bool foco, bool es_clave,
+           size_t maximo);
+// Texto centrado horizontalmente en [x, x + w).
+void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 color = COLOR_TEXTO);
+
 // Ventana del juego (estado, inventario): el marco original 4131.img o, con la UI simple, un
 // recuadro de texto con título y "[x]". `opacidad`: la del fondo (el juego se ve detrás); el
 // marco y el texto quedan un poco más opacos. Devuelve true si se hizo clic en cerrar.

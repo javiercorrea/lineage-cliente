@@ -49,6 +49,29 @@ bool boton_texto(Graficos& g, const EntradaFrame& e, std::string_view t, int x, 
     return encima && e.clic;
 }
 
+void recuadro(Graficos& g, int x, int y, int w, int h, u8 opacidad) {
+    const u32 borde = rgba(150, 130, 90);
+    const u64 k = clave_orden(CAPA_UI, 2);
+    g.gpu().rectangulo(x, y, w, h, k, rgba(10, 8, 6, opacidad));
+    g.gpu().rectangulo(x, y, w, 1, k + (1ull << 24), borde);
+    g.gpu().rectangulo(x, y + h - 1, w, 1, k + (1ull << 24), borde);
+    g.gpu().rectangulo(x, y, 1, h, k + (1ull << 24), borde);
+    g.gpu().rectangulo(x + w - 1, y, 1, h, k + (1ull << 24), borde);
+}
+
+bool campo(Graficos& g, const EntradaFrame& e, std::string& valor, int x, int y, int ancho, bool foco, bool es_clave,
+           size_t maximo) {
+    g.gpu().rectangulo(x - 4, y - 4, ancho + 8, ALTO_GLIFO + 8, clave_orden(CAPA_UI, 3),
+                       foco ? rgba(60, 48, 30, 255) : rgba(30, 24, 16, 255));
+    g.gpu().rectangulo(x - 4, y + ALTO_GLIFO + 3, ancho + 8, 1, clave_orden(CAPA_UI, 4), rgba(150, 130, 90));
+    return caja_texto(g, e, valor, x, y, ancho, foco, es_clave, maximo);
+}
+
+void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 color) {
+    g.texto(t, static_cast<float>(x + (w - ancho_texto(t.data(), t.size())) / 2), static_cast<float>(y),
+            clave_orden(CAPA_UI_TEXTO, 0), color);
+}
+
 bool ventana(Graficos& g, const EntradaFrame& e, bool simple, int x, int y, std::string_view titulo, u8 opacidad) {
     const u8 marco = static_cast<u8>(std::min(255, opacidad + 60));
     constexpr u32 IMG_MARCO = 4131;  // PENDIENTE: las ventanas propias del original (estado, inventario)

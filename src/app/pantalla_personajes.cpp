@@ -1,6 +1,7 @@
 // Entregable 2: selección de personaje. Imágenes y posiciones de drawmode/draw_char_sel.cpp y
 // widgets/sdl_animate_button.cpp / sdl_char_info.cpp de l1j-client:
-// fondo 815.png, 4 ranuras con la animación PNG de cada clase y sexo, panel de datos.
+// fondo 815.png, 4 ranuras con la animación PNG de cada clase y sexo, panel de datos. Con la UI
+// simple (F2), una lista de texto con todos los personajes y la animación del elegido al lado.
 #include "app/app.h"
 
 namespace lin {
@@ -29,6 +30,98 @@ const AnimRanura& anim_de(const PersonajeLista* p) {
     if (!p) return ANIM_VACIA;
     int i = p->v[PJ_CLASE] * 2 + p->v[PJ_SEXO];
     return (i >= 0 && i < 14) ? ANIM[i] : ANIM_VACIA;
+}
+
+bool hay_elegido(const App& a) { return a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()); }
+
+void entrar_juego(App& a) {
+    enviar(a, cmd::entrar(a.op, a.pjs[a.pj_sel].nombre));
+    cambiar_pantalla(a, Pantalla::CARGANDO);
+}
+
+void volver_login(App& a) {
+    a.red.cerrar();
+    a.estado_red_previo = EstadoRed::CERRADA;
+    a.esperando = false;
+    cambiar_pantalla(a, Pantalla::LOGIN);
+}
+
+void nuevo_personaje(App& a) {
+    a.nombre_nuevo.clear();
+    a.clase_nueva = 0;
+    a.sexo_nuevo = 0;
+    std::memset(a.extra, 0, sizeof a.extra);
+    cambiar_pantalla(a, Pantalla::CREAR);
+}
+
+// UI simple: lista a la izquierda (un renglón por ranura; las libres crean), y a la derecha la
+// animación y los datos del elegido. Borrar pide un segundo clic.
+constexpr int FILA_PJ = 40, LISTA_X = 20, LISTA_Y = 44, LISTA_W = 290, DATOS_X = 330, DATOS_W = 290;
+
+void seleccion_simple(App& a) {
+    Graficos& g = *a.g;
+    const EntradaFrame& e = a.entrada;
+    const u64 kt = clave_orden(CAPA_UI_TEXTO, 0);
+    char t[96];
+    g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
+    g.texto("Select a character", LISTA_X, 18, kt, ui::COLOR_TITULO);
+    ui::recuadro(g, LISTA_X, LISTA_Y - 6, LISTA_W, 384);
+    ui::recuadro(g, DATOS_X, LISTA_Y - 6, DATOS_W, 384);
+
+    const int ranuras = std::min(9, std::max(a.max_pj, static_cast<int>(a.pjs.size())));
+    for (int i = 0; i < ranuras; ++i) {
+        const int y = LISTA_Y + i * FILA_PJ;
+        const PersonajeLista* p = i < static_cast<int>(a.pjs.size()) ? &a.pjs[i] : nullptr;
+        const bool encima = ui::sobre(e, LISTA_X + 4, y, LISTA_W - 8, FILA_PJ - 4);
+        if (i == a.pj_sel || encima)
+            g.gpu().rectangulo(LISTA_X + 4, y, LISTA_W - 8, FILA_PJ - 4, clave_orden(CAPA_UI, 3),
+                               i == a.pj_sel ? rgba(90, 70, 40, 230) : rgba(50, 40, 28, 230));
+        if (p) {
+            g.texto(p->nombre, LISTA_X + 12, y + 5, kt, ui::COLOR_TEXTO);
+            std::snprintf(t, sizeof t, "Lv %d %s%s%s", p->v[PJ_NIVEL], nombre_clase(p->v[PJ_CLASE]), p->clan.empty() ? "" : "  -  ",
+                          p->clan.c_str());
+            g.texto(t, LISTA_X + 12, y + 20, kt, rgba(170, 160, 140));
+        } else {
+            g.texto("+ New character", LISTA_X + 12, y + 12, kt, encima ? ui::COLOR_TITULO : rgba(120, 110, 90));
+        }
+        if (encima && e.clic) {
+            if (!p) return nuevo_personaje(a);
+            if (a.pj_sel != i) a.t_anim = e.ahora_ms;
+            a.pj_sel = i;
+            a.confirmar_borrado = false;
+        }
+    }
+
+    if (hay_elegido(a)) {
+        const PersonajeLista& p = a.pjs[a.pj_sel];
+        const AnimRanura& an = anim_de(&p);
+        const u32 imagen = an.primero + static_cast<u32>((e.ahora_ms - a.t_anim) / MS_FRAME_RANURA % an.cantidad);
+        g.gpu().dibujar(g.png(imagen), DATOS_X + (DATOS_W - ANCHO_RANURA) / 2, LISTA_Y - 20, clave_orden(CAPA_UI, 4));
+        ui::texto_centrado(g, p.nombre, DATOS_X, LISTA_Y + 226, DATOS_W, ui::COLOR_TITULO);
+        const struct { const char* n; int v; } datos[] = {
+            {"HP", p.v[PJ_HP]},     {"STR", p.v[PJ_FUE]}, {"MP", p.v[PJ_MP]},   {"DEX", p.v[PJ_DES]},
+            {"AC", p.v[PJ_CA]},     {"CON", p.v[PJ_CON]}, {"Lawful", p.v[PJ_LEGAL]}, {"WIS", p.v[PJ_SAB]},
+            {"Level", p.v[PJ_NIVEL]}, {"CHA", p.v[PJ_CAR]}, {"", 0},             {"INT", p.v[PJ_INT]},
+        };
+        for (int k = 0; k < 12; ++k) {
+            if (!*datos[k].n) continue;
+            const int x = DATOS_X + 24 + (k % 2) * 140, y = LISTA_Y + 248 + (k / 2) * 16;
+            g.texto(datos[k].n, x, y, kt, rgba(170, 160, 140));
+            std::snprintf(t, sizeof t, "%d", datos[k].v);
+            g.texto(t, x + 60, y, kt, ui::COLOR_TEXTO);
+        }
+    } else {
+        ui::texto_centrado(g, "Choose a character from the list", DATOS_X, LISTA_Y + 170, DATOS_W, rgba(120, 110, 90));
+    }
+
+    const int by = 444;
+    if ((ui::boton_texto(g, e, "Enter", DATOS_X, by, 92, 22) || e.enter) && hay_elegido(a)) return entrar_juego(a);
+    if (ui::boton_texto(g, e, a.confirmar_borrado ? "Sure?" : "Delete", DATOS_X + 99, by, 92, 22) && hay_elegido(a)) {
+        if (a.confirmar_borrado) enviar(a, cmd::borrar_personaje(a.op, a.pjs[a.pj_sel].nombre));
+        a.confirmar_borrado = !a.confirmar_borrado;
+    }
+    if (ui::boton_texto(g, e, "Back", DATOS_X + 198, by, 92, 22) || e.escape) return volver_login(a);
+    g.texto("F2: original interface", LISTA_X, by + 5, kt, rgba(120, 110, 90));
 }
 
 }  // namespace
@@ -78,7 +171,6 @@ void frame_personajes(App& a) {
     Graficos& g = *a.g;
     Gpu& gpu = g.gpu();
     EntradaFrame& e = a.entrada;
-    gpu.dibujar(g.png(815), 0, 0, clave_orden(CAPA_FONDO, 0));
 
     // Automatización: elegir (o crear) el personaje pedido y entrar.
     if (a.aut.activa && a.frames_en_pantalla == 10) {
@@ -90,11 +182,7 @@ void frame_personajes(App& a) {
         }
         if (elegido >= 0) {
             a.pj_sel = elegido;
-            if (a.aut.pantalla_captura != Pantalla::PERSONAJES) {
-                enviar(a, cmd::entrar(a.op, a.pjs[elegido].nombre));
-                cambiar_pantalla(a, Pantalla::CARGANDO);
-                return;
-            }
+            if (a.aut.pantalla_captura != Pantalla::PERSONAJES) return entrar_juego(a);
         } else if (a.aut.crear || a.aut.pantalla_captura == Pantalla::CREAR) {
             a.nombre_nuevo = a.aut.personaje.empty() ? "Prueba" : a.aut.personaje;
             cambiar_pantalla(a, Pantalla::CREAR);
@@ -102,6 +190,8 @@ void frame_personajes(App& a) {
         }
     }
 
+    if (a.cfg.ui_simple) return seleccion_simple(a);
+    gpu.dibujar(g.png(815), 0, 0, clave_orden(CAPA_FONDO, 0));
     for (int i = 0; i < 4; ++i) {
         int idx = a.pagina * 4 + i;
         const PersonajeLista* p = idx < static_cast<int>(a.pjs.size()) ? &a.pjs[idx] : nullptr;
@@ -123,18 +213,13 @@ void frame_personajes(App& a) {
                 if (a.pj_sel != idx) a.t_anim = a.entrada.ahora_ms;
                 a.pj_sel = idx;
             } else {
-                a.nombre_nuevo.clear();
-                a.clase_nueva = 0;
-                a.sexo_nuevo = 0;
-                std::memset(a.extra, 0, sizeof a.extra);
-                cambiar_pantalla(a, Pantalla::CREAR);
-                return;
+                return nuevo_personaje(a);
             }
         }
     }
 
     // Panel de datos del personaje seleccionado (sdl_char_info.cpp).
-    if (a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size())) {
+    if (hay_elegido(a)) {
         const PersonajeLista& p = a.pjs[a.pj_sel];
         u64 k = clave_orden(CAPA_UI_TEXTO, 0);
         u32 c = rgba(255, 255, 254);
@@ -164,19 +249,9 @@ void frame_personajes(App& a) {
     if (ui::boton(g, e, 0x6e5, 0x0f7, 0x10b) && a.pagina > 0) --a.pagina;
     if (ui::boton(g, e, 0x6e7, 0x16c, 0x10b) && a.pagina + 1 < paginas) ++a.pagina;
     bool entrar = ui::boton(g, e, 0x334, 0x20d, 0x185) || (e.enter && a.pj_sel >= 0);
-    if (entrar && a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size())) {
-        enviar(a, cmd::entrar(a.op, a.pjs[a.pj_sel].nombre));
-        cambiar_pantalla(a, Pantalla::CARGANDO);
-        return;
-    }
-    if (ui::boton(g, e, 0x336, 0x20d, 0x19a) || e.escape) {
-        a.red.cerrar();
-        a.estado_red_previo = EstadoRed::CERRADA;
-        a.esperando = false;
-        cambiar_pantalla(a, Pantalla::LOGIN);
-        return;
-    }
-    if (ui::boton(g, e, 0x134, 0x20d, 0x1b5) && a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()))
+    if (entrar && hay_elegido(a)) return entrar_juego(a);
+    if (ui::boton(g, e, 0x336, 0x20d, 0x19a) || e.escape) return volver_login(a);
+    if (ui::boton(g, e, 0x134, 0x20d, 0x1b5) && hay_elegido(a))
         enviar(a, cmd::borrar_personaje(a.op, a.pjs[a.pj_sel].nombre));
 }
 
