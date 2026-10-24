@@ -37,12 +37,17 @@ ObjId buscar_item(const App& a, std::string_view texto) {
 bool sobre_inventario(const App& a) { return sobre_ventana(a, IdVentana::INVENTARIO); }
 
 // Uso 16 (pergamino de polymorph): primero se elige el monstruo (forma_ui.cpp).
-constexpr u8 USO_POLYMORPH = 16;
+constexpr u8 USO_POLYMORPH = 16, USO_TELEPORT = 6, USO_TELEPORT_BENDITO = 29;  // ItemTable (useType)
 
 void usar_item(App& a, ObjId item) {
     Slot s = a.mundo.inventario.items.buscar(item);
     if (s != SIN_SLOT && a.mundo.inventario.items.col<I_USO>()[s] == USO_POLYMORPH) {
         abrir_forma(a, item);
+        return;
+    }
+    // Pergamino de teleport: con marcadores guardados se elige el destino; si no, al azar.
+    if (s != SIN_SLOT && (a.mundo.inventario.items.col<I_USO>()[s] == USO_TELEPORT || a.mundo.inventario.items.col<I_USO>()[s] == USO_TELEPORT_BENDITO)) {
+        if (!elegir_destino(a, item, 0)) enviar(a, cmd::usar_teleport(a.op, item, 0, 0));
         return;
     }
     enviar(a, cmd::usar_item(a.op, item));
@@ -66,8 +71,24 @@ void acciones_item_automaticas(App& a) {
         LIN_LOG("Prueba automática: no hay un ítem \"%s\" en el inventario", ac.nombre.c_str());
         return;
     }
-    if (ac.soltar) soltar_item(a, item);
-    else usar_item(a, item);
+    if (!ac.a_quien.empty()) {
+        // --dar: al más cercano cuyo nombre contenga a_quien (sin contar al propio personaje).
+        const TablaObjetos& o = a.mundo.objetos;
+        const Slot yo = o.buscar(a.mundo.jugador.id);
+        Slot mejor = SIN_SLOT;
+        int mejor_d = 1 << 30;
+        for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
+            if (s == yo || a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(ac.a_quien) == std::string_view::npos) continue;
+            const int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
+            if (d < mejor_d) mejor_d = d, mejor = s;
+        }
+        if (mejor == SIN_SLOT) LIN_LOG("Prueba automática: no hay un \"%s\" a la vista", ac.a_quien.c_str());
+        else dar_item(a, o.ids()[mejor], item);
+    } else if (ac.soltar) {
+        soltar_item(a, item);
+    } else {
+        usar_item(a, item);
+    }
 }
 
 void dibujar_inventario(App& a) {

@@ -666,13 +666,22 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   - "Attack" hace que el servidor mande `S_SelectTarget`: el próximo clic elige el objetivo (`C_SelectTarget`); clic derecho o Esc cancelan;
   - `S_TrueTarget`: una marca roja y el mensaje sobre el objetivo, 16 s;
   - **verificado** con `.summon 45034` (Shepherd): la lista, su menú, `S_SelectTarget` → `C_SelectTarget`, y la bolsa con lo que se le dio (`docs/capturas/11_mascota_menu.png`, `11_mascota_bolsa.png`), también con ASan.
+- **Domesticar** (lo pidió el usuario): darle Floating Eye Meat (40057) a un animal domesticable con menos de un tercio de su vida. **Verificado** con Aprendiz (mago nivel 1, cuenta GM) contra un oso invocado (45040) en la plaza de Talking Island: Energy Bolt cada 3 s y la carne cada 2 s con `--dar="Eye Meat@Bear" --cantidad=1`. Tras varios "You failed to tame it", el servidor dio el amuleto ("Pet Amulet [Lv.5 Bear]") y `S_PetCtrlMenu` lo agregó a la lista (`docs/capturas/11_mascota_domesticada.png`). Dos lecciones: junto a la casa de Gereng los hechizos no salían (el servidor exige línea de vista: `glanceCheck`), y con lobos de pruebas anteriores `--dar` elegía al más cercano, no al herido.
 - **Corregido de paso:** dos accesos fuera de rango que el tipo nuevo de lista habría disparado (el arreglo de tipos de tienda y el de títulos de la ventana), ahora con `static_assert`.
 
 **Pendiente o conocido:**
+- Con la mascota fuera de la vista, la lista muestra el nombre que manda `S_PetCtrlMenu`, que en este servidor está en coreano.
 - `C_SelectTarget` manda el tipo 0 (el servidor no lo usa).
 - El índice de la fila de `C_UsePetItem` es el orden de la lista; si el servidor salteara un ítem nulo, no coincidiría.
 - No hay ventana propia de mascota como en el original: lista, menú del servidor y bolsa.
 - **Estado del servidor de pruebas:** Charla quedó en la posada de Talking Island con 2 llaves y 605 adena menos; hay dos invocaciones Shepherd que se van solas con el tiempo o al reiniciar el servidor.
+
+## Reparar armas, marcadores y cambiar de personaje
+
+- **Reparar armas** (`S_SelectList`, `C_FixWeaponList`, `C_SelectList`): el vínculo `action="fix"` de los herreros (está en las páginas del juego: kuen1, randith1, cuse1, batr1...) pide la lista (`C_FixWeaponList`); `S_FixWeaponList` llega como una lista de tienda (`LISTA_REPARAR`) y la ventana del NPC muestra cada arma dañada con su daño y costo (200 adena por punto). Un clic la repara (`C_SelectList`: arma y herrero, a 3 celdas o menos). **Verificado:** con la daga de Charla en daño 3 (puesto en la base), Blacksmith Kuehn en Gludio (32633, 32801): la ventana "Repair" ("Damage 3: 600 adena"), el clic, 600 adena menos y daño 0 en la base (`docs/capturas/11_reparar.png`).
+- **Volver a la selección de personaje** (`C_ChangeChar`): botón "Character select" en la ventana Exit. El servidor saca al personaje (`S_PacketBox` 42) y manda la lista de personajes; el cliente limpia el mundo al recibirla. **Verificado:** salir y volver a entrar con Charla (`docs/capturas/11_cambiar_personaje.png`).
+- **Marcadores** (`S_Bookmarks`, `C_AddBookmark`, `C_DeleteBookmark`; `app/marcadores_ui.cpp`): "/bookmark nombre" en el chat guarda el lugar, "/delbookmark nombre" lo borra. Con marcadores, el pergamino de teleport (usos 6 y 29: `C_UseItem` con mapa y marcador) y los hechizos Teleport y Mass Teleport (`C_UseSkill` con mapa y marcador) abren la lista de destinos ("Random" o un marcador; clic derecho borra uno). Sin marcadores, el pergamino va al azar como antes (antes se mandaba sin mapa ni marcador).
+  - **El servidor de pruebas no los permite:** ningún mapa de la base tiene `markable` = 1 ("You cannot bookmark this location", también para un GM), y `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama. Se verificó en vivo que "/bookmark" manda `C_AddBookmark` y que el pergamino sin marcadores teletransporta al azar; el decodificador y los comandos, con tests.
 
 ## Aprender magia: maestros y libros
 
@@ -833,7 +842,7 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 60 | 60 passed | 0 failed
+[doctest] test cases: 61 | 61 passed | 0 failed
 ```
 
 Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).

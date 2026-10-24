@@ -49,6 +49,7 @@ struct Automatizacion {
     struct AccionItem {
         bool soltar;                // si no, usar (equipar, beber...)
         std::string nombre;         // el primer ítem del inventario cuyo nombre lo contenga
+        std::string a_quien;        // --dar=Ítem@Nombre: dárselo al más cercano con ese nombre
     };
     std::vector<AccionItem> items;  // una cada 2 s después de entrar
     size_t items_hechos = 0;
@@ -73,6 +74,7 @@ struct Automatizacion {
     int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
     std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
     int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
+    std::string destino;  // --destino: en el diálogo de teleport, el marcador con ese nombre ("Random": al azar)
     size_t pulsadas = 0;
     std::string captura_proyectil;
     std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
@@ -97,7 +99,8 @@ constexpr int CASILLEROS_BARRA = 10;
 // Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
 // del ítem (venta, retiro, depósito).
 // MASCOTA: el inventario de una mascota (S_PetInventory); un clic usa o equipa el ítem.
-enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO, MAGIA, MASCOTA };
+// REPARAR: las armas dañadas (S_FixWeaponList); un clic repara una (C_SelectList).
+enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO, MAGIA, MASCOTA, REPARAR };
 struct FilaTienda {
     u32 id = 0;
     u16 gfx = 0;
@@ -114,6 +117,18 @@ struct Rect {
 struct Mascota {
     ObjId id = 0;
     std::string nombre;  // con "$N" sin resolver
+};
+
+// Marcador de teleport (S_Bookmarks; marcadores_ui.cpp) y el diálogo para elegir destino.
+struct Marcador {
+    u32 id = 0;
+    u16 mapa = 0, x = 0, y = 0;
+    std::string nombre;
+};
+struct ElegirDestino {
+    bool abierto = false;
+    ObjId item = 0;   // pergamino de teleport, o 0 si es el hechizo
+    u32 hechizo = 0;  // Teleport o Mass Teleport
 };
 
 // Diálogo de cantidad (cantidad_ui.cpp): S_InputAmount del servidor, o cuántos dar de una pila.
@@ -283,6 +298,12 @@ struct App {
     bool escribiendo_chat = false;
     DialogoCantidad cantidad;
     std::vector<Mascota> mascotas;
+    std::vector<Marcador> marcadores;
+    ElegirDestino destino;
+    // Destino elegido para el próximo Teleport (se usa al lanzarlo; 0, 0 = al azar).
+    bool destino_elegido = false;
+    u16 destino_mapa = 0;
+    u32 destino_marcador = 0;
     ObjId mascota_eligiendo = 0;      // S_SelectTarget: el próximo clic elige a quién ataca esta mascota
     ObjId marca_objetivo = 0;         // S_TrueTarget: objetivo marcado hasta fin_marca
     u64 fin_marca = 0;
@@ -444,6 +465,17 @@ void eventos_mascotas(App& a, const Evento& e);
 void procesar_mascotas(App& a);  // antes del movimiento: elegir el objetivo de una mascota
 void dibujar_mascotas(App& a);
 bool sobre_mascotas(const App& a);
+
+// Marcadores de teleport (marcadores_ui.cpp).
+void eventos_marcadores(App& a, const Evento& e);
+// "/bookmark nombre" y "/delbookmark nombre"; true si era uno de esos.
+bool comando_marcador(App& a, std::string_view orden, std::string_view nombre);
+bool es_hechizo_teleport(u32 id);
+// Abre el diálogo de destino (si hay marcadores) para un pergamino o un hechizo de teleport;
+// false si no hay ninguno (se usa como siempre).
+bool elegir_destino(App& a, ObjId item, u32 hechizo);
+void dibujar_destino(App& a);
+bool sobre_destino(const App& a);
 // Comandos del cliente que empiezan con "/" (/invite, /trade, /pledge...); false si no es uno.
 bool comando_social(App& a, std::string_view linea);
 void ofrecer_en_intercambio(App& a, ObjId item);  // todo el montón

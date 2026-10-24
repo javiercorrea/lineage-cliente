@@ -19,6 +19,7 @@ enum class Ev : u8 {
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
+    MARCADOR,
     IGNORADO,
 };
 
@@ -82,7 +83,9 @@ enum : int { HT_DATOS };
 // ITEM_TIENDA (id = índice en la tienda o id del ítem, IT_GFX, TI_PRECIO, IT_CANTIDAD,
 // IT_BENDICION, s[0] = nombre).
 enum : int { LT_TIPO, LT_CANTIDAD };
-enum TipoLista : u8 { LISTA_COMPRA, LISTA_VENTA, LISTA_RETIRO, LISTA_MASCOTA };
+// LISTA_REPARAR (S_SelectList / S_FixWeaponList): las armas dañadas; IT_CANTIDAD = el daño y
+// TI_PRECIO = lo que cuesta repararla (200 adena por punto).
+enum TipoLista : u8 { LISTA_COMPRA, LISTA_VENTA, LISTA_RETIRO, LISTA_MASCOTA, LISTA_REPARAR };
 constexpr int TI_PRECIO = 6;  // en Evento::v, después de los campos IT_*
 // PREGUNTA (S_MessageYN): una pregunta de sí o no. PR_NUMERO y PR_TIPO (id en string-e.tbl: 252
 // intercambio, 953/954 grupo, 97 entrar al clan...) se devuelven en la respuesta (C_Attr);
@@ -112,6 +115,8 @@ enum : int { PC_PRECIO, PC_INICIAL, PC_MIN, PC_MAX };
 // ELEGIR_OBJETIVO_MASCOTA (S_SelectTarget; id = mascota): el servidor pide elegir a quién ataca.
 // MARCA_OBJETIVO (S_TrueTarget; id = objetivo marcado, s[0] = mensaje).
 enum : int { MA_AGREGAR };
+// MARCADOR (S_Bookmarks; id = marcador, s[0] = nombre): un lugar recordado para teletransportarse.
+enum : int { MK_MAPA, MK_X, MK_Y };
 // CHAT: v[0] = tipo de chat del servidor (TipoChat), id = quien habla (0 si no se sabe),
 // s[0] = texto ya armado por el servidor ("Nombre: hola"), s[1] = remitente (solo susurros).
 enum TipoChat : u8 {

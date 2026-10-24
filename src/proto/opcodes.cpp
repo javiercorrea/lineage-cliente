@@ -35,6 +35,7 @@ constexpr ParSrv JP363_SRV[] = {
     {35, Srv::DOOR},          {165, Srv::PARALYSIS},     {93, Srv::POISON},        {238, Srv::CURSEBLIND},
     {253, Srv::INPUTAMOUNT},  {33, Srv::PETCTRL},        {177, Srv::SELECTTARGET}, {110, Srv::TRUETARGET},
     // PETCTRL (33) es también S_CharReset: se distinguen por el primer byte (0x0c, la mascota).
+    {11, Srv::BOOKMARKS},     {208, Srv::SELECTLIST},
     // SKILLICONGFX y SKILLICONAURA usan el número de PACKETBOX (40): son subtipos de esa caja.
 };
 constexpr ParCli JP363_CLI[] = {
@@ -50,7 +51,8 @@ constexpr ParCli JP363_CLI[] = {
     {Cli::TITLE, 96},          {Cli::PLEDGE, 225},       {Cli::WHO, 49},           {Cli::CLAN, 246},
     {Cli::EMBLEM, 107},        {Cli::SKILLBUY, 173},     {Cli::SKILLBUYOK, 207},
     {Cli::DOOR, 199},          {Cli::GIVEITEM, 244},     {Cli::AMOUNT, 109},       {Cli::PETMENU, 217},
-    {Cli::USEPETITEM, 213},    {Cli::SELECTTARGET, 155},
+    {Cli::USEPETITEM, 213},    {Cli::SELECTTARGET, 155},  {Cli::CHANGECHAR, 237},   {Cli::FIXWEAPONLIST, 106},
+    {Cli::SELECTLIST, 238},    {Cli::BOOKMARK, 134},     {Cli::BOOKMARKDELETE, 223},
 };
 
 const char* NOMBRES[] = {
@@ -64,6 +66,7 @@ const char* NOMBRES[] = {
     "SKILLBRAVE", "SKILLICONSHIELD", "RANGESKILLS", "POLY", "SHOWHTML", "SHOWSHOPBUYLIST",
     "SHOWSHOPSELLLIST", "SHOWRETRIEVELIST", "YES_NO", "TRADE", "TRADEADDITEM", "TRADESTATUS", "EMBLEM", "SKILLBUY",
     "DOOR", "PARALYSIS", "POISON", "CURSEBLIND", "INPUTAMOUNT", "PETCTRL", "SELECTTARGET", "TRUETARGET",
+    "BOOKMARKS", "SELECTLIST",
 };
 static_assert(sizeof(NOMBRES) / sizeof(NOMBRES[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

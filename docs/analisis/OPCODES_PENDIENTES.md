@@ -24,17 +24,20 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Mascotas: `S_PetCtrlMenu` (33), `C_PetMenu` (217), `C_UsePetItem` (213), `S_SelectTarget` (177),
   `C_SelectTarget` (155), `S_TrueTarget` (110).
 
-Detalle y verificación en ENTREGABLES.md, "Puertas, estados alterados, cantidad y mascotas".
+- Reparar armas: `S_SelectList` (208), `C_FixWeaponList` (106), `C_SelectList` (238).
+- Marcadores: `S_Bookmarks` (11), `C_Bookmark` (134), `C_BookmarkDelete` (223).
+- Volver a la selección de personaje: `C_ChangeChar` (237).
+
+Detalle y verificación en ENTREGABLES.md, "Puertas, estados alterados, cantidad y mascotas" y
+"Reparar armas, marcadores y cambiar de personaje".
 
 ## 1. Más impacto en el juego
 
 | Función | Paquetes |
 |---|---|
 | Invisibilidad, resucitar, salir del modo fantasma | `S_Invis` (57), `S_Resurrection` (227), `C_ExitGhost` (210) |
-| Reparar armas | `S_SelectList` (208), `C_SelectList` (238), `C_FixWeaponList` (106) |
 | Resultado de identificar | `S_IdentifyDesc` (43) |
-| Marcadores de teleport | `S_Bookmarks` (11), `C_Bookmark` (134), `C_BookmarkDelete` (223) |
-| Volver a la selección de personaje | `C_ChangeChar` (237), `C_ReturnToLogin` (218) |
+| Volver al login (la selección de personaje ya está: `C_ChangeChar`) | `C_ReturnToLogin` (218) |
 | Entrar a portales como el original (el cliente manda la celda; hace falta la lista de portales del `.s32`) | `C_EnterPortal` (249) |
 
 ## 2. Avisos y efectos visuales

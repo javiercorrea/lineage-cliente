@@ -102,6 +102,8 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
         abrir_pagina(a, a.npc, vinculo, a.npc_datos);
     } else if (vinculo == "buyspell") {
         enviar(a, cmd::pedir_magia(a.op, a.npc));
+    } else if (vinculo == "fix") {  // herrero: la lista de armas dañadas (S_FixWeaponList)
+        enviar(a, cmd::armas_a_reparar(a.op));
     } else if (vinculo == "deposit") {
         abrir_tienda(a, a.npc, TipoTienda::DEPOSITO);
     } else if (vinculo.substr(0, 6) == "raise-") {  // RaiseAttr: subir un atributo (C_Attr 479)
@@ -123,7 +125,7 @@ u64 total(const App& a) {
 }
 
 void confirmar(App& a) {
-    if (a.tienda == TipoTienda::MASCOTA) {
+    if (a.tienda == TipoTienda::MASCOTA || a.tienda == TipoTienda::REPARAR) {
         cerrar(a);
         return;
     }
@@ -290,6 +292,8 @@ void dibujar_tienda(App& a, int x0, int y0) {
         char linea[64];
         if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO || a.tienda == TipoTienda::MASCOTA)
             std::snprintf(linea, sizeof linea, "x%u", f.maximo);
+        else if (a.tienda == TipoTienda::REPARAR)
+            std::snprintf(linea, sizeof linea, "Damage %u: %u adena", f.maximo, f.precio);
         else
             std::snprintf(linea, sizeof linea, "%u adena", f.precio);
         g.texto(linea, static_cast<float>(x + 38), static_cast<float>(y + 17), kt, rgba(170, 160, 140));
@@ -297,6 +301,13 @@ void dibujar_tienda(App& a, int x0, int y0) {
             std::snprintf(linea, sizeof linea, "%u", f.elegido);
             g.texto(linea, static_cast<float>(x + w - 6 - ancho_texto(linea, std::strlen(linea))), static_cast<float>(y + 17), kt,
                     rgba(255, 230, 120));
+        }
+        if (encima && e.clic && a.tienda == TipoTienda::REPARAR && f.precio) {
+            // Reparar esta arma (C_SelectList; el servidor cobra y la deja sin daño).
+            enviar(a, cmd::reparar_arma(a.op, f.id, a.tienda_npc));
+            f.precio = 0;
+            f.nombre += " (repaired)";
+            continue;
         }
         if (encima && e.clic && a.tienda == TipoTienda::MASCOTA) {
             // Usar o equipar el ítem de la mascota (por su fila) y volver a pedir la lista.
@@ -321,6 +332,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
     case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
     case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
     case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
+    case TipoTienda::REPARAR: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "No damaged weapons" : "Click a weapon to repair it"); break;
     default: std::snprintf(pie, sizeof pie, "Click: +1  Shift: +10  Right: -1"); break;
     }
     g.texto(pie, static_cast<float>(x0 + MARGEN), static_cast<float>(yp), kt, rgba(214, 190, 140));
@@ -363,10 +375,12 @@ void eventos_npc(App& a, const Evento& e) {
         }
         break;
     case Ev::LISTA_TIENDA: {
-        static constexpr TipoTienda TIPOS[] = {TipoTienda::COMPRA, TipoTienda::VENTA, TipoTienda::RETIRO, TipoTienda::MASCOTA};
-        static_assert(std::size(TIPOS) == LISTA_MASCOTA + 1);
+        static constexpr TipoTienda TIPOS[] = {TipoTienda::COMPRA, TipoTienda::VENTA, TipoTienda::RETIRO, TipoTienda::MASCOTA,
+                                               TipoTienda::REPARAR};
+        static_assert(std::size(TIPOS) == LISTA_REPARAR + 1);
         if (a.npc == 0) a.npc = e.id;
-        abrir_tienda(a, e.id, TIPOS[e.v[LT_TIPO]]);
+        // La de reparar no trae el NPC: es el herrero con el que se habla.
+        abrir_tienda(a, e.v[LT_TIPO] == LISTA_REPARAR ? a.npc : e.id, TIPOS[e.v[LT_TIPO]]);
         break;
     }
     case Ev::MAGIA_EN_VENTA: {
@@ -389,11 +403,11 @@ void eventos_npc(App& a, const Evento& e) {
         FilaTienda f;
         f.id = e.id;
         f.precio = static_cast<u32>(e.v[TI_PRECIO]);
-        if (a.tienda == TipoTienda::VENTA) {  // el servidor solo manda id y precio: el resto, del inventario
+        if (a.tienda == TipoTienda::VENTA || a.tienda == TipoTienda::REPARAR) {  // solo id y precio: el resto, del inventario
             Slot s = a.mundo.inventario.items.buscar(e.id);
             if (s == SIN_SLOT) break;
             f.gfx = a.mundo.inventario.items.col<I_GFX>()[s];
-            f.maximo = a.mundo.inventario.items.col<I_CANTIDAD>()[s];
+            f.maximo = a.tienda == TipoTienda::REPARAR ? static_cast<u32>(e.v[IT_CANTIDAD]) : a.mundo.inventario.items.col<I_CANTIDAD>()[s];
             f.bendicion = a.mundo.inventario.items.col<I_BENDICION>()[s];
             f.nombre = nombre_item(a.mundo.inventario, s);
         } else {
@@ -422,8 +436,8 @@ void dibujar_npc(App& a) {
     Graficos& g = *a.g;
     char titulo[96] = "";
     if (a.tienda != TipoTienda::NINGUNA) {
-        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit", "Learn magic", "Pet's bag"};
-        static_assert(std::size(NOMBRES) == static_cast<size_t>(TipoTienda::MASCOTA) + 1);
+        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit", "Learn magic", "Pet's bag", "Repair"};
+        static_assert(std::size(NOMBRES) == static_cast<size_t>(TipoTienda::REPARAR) + 1);
         std::snprintf(titulo, sizeof titulo, "%s", NOMBRES[static_cast<int>(a.tienda)]);
     } else if (Slot s = a.mundo.objetos.buscar(a.npc); s != SIN_SLOT) {
         size_t n = expandir_desc(a.desc, texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s]), titulo, sizeof titulo - 1);

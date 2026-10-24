@@ -521,6 +521,7 @@ ObjId objetivo_automatico(const App& a, Slot yo) {
     for (Slot s = 0; s < o.tamano(); ++s) {
         if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || tipo_objeto(a, s) == TIPO_ITEM) continue;
         if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos) continue;
+        if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
         int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
         if (d < mejor_d) {
             mejor_d = d;
@@ -601,7 +602,7 @@ void mover_jugador(App& a, u64 ahora) {
     bool ruta = false;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
     // Objetivo: lo que hay bajo el puntero mientras se mantiene el clic (soltar lo abandona),
     // según su tipo de gfx: un ítem se recoge, un monstruo se ataca, y a otros personajes y NPCs
@@ -1158,6 +1159,7 @@ void frame_juego(App& a) {
     dibujar_forma(a);
     dibujar_pregunta(a);
     dibujar_cantidad(a);
+    dibujar_destino(a);
     a.gpu.nivel_ventana(0);
     dibujar_chat(a);
     dibujar_ventanas(a);

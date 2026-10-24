@@ -18,7 +18,7 @@ constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
 constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 276;
-constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 92;
+constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
 
@@ -363,7 +363,12 @@ void dibujar_salida(App& a) {
         reiniciar(a);
         a.ventana_salida = false;
     }
-    if (ui::boton_texto(*a.g, a.entrada, "Quit game", r.x + 12, r.y + 60, r.w - 24, 20)) a.salir = true;
+    // Elegir otro personaje (C_ChangeChar): el servidor saca al personaje y manda la lista.
+    if (ui::boton_texto(*a.g, a.entrada, "Character select", r.x + 12, r.y + 60, r.w - 24, 20)) {
+        enviar(a, cmd::cambiar_personaje(a.op));
+        a.ventana_salida = false;
+    }
+    if (ui::boton_texto(*a.g, a.entrada, "Quit game", r.x + 12, r.y + 88, r.w - 24, 20)) a.salir = true;
 }
 
 void avisar_mapa(App& a, MapId mapa) {

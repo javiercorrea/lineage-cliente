@@ -263,6 +263,41 @@ inline Escritor objetivo_mascota(const TablaOpcodes& t, u32 mascota, u32 objetiv
     e.d(objetivo);
     return e;
 }
+// C_ChangeChar: sin datos. Sale del personaje y vuelve a la lista de personajes.
+inline Escritor cambiar_personaje(const TablaOpcodes& t) { return Escritor(t, Cli::CHANGECHAR); }
+// C_FixWeaponList: sin datos (vínculo "fix" del herrero; responde S_FixWeaponList).
+inline Escritor armas_a_reparar(const TablaOpcodes& t) { return Escritor(t, Cli::FIXWEAPONLIST); }
+// C_SelectList: d arma, d herrero (a 3 celdas o menos; cuesta 200 adena por punto de daño).
+inline Escritor reparar_arma(const TablaOpcodes& t, u32 arma, u32 npc) {
+    Escritor e(t, Cli::SELECTLIST);
+    e.d(arma);
+    e.d(npc);
+    return e;
+}
+// C_AddBookmark / C_DeleteBookmark: s nombre.
+inline Escritor marcar_lugar(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::BOOKMARK);
+    e.s(nombre);
+    return e;
+}
+inline Escritor borrar_marcador(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::BOOKMARKDELETE);
+    e.s(nombre);
+    return e;
+}
+// C_UseItem de un pergamino de teleport (usos 6 y 29): d ítem, h mapa, d marcador (0 = al azar).
+inline Escritor usar_teleport(const TablaOpcodes& t, u32 item, u16 mapa, u32 marcador) {
+    Escritor e(t, Cli::USEITEM);
+    e.d(item).h(mapa).d(marcador);
+    return e;
+}
+// C_UseSkill de Teleport / Mass Teleport: c fila, c columna, h mapa, d marcador.
+inline Escritor hechizo_teleport(const TablaOpcodes& t, u32 id, u16 mapa, u32 marcador) {
+    Escritor e(t, Cli::USESKILL);
+    e.c(static_cast<u8>((id - 1) / 8)).c(static_cast<u8>((id - 1) % 8));
+    e.h(mapa).d(marcador);
+    return e;
+}
 // C_Title: s personaje, s título (el propio desde nivel 40; el príncipe a los de su clan).
 inline Escritor poner_titulo(const TablaOpcodes& t, std::string_view personaje, std::string_view titulo) {
     Escritor e(t, Cli::TITLE);

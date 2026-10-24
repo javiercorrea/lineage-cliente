@@ -134,6 +134,8 @@ const char* nombre_clase(int c) {
 void eventos_personajes(App& a, const Evento& e) {
     switch (e.tipo) {
     case Ev::CANTIDAD_PERSONAJES:
+        // También al volver desde el juego (C_ChangeChar): lo del personaje anterior ya no vale.
+        a.mundo.limpiar();
         a.cantidad_pj = e.v[0];
         a.max_pj = e.v[1];
         a.pjs.clear();
@@ -161,7 +163,8 @@ void eventos_personajes(App& a, const Evento& e) {
         a.pj_sel = -1;
         break;
     case Ev::ENTRAR_JUEGO:
-        a.mascotas.clear();  // las de esta sesión llegan con S_PetCtrlMenu
+        a.mascotas.clear();  // las de esta sesión llegan con S_PetCtrlMenu (y los marcadores, con S_Bookmarks)
+        a.marcadores.clear();
         a.mascota_eligiendo = 0;
         cambiar_pantalla(a, Pantalla::JUEGO);
         break;

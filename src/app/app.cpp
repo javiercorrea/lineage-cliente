@@ -247,6 +247,7 @@ void procesar_red(App& a) {
         eventos_social(a, e);
         eventos_cantidad(a, e);
         eventos_mascotas(a, e);
+        eventos_marcadores(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
     }
     aplicar_eventos(a.mundo, a.eventos, a.entrada.ahora_ms);
@@ -309,8 +310,13 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--ruta=", 0) == 0) a.aut.ruta = valor("--ruta=");
         else if (s.rfind("--atacar=", 0) == 0) a.aut.atacar = valor("--atacar=");
         else if (s == "--reiniciar") a.aut.reiniciar = true;
-        else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar=")});
-        else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar=")});
+        else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
+        else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
+        else if (s.rfind("--dar=", 0) == 0) {
+            std::string v = valor("--dar=");
+            const size_t arroba = v.find('@');
+            a.aut.items.push_back({false, v.substr(0, arroba), arroba == std::string::npos ? "" : v.substr(arroba + 1)});
+        }
         else if (s == "--recoger") a.aut.recoger = true;
         else if (s == "--inventario") a.ventana_inventario = true;
         else if (s.rfind("--lanzar=", 0) == 0) a.aut.lanzar.push_back(valor("--lanzar="));
@@ -327,6 +333,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         }
         else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
         else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
+        else if (s.rfind("--destino=", 0) == 0) a.aut.destino = valor("--destino=");
         else if (s.rfind("--medio=", 0) == 0)
             std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
         else if (s == "--opciones") a.ventana_opciones = true;

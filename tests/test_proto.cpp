@@ -362,3 +362,43 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
     igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }
+
+TEST_CASE("Reparar armas, marcadores y cambiar de personaje: decodificar y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(4096);
+    std::vector<Evento> ev;
+    // S_FixWeaponList de la traza: 200 por punto, 1 arma (0x10015307) con daño 3.
+    std::vector<u8> fix = {208, 0xc8, 0, 0, 0, 1, 0, 0x07, 0x53, 0x01, 0x10, 3};
+    REQUIRE(decodificar(fix, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::LISTA_TIENDA);
+    CHECK(ev[0].v[LT_TIPO] == LISTA_REPARAR);
+    CHECK(ev[1].tipo == Ev::ITEM_TIENDA);
+    CHECK(ev[1].id == 0x10015307u);
+    CHECK(ev[1].v[IT_CANTIDAD] == 3);
+    CHECK(ev[1].v[TI_PRECIO] == 600);
+    // S_Bookmarks: s nombre, h mapa, d id, h x, h y.
+    ev.clear();
+    std::vector<u8> bm = {11, 'B', 'o', 's', 'q', 'u', 'e', 0, 4, 0, 1, 0, 0, 0, 0x56, 0x7f, 0xe8, 0x80};
+    REQUIRE(decodificar(bm, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::MARCADOR);
+    CHECK(ev[0].s[0] == "Bosque");
+    CHECK(ev[0].v[MK_MAPA] == 4);
+    CHECK(ev[0].id == 1);
+    CHECK(ev[0].v[MK_X] == 32598);
+    CHECK(ev[0].v[MK_Y] == 33000);
+
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    igual(cmd::cambiar_personaje(t), {237});
+    igual(cmd::armas_a_reparar(t), {106});
+    igual(cmd::reparar_arma(t, 0x10015307, 0x1003fa8b), {238, 0x07, 0x53, 0x01, 0x10, 0x8b, 0xfa, 0x03, 0x10});
+    igual(cmd::marcar_lugar(t, "Plaza"), {134, 'P', 'l', 'a', 'z', 'a', 0});
+    igual(cmd::borrar_marcador(t, "Plaza"), {223, 'P', 'l', 'a', 'z', 'a', 0});
+    igual(cmd::usar_teleport(t, 9, 4, 1), {44, 9, 0, 0, 0, 4, 0, 1, 0, 0, 0});
+    igual(cmd::hechizo_teleport(t, 5, 4, 1), {115, 0, 4, 4, 0, 1, 0, 0, 0});
+}

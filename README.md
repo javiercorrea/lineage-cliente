@@ -77,6 +77,9 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Puertas:** clic sobre una puerta para abrirla o cerrarla (se camina hasta ella). Las cerradas no se pueden atravesar.
 - **Dar ítems:** arrastrar un ítem del inventario sobre un NPC o una mascota se lo da; de una pila, pregunta cuántos.
 - **Mascotas e invocaciones:** su lista va a la izquierda de la barra de atajos, con la vida. Clic en el nombre abre su menú de órdenes (atacar, defender, quedarse...); "Bag" muestra su inventario, donde un clic usa o equipa el ítem. Con "Attack", el próximo clic elige su objetivo.
+- **Reparar armas:** en un herrero, el vínculo de reparar muestra las armas dañadas con su costo; un clic repara.
+- **Marcadores:** "/bookmark nombre" guarda el lugar (si el mapa lo permite) y "/delbookmark nombre" lo borra. Con marcadores, el pergamino de teleport y Teleport preguntan el destino.
+- **Cambiar de personaje:** Exit > "Character select".
 - **Estados alterados:** envenenado (verde), congelado (gris), ciego (pantalla negra salvo el propio personaje) y un aviso arriba si está paralizado, dormido, aturdido o atado (no se puede mover ni actuar).
 - **Monstruos sin sprite:** los que faltan en esta instalación se ven como un bloque magenta y se atacan con el clic como cualquier otro.
 - **Ítems del suelo:** clic sobre un ítem para recogerlo; si está lejos, el personaje camina hasta él. El nombre aparece al pasar el mouse por encima.
@@ -153,6 +156,8 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--medio=x,y,N` | Mantiene el botón del medio en (x, y) desde el frame 300 del juego durante N frames (usar el casillero elegido de la barra) |
 | `--pulsar=1#hola#` | Desde el frame 300 del juego, inyecta esas teclas una cada 10 frames como eventos de teclado (`#` Enter, `~` Esc) |
 | `--cantidad=N` | En el próximo diálogo de cantidad (del servidor, o al dar una pila a un NPC o mascota), elige N y acepta |
+| `--dar="Ítem@Nombre"` | Da ese ítem al más cercano con ese nombre (con `--cantidad` si es una pila); se puede repetir, uno cada 2 s, en la misma cola que `--usar` |
+| `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

@@ -88,6 +88,7 @@ void hechizos_automaticos(App& a, u64 ahora) {
     Slot yo = o.buscar(a.mundo.jugador.id), mejor = SIN_SLOT;
     for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
         if (o.col<O_ESTADO>()[s] == ESTADO_MUERTO) continue;
+        if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
         if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(quien) == std::string_view::npos) continue;
         if (mejor == SIN_SLOT || distancia(o, yo, s) < distancia(o, yo, mejor)) mejor = s;
     }
@@ -140,6 +141,8 @@ void pedir_hechizo(App& a, u32 id, ObjId objetivo) {
     const Hechizo& h = a.hechizos[id];
     if (!a.mundo.jugador.sabe(id) || !h.existe() || a.mundo.jugador.muerto) return;
     a.hechizo_apuntando = 0;
+    // Teleport con marcadores: primero el destino (marcadores_ui.cpp lo vuelve a pedir).
+    if (es_hechizo_teleport(id) && !a.destino_elegido && elegir_destino(a, 0, id)) return;
     if (h.con_objetivo && objetivo == 0) {
         a.hechizo_apuntando = id;  // se elige con el próximo clic
         return;
@@ -168,8 +171,15 @@ int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora) {
         int dir = direccion_de(o.col<O_X>()[obj] - o.col<O_X>()[yo], o.col<O_Y>()[obj] - o.col<O_Y>()[yo]);
         if (dir >= 0) o.col<O_DIR>()[yo] = static_cast<u8>(dir);
     }
-    enviar(a, cmd::usar_hechizo(a.op, id, obj != SIN_SLOT ? o.ids()[obj] : 0, obj != SIN_SLOT ? o.col<O_X>()[obj] : 0,
-                                obj != SIN_SLOT ? o.col<O_Y>()[obj] : 0));
+    if (es_hechizo_teleport(id)) {
+        enviar(a, cmd::hechizo_teleport(a.op, id, a.destino_mapa, a.destino_marcador));
+        a.destino_elegido = false;
+        a.destino_mapa = 0;
+        a.destino_marcador = 0;
+    } else {
+        enviar(a, cmd::usar_hechizo(a.op, id, obj != SIN_SLOT ? o.ids()[obj] : 0, obj != SIN_SLOT ? o.col<O_X>()[obj] : 0,
+                                    obj != SIN_SLOT ? o.col<O_Y>()[obj] : 0));
+    }
     // Animación propia ya (el eco del servidor no la reinicia) y sin otra acción hasta que termine:
     // el servidor mide el intervalo entre hechizos con la duración de esa animación.
     const u8 accion = h.de_ataque ? ACC_HECHIZO_ATAQUE : ACC_HECHIZO;

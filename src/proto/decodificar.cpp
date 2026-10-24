@@ -463,6 +463,16 @@ bool marca_objetivo(Lector& l, Evento& e) {
     e.s[0] = l.s();
     return true;
 }
+// S_Bookmarks: s nombre, h mapa, d id, h x, h y (uno por marcador; todos al entrar)
+bool marcador(Lector& l, Evento& e) {
+    e.tipo = Ev::MARCADOR;
+    e.s[0] = l.s();
+    e.v[MK_MAPA] = l.h();
+    e.id = l.d();
+    e.v[MK_X] = l.h();
+    e.v[MK_Y] = l.h();
+    return true;
+}
 // S_Teleport: c 0, c 0x40, d personaje
 bool teletransporte(Lector& l, Evento& e) {
     e.tipo = Ev::TELETRANSPORTE;
@@ -569,6 +579,8 @@ constexpr Decodificador TABLA[] = {
     mascota,        // PETCTRL
     elegir_objetivo_mascota,  // SELECTTARGET
     marca_objetivo, // TRUETARGET
+    marcador,       // BOOKMARKS
+    ignorar,        // SELECTLIST: varios eventos (decodificar)
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -591,6 +603,27 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
         for (int i = 0; i < n && !l.error; ++i) {
             Evento it = e;
             leer_item(l, it);
+            if (!l.error) salida.push_back(it);
+        }
+        return !l.error;
+    }
+    if (e.origen == Srv::SELECTLIST) {
+        // S_FixWeaponList: d precio por punto (200), h n, n × (d arma, c daño). Una lista de tienda
+        // (del NPC con el que se habla) con las armas dañadas.
+        Evento lista = e;
+        lista.tipo = Ev::LISTA_TIENDA;
+        const u32 precio = l.d();
+        const int n = l.h();
+        lista.v[LT_TIPO] = LISTA_REPARAR;
+        lista.v[LT_CANTIDAD] = n;
+        if (l.error) return false;
+        salida.push_back(lista);
+        for (int i = 0; i < n && !l.error; ++i) {
+            Evento it = e;
+            it.tipo = Ev::ITEM_TIENDA;
+            it.id = l.d();
+            it.v[IT_CANTIDAD] = l.c();
+            it.v[TI_PRECIO] = static_cast<i32>(precio * static_cast<u32>(it.v[IT_CANTIDAD]));
             if (!l.error) salida.push_back(it);
         }
         return !l.error;
