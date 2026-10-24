@@ -124,7 +124,7 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
 // ALFA_TRANSLUCIDO, y con huecos).
 constexpr u8 LUZ_EN_SOMBRA = 150;
 bool en_sombra(App& a, int x, int y) {
-    const SegmentoMapa* s = segmento(a.mundo, a.rec, x, y);
+    const SegmentoMapa* s = segmento_cargado(a.mundo, a.rec, x, y);
     if (!s) return false;
     if (s->sombra.empty()) {
         s->sombra.assign(CELDAS_SEGMENTO, 0);
@@ -156,7 +156,7 @@ void dibujar_suelo(App& a, double cam_x, double cam_y, double ox, double oy) {
         for (int u = -u_max; u <= u_max; ++u) {
             if ((u + v) & 1) continue;
             int x = cx + (u - v) / 2, y = cy + (u + v) / 2;
-            const SegmentoMapa* s = segmento(a.mundo, a.rec, x, y);
+            const SegmentoMapa* s = segmento_cargado(a.mundo, a.rec, x, y);
             if (!s) continue;
             int lx = x - s->base_x, ly = y - s->base_y;
             float sx = static_cast<float>(mundo_px(x, y) + ox);
@@ -168,36 +168,89 @@ void dibujar_suelo(App& a, double cam_x, double cam_y, double ox, double oy) {
     }
 }
 
+// Radio en celdas que cubre la pantalla (más los objetos altos que asoman desde abajo). Se dibujan
+// los segmentos de 64×64 alrededor de la cámara que lo contienen, y se conservan en memoria dos
+// más por lado (se cargan con margen y no se liberan y recargan yendo y viniendo).
+int radio_dibujo(const Vista& vi) { return (vi.w / 24 + vi.h / 12) / 2 + 8; }
+int radio_segmentos(const Vista& vi) { return radio_dibujo(vi) / 64 + 3; }
+
+// Objetos del mapa que tapan al propio personaje (el techo de la casa en la que entró, el árbol
+// detrás del que pasa): si una pieza que se levanta está delante de él y cubre el centro de su
+// cuerpo, todo lo que ese objeto tiene delante del personaje se dibuja translúcido. Se usa el
+// rectángulo del personaje del frame anterior (dibujar_personajes llena en_pantalla después).
+constexpr u8 ALFA_TAPA = 110;
+constexpr int CELDAS_TAPA = 6;  // una pieza que cubre al personaje está a pocas celdas
+constexpr u8 ALFA_SILUETA = 120;
+
 void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double oy) {
     Graficos& g = *a.g;
     int cx = static_cast<int>(cam_x), cy = static_cast<int>(cam_y);
     const Vista vi = vista(a);
-    // Radio en celdas que cubre la pantalla (más los objetos altos que asoman desde abajo) y
-    // segmentos de 64×64 alrededor de la cámara que lo contienen.
-    const int radio = (vi.w / 24 + vi.h / 12) / 2 + 8, segs = radio / 64 + 1;
+    const App::ObjetoEnPantalla* yo = nullptr;
+    a.jugador_tapado = false;
+    for (const App::ObjetoEnPantalla& r : a.en_pantalla)
+        if (r.id == a.mundo.jugador.id) yo = &r;
+    // Centro del cuerpo: el rectángulo del frame trae márgenes (arma, capa).
+    float cuerpo_x0 = 0, cuerpo_x1 = 0, cuerpo_y0 = 0, cuerpo_y1 = 0;
+    if (yo) {
+        const float medio = (yo->x0 + yo->x1) / 2, alto = yo->y1 - yo->y0;
+        cuerpo_x0 = medio - 8;
+        cuerpo_x1 = medio + 8;
+        cuerpo_y0 = yo->y0 + alto * 0.25f;
+        cuerpo_y1 = yo->y1 - alto * 0.15f;
+    }
+    const int radio = radio_dibujo(vi), segs = radio / 64 + 1;
     for (int dy = -segs; dy <= segs; ++dy) {
         for (int dx = -segs; dx <= segs; ++dx) {
-            const SegmentoMapa* s = segmento(a.mundo, a.rec, cx + dx * 64, cy + dy * 64);
+            const SegmentoMapa* s = segmento_cargado(a.mundo, a.rec, cx + dx * 64, cy + dy * 64);
             if (!s) continue;
-            for (const TileObjetoMapa& t : s->tiles_objetos) {
-                int x = s->base_x + t.x / 2, y = s->base_y + t.y;
-                if (std::abs(x - cx) > radio || std::abs(y - cy) > radio) continue;
-                float sx = static_cast<float>(mundo_px(x, y) + ox) + ((t.x & 1) ? 24 : 0);
-                float sy = static_cast<float>(mundo_py(x, y) + oy);
-                if (sx < -96 || sx > vi.w + 60 || sy < -96 || sy > vi.h + 80) continue;
-                if (pieza_de_suelo(t)) {
-                    // Pegada al suelo (sombra, arena): sobre las baldosas, por capa y fila, y debajo
-                    // de todo lo que se levanta (también las sombras: ver en_sombra).
-                    i32 fila = static_cast<i32>(mundo_py(x, y)) + (1 << 20);
-                    u32 orden = (static_cast<u32>(t.capa + 1) << 21) | (static_cast<u32>(fila < 0 ? 0 : fila) & 0x1FFFFF);
-                    g.gpu().dibujar_en(g.medio_tile(t.tile, (t.x & 1) != 0), sx, sy, clave_orden(CAPA_SUELO, orden));
-                    continue;
+            for (const ObjetoMapa& obj : s->objetos) {
+                // Objeto entero fuera del radio: ni se miran sus piezas.
+                const int ox0 = s->base_x + obj.x0, ox1 = s->base_x + obj.x1, oy0 = s->base_y + obj.y0, oy1 = s->base_y + obj.y1;
+                if (ox1 < cx - radio || ox0 > cx + radio || oy1 < cy - radio || oy0 > cy + radio) continue;
+                const TileObjetoMapa* piezas = s->tiles_objetos.data() + obj.primera;
+                // ¿Tapa al personaje? Solo si alguna de sus piezas está a pocas celdas.
+                bool tapa = false;
+                const bool cerca = yo && ox1 >= cx - CELDAS_TAPA && ox0 <= cx + CELDAS_TAPA && oy1 >= cy - CELDAS_TAPA &&
+                                   oy0 <= cy + CELDAS_TAPA;
+                for (u32 k = 0; cerca && k < obj.cantidad && !tapa; ++k) {
+                    const TileObjetoMapa& t = piezas[k];
+                    int x = s->base_x + t.x / 2, y = s->base_y + t.y;
+                    if (pieza_de_suelo(t) || std::abs(x - cx) > CELDAS_TAPA || std::abs(y - cy) > CELDAS_TAPA) continue;
+                    const RegionAtlas& r = g.medio_tile(t.tile, (t.x & 1) != 0);
+                    if (!r.valida()) continue;
+                    float x0 = static_cast<float>(mundo_px(x, y) + ox) + ((t.x & 1) ? 24 : 0) + r.ox;
+                    float y0 = static_cast<float>(mundo_py(x, y) + oy) + r.oy;
+                    if (x0 >= cuerpo_x1 || x0 + r.w <= cuerpo_x0 || y0 >= cuerpo_y1 || y0 + r.h <= cuerpo_y0) continue;
+                    float fila_pie = static_cast<float>(mundo_py(x, y) + t.base * 12.0) + 12.0f;
+                    tapa = profundidad(fila_pie, ORDEN_PERSONAJE - 1 - std::min(62, static_cast<int>(t.base)), t.capa) > yo->profundidad;
                 }
-                // Pie de la pieza (ver COLUMNAS_BASE en mapa.h); dentro de la misma fila de pie, las
-                // piezas más altas primero y los personajes después.
-                float fila_pie = static_cast<float>(mundo_py(x, y) + t.base * 12.0) + 12.0f;
-                g.gpu().dibujar_en(g.medio_tile(t.tile, (t.x & 1) != 0), sx, sy,
-                                   clave_orden(CAPA_MUNDO, profundidad(fila_pie, ORDEN_PERSONAJE - 1 - std::min(62, static_cast<int>(t.base)), t.capa)));
+                a.jugador_tapado |= tapa;
+                for (u32 k = 0; k < obj.cantidad; ++k) {
+                    const TileObjetoMapa& t = piezas[k];
+                    int x = s->base_x + t.x / 2, y = s->base_y + t.y;
+                    if (std::abs(x - cx) > radio || std::abs(y - cy) > radio) continue;
+                    float sx = static_cast<float>(mundo_px(x, y) + ox) + ((t.x & 1) ? 24 : 0);
+                    float sy = static_cast<float>(mundo_py(x, y) + oy);
+                    if (sx < -96 || sx > vi.w + 60 || sy < -96 || sy > vi.h + 80) continue;
+                    if (pieza_de_suelo(t)) {
+                        // Pegada al suelo (sombra, arena): sobre las baldosas, por capa y fila, y debajo
+                        // de todo lo que se levanta (también las sombras: ver en_sombra).
+                        i32 fila = static_cast<i32>(mundo_py(x, y)) + (1 << 20);
+                        u32 orden = (static_cast<u32>(t.capa + 1) << 21) | (static_cast<u32>(fila < 0 ? 0 : fila) & 0x1FFFFF);
+                        g.gpu().dibujar_en(g.medio_tile(t.tile, (t.x & 1) != 0), sx, sy, clave_orden(CAPA_SUELO, orden));
+                        continue;
+                    }
+                    // Pie de la pieza (ver COLUMNAS_BASE en mapa.h); dentro de la misma fila de pie, las
+                    // piezas más altas primero y los personajes después.
+                    float fila_pie = static_cast<float>(mundo_py(x, y) + t.base * 12.0) + 12.0f;
+                    const u32 prof = profundidad(fila_pie, ORDEN_PERSONAJE - 1 - std::min(62, static_cast<int>(t.base)), t.capa);
+                    // Del objeto que tapa, solo lo que queda delante (techo, pared del frente): el
+                    // interior y la pared de atrás siguen opacos.
+                    const bool delante = tapa && prof > yo->profundidad;
+                    g.gpu().dibujar_en(g.medio_tile(t.tile, (t.x & 1) != 0), sx, sy, clave_orden(CAPA_MUNDO, prof),
+                                       delante ? rgba(255, 255, 255, ALFA_TAPA) : BLANCO);
+                }
             }
         }
     }
@@ -293,13 +346,22 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (a.cfg.sombra_personajes && en_sombra(a, static_cast<int>(std::lround(vis_x)), static_cast<int>(std::lround(vis_y))))
                 color = rgba(LUZ_EN_SOMBRA, LUZ_EN_SOMBRA, LUZ_EN_SOMBRA);
             g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
+            // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
+            // translúcidas superpuestas casi lo esconden).
+            if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
+                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
             if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
         } else {
-            g.gpu().rectangulo(static_cast<int>(sx) + 20, static_cast<int>(sy) + 4, 8, 8, clave_orden(CAPA_MUNDO, prof),
-                               rgba(255, 0, 255));
+            // Sin sprite: un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
+            const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
+            const float x1 = x0 + 24, y1 = y0 + 36;
+            g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
+            top = y0;
+            bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.
@@ -436,7 +498,7 @@ ObjId objetivo_automatico(const App& a, Slot yo) {
     ObjId mejor = 0;
     int mejor_d = 1 << 30;
     for (Slot s = 0; s < o.tamano(); ++s) {
-        if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || a.sprites.tipo(o.col<O_GFX>()[s]) == TIPO_ITEM) continue;
+        if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || tipo_objeto(a, s) == TIPO_ITEM) continue;
         if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos) continue;
         int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
         if (d < mejor_d) {
@@ -534,7 +596,7 @@ void mover_jugador(App& a, u64 ahora) {
     if (clic_en_mundo) {
         a.objetivo = objeto_bajo_puntero(a);
         Slot b = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
-        u8 tipo = b != SIN_SLOT ? a.sprites.tipo(o.col<O_GFX>()[b]) : 0;
+        u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
         // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
         a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
         if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !e.ctrl) a.objetivo = 0;
@@ -898,7 +960,7 @@ void elegir_cursor(App& a) {
     ObjId id = objeto_bajo_puntero(a);
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
-    u8 tipo = a.sprites.tipo(a.mundo.objetos.col<O_GFX>()[s]);
+    u8 tipo = tipo_objeto(a, s);
     if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM)) a.cursor = Cursor::ESPADA;
 }
 
@@ -979,6 +1041,7 @@ void frame_juego(App& a) {
         a.t_mantener_vivo = ahora;
     }
 
+    actualizar_segmentos(a.mundo, static_cast<int>(cam_x), static_cast<int>(cam_y), radio_segmentos(vi));
     dibujar_suelo(a, cam_x, cam_y, ox, oy);
     dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
     dibujar_personajes(a, ahora, ox, oy);

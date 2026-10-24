@@ -201,6 +201,7 @@ struct App {
         u32 profundidad;
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
+    bool jugador_tapado = false;  // un objeto del mapa tapa al propio personaje (se ve translúcido)
     ObjId objetivo = 0;
     u64 fin_ataque = 0;
     u64 t_muerte = 0;  // cuándo se vio el aviso de muerte (0 = vivo)
@@ -373,6 +374,8 @@ void dibujar_forma(App& a);
 bool sobre_forma(const App& a);
 
 // NPCs y comercio (npc_ui.cpp). El diálogo va arriba a la izquierda.
+// Tipo de gfx del objeto (TipoGfx); un gfx que no está en la tabla de sprites cuenta como monstruo.
+u8 tipo_objeto(const App& a, Slot s);
 bool es_npc(const App& a, Slot s);
 void eventos_npc(App& a, const Evento& e);
 bool sobre_npc(const App& a);

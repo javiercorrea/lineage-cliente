@@ -16,6 +16,23 @@ struct TextoRef {
     u16 len = 0;
 };
 
+// Las arenas de textos solo crecen (cada nombre nuevo o cambiado se agrega al final): pasado este
+// tamaño se compactan, copiando solo los que siguen en uso.
+constexpr size_t MAX_ARENA_TEXTOS = 256 * 1024;
+
+// `cada(f)` llama a f(TextoRef&) con cada referencia viva; quedan apuntando a la arena nueva.
+template <class F>
+void compactar_textos(std::vector<char>& textos, F&& cada) {
+    std::vector<char> nueva;
+    nueva.reserve(textos.size() / 4);
+    cada([&](TextoRef& r) {
+        const u32 ofs = static_cast<u32>(nueva.size());
+        nueva.insert(nueva.end(), textos.begin() + r.ofs, textos.begin() + r.ofs + r.len);
+        r.ofs = ofs;
+    });
+    textos.swap(nueva);
+}
+
 enum ColItem : size_t {
     I_GFX,          // ícono de inventario (N.tbt)
     I_USO,          // tipo de uso (L1J ItemTable: 1 arma, 2 armadura, 59 curación...)

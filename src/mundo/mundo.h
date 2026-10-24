@@ -4,10 +4,12 @@
 // interpolada y el frame de animación son funciones puras del estado y del tiempo: no hay
 // estado de animación por objeto que actualizar cada frame.
 #pragma once
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
 #include "core/tabla_soa.h"
+#include "mundo/cargador_segmentos.h"
 #include "mundo/inventario.h"
 #include "proto/eventos.h"
 #include "recursos/hechizos.h"
@@ -131,12 +133,14 @@ struct Mundo {
     EfectoVisual efectos[MAX_EFECTOS_VISUALES];
     u32 siguiente_efecto = 0;
 
-    // Segmentos de mapa cargados (clave: mapa << 32 | sx << 16 | sy).
+    // Segmentos de mapa cargados (clave: mapa << 32 | sx << 16 | sy). El índice también marca los
+    // que no existen y los que se están cargando en el hilo (cargador, que se crea al primer uso).
     std::vector<SegmentoMapa> segmentos;
     MapaHash indice_segmentos;
+    std::unique_ptr<CargadorSegmentos> cargador;
+    std::vector<CargadorSegmentos::Hecho> segmentos_hechos;  // reutilizado por actualizar_segmentos
 
-    // Textos persistentes (nombres, títulos): arena que solo crece.
-    // PENDIENTE: compactar al cambiar de mapa.
+    // Textos de los objetos (nombres, títulos): arena que crece y se compacta (compactar_textos).
     std::vector<char> textos;
 
     void limpiar();
@@ -158,8 +162,15 @@ void vencer_efectos(EstadoJugador& j, u64 ahora);
 // se descarta todo lo demás y el estado de muerte.
 void reiniciar_jugador(Mundo& m);
 
-// Segmento que contiene la celda; lo carga la primera vez. nullptr si no existe en el disco.
+// Segmento que contiene la celda; lo carga la primera vez (en el momento: para la lógica del
+// juego, como si una celda es pasable). nullptr si no existe en el disco.
 const SegmentoMapa* segmento(Mundo& m, const Recursos& rec, int x, int y);
+// Igual, sin esperar (para el render): si no está, lo pide al hilo de carga y devuelve nullptr.
+const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y);
+// Una vez por frame, antes de dibujar: guarda los segmentos que terminó el hilo y libera los que
+// quedaron a más de `radio` segmentos de (x, y). Los punteros a segmentos valen hasta la próxima
+// llamada.
+void actualizar_segmentos(Mundo& m, int x, int y, int radio);
 bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y);
 
 // Proyección isométrica (map_coord.cpp de l1j-client): celda -> píxel del mundo. En double:

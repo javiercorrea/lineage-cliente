@@ -5,6 +5,10 @@ namespace lin {
 namespace {
 
 TextoRef guardar(Inventario& inv, std::string_view t) {
+    if (inv.textos.size() > MAX_ARENA_TEXTOS)
+        compactar_textos(inv.textos, [&](auto&& f) {
+            for (Slot s = 0; s < inv.items.tamano(); ++s) f(inv.items.col<I_NOMBRE>()[s]);
+        });
     TextoRef r{static_cast<u32>(inv.textos.size()), static_cast<u16>(t.size() > 0xFFFF ? 0xFFFF : t.size())};
     inv.textos.insert(inv.textos.end(), t.begin(), t.begin() + r.len);
     return r;

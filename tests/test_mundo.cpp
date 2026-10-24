@@ -1,4 +1,8 @@
 #include <doctest/doctest.h>
+#include <chrono>
+#include <thread>
+#include "comun.h"
+#include "plataforma/archivo_mapeado.h"
 #include "mundo/mundo.h"
 
 using namespace lin;
@@ -257,4 +261,69 @@ TEST_CASE("Inventario: lista, agregar, cantidad, nombre (equipado) y quitar") {
     Evento l4[] = {vaciar};
     aplicar_eventos(m, l4, 0);
     CHECK(t.tamano() == 0);
+}
+
+TEST_CASE("Mundo: la arena de textos se compacta y los nombres siguen iguales") {
+    Mundo m;
+    Evento e = poner(1, 10, 10, "Primero");
+    aplicar_eventos(m, std::span(&e, 1), 0);
+    // Cambios de título repetidos: cada uno agrega texto hasta pasar el límite.
+    std::string titulo(200, 'x');
+    for (int i = 0; i * titulo.size() < MAX_ARENA_TEXTOS + 1000; ++i) {
+        Evento t{};
+        t.tipo = Ev::PONER_OBJETO;
+        t.id = 2;
+        t.v[OB_X] = 11;
+        t.v[OB_Y] = 11;
+        t.s[0] = "Segundo";
+        t.s[1] = titulo;
+        aplicar_eventos(m, std::span(&t, 1), 0);
+    }
+    CHECK(m.textos.size() < MAX_ARENA_TEXTOS);
+    const TablaObjetos& o = m.objetos;
+    CHECK(texto(m, o.col<O_NOMBRE>()[o.buscar(1)]) == "Primero");
+    CHECK(texto(m, o.col<O_NOMBRE>()[o.buscar(2)]) == "Segundo");
+    CHECK(texto(m, o.col<O_TITULO>()[o.buscar(2)]) == titulo);
+}
+
+TEST_CASE("Mundo: segmentos en el hilo de carga y liberación de los lejanos" * doctest::skip(carpeta_juego().empty())) {
+    Recursos rec;
+    REQUIRE(rec.abrir(carpeta_juego()));
+    Mundo m;
+    m.mapa = 2005;
+    const int x = 32691, y = 32864;
+    CHECK(segmento_cargado(m, rec, x, y) == nullptr);  // pedido al hilo
+    const SegmentoMapa* s = nullptr;
+    for (int i = 0; i < 500 && !s; ++i) {
+        actualizar_segmentos(m, x, y, 2);
+        s = segmento_cargado(m, rec, x, y);
+        if (!s) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    REQUIRE(s);
+    // Igual al que se carga en el momento.
+    std::vector<u8> datos;
+    SegmentoMapa directo;
+    REQUIRE(leer_archivo(carpeta_juego() + nombre_segmento(2005, x, y), datos));
+    REQUIRE(decodificar_s32(datos, x & ~63, y & ~63, directo));
+    CHECK(s->suelo == directo.suelo);
+    CHECK(s->tiles_objetos.size() == directo.tiles_objetos.size());
+    // Los objetos cubren todas las piezas, seguidas, y su rectángulo las contiene.
+    u32 siguiente = 0;
+    for (const ObjetoMapa& o : s->objetos) {
+        CHECK(o.primera == siguiente);
+        siguiente += o.cantidad;
+        for (u32 k = o.primera; k < o.primera + o.cantidad; ++k) {
+            const TileObjetoMapa& t = s->tiles_objetos[k];
+            CHECK((t.x / 2 >= o.x0 && t.x / 2 <= o.x1 && t.y >= o.y0 && t.y <= o.y1));
+        }
+    }
+    CHECK(siguiente == s->tiles_objetos.size());
+    // Uno lejano se carga en el momento; al actualizar con radio 2 alrededor del primero se libera
+    // y el primero sigue encontrándose por su clave.
+    REQUIRE(segmento(m, rec, x + 64 * 3, y));
+    CHECK(m.segmentos.size() == 2);
+    actualizar_segmentos(m, x, y, 2);
+    CHECK(m.segmentos.size() == 1);
+    CHECK(segmento_cargado(m, rec, x, y) == &m.segmentos[0]);
+    CHECK(segmento_cargado(m, rec, x + 64 * 3, y) == nullptr);  // pedido de nuevo
 }

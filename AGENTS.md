@@ -6,7 +6,7 @@ código. El idioma del proyecto es el **español**: código (identificadores), c
 
 - **Qué es:** cliente nuevo de Lineage 1 en C++20 + SDL3 (SDL_GPU), con diseño orientado a datos.
   Lee los recursos de una instalación original del juego y habla el protocolo L1J (versión JP 3.63c).
-- **Estado:** entregables 1 a 9 terminados. El detalle, con la evidencia y lo pendiente, está en
+- **Estado:** entregables 1 a 10 terminados. El detalle, con la evidencia y lo pendiente, está en
   [ENTREGABLES.md](ENTREGABLES.md).
 - **Plan:** [docs/analisis/PLAN_CLIENTE.md](docs/analisis/PLAN_CLIENTE.md) (11 entregables jugables).
 - **Protocolo:** [docs/analisis/PROTOCOLO_RED.md](docs/analisis/PROTOCOLO_RED.md) y `docs/analisis/opcodes/`.
@@ -40,7 +40,7 @@ cmake --preset debug && cmake --build --preset debug        # también: release,
 servidor_local/instalar.sh                                   # una vez (OpenJDK, MariaDB en 3307, base, parches)
 servidor_local/arrancar.sh                                   # deja el servidor en primer plano; servidor.log
 export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con Sprite*.pak, Text.pak, map/
-LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 57 casos; sin LINEAGE_DIR se saltan 6
+LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 59 casos; sin LINEAGE_DIR se saltan 7
 ```
 
 - **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en
@@ -78,7 +78,7 @@ comandos (proto/comandos.h: Escritor) ─► anillo ─► hilo escritor (cifra)
 | `src/plataforma` | archivos mapeados, socket, rutas y `settings.ini` | core, SDL |
 | `src/proto` | cifrado, tabla de opcodes, decodificador, eventos, comandos, hilos de red | core, plataforma |
 | `src/recursos` | `.pak/.idx`, DES de Text.pak, imágenes, tiles, sprites, mapas, fuentes, textos, HTML | core, plataforma |
-| `src/mundo` | estado del juego: objetos (SoA), jugador, inventario, chat, mapas; aplicar eventos | core, proto, recursos |
+| `src/mundo` | estado del juego: objetos (SoA), jugador, inventario, chat, mapas (segmentos cargados en un hilo); aplicar eventos | core, proto, recursos |
 | `src/render` | SDL_GPU, atlas (texture array con LRU), gráficos de alto nivel | core, recursos, SDL |
 | `src/audio` | dispositivo y streams de SDL3: música MP3 (dr_mp3), efectos WAV, ambiente | core, SDL |
 | `src/ui` | UI inmediata (botones, cajas de texto) | render |
@@ -170,7 +170,7 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - **Antes de empezar:** mirar los issues abiertos y las ramas `agente/*` (`git branch -r`), para no
   duplicar trabajo.
 - **Buenas divisiones** (casi no se tocan entre sí):
-  - **pendientes del entregable 10:** paneo, sonidos de equipar y de voz, monstruos sin sprite;
+  - **pendientes del entregable 10:** paneo, sonidos de equipar y de voz;
   - **portabilidad:** Windows y Linux (`grep -rn MULTIPLATAFORMA`; tabla en el README);
   - **entregable 11:** empaquetado y otras versiones de protocolo (tablas de opcodes desde
     `docs/analisis/opcodes`);

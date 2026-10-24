@@ -28,6 +28,11 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
 - Música del login (`lin_audio`, entregable 10).
 - Opciones (entregable 10).
 
+**UI simple del login** (con `ui_simple=1`, la de siempre; F2 vuelve a la original):
+- Fondo oscuro, logo arriba y un recuadro con Account, Password, Login y Quit; abajo, el servidor.
+- **Logo propio:** `logo=` en `settings.ini` (o `--logo=`): un PNG con alfa de hasta 2048×2048, ruta absoluta o relativa a la carpeta de `settings.ini`, achicado para entrar en 560×190. Sin logo, o si no se puede leer, "LINEAGE" en texto (y un aviso en el registro).
+- Capturas: `docs/capturas/1_login_simple.png` y `1_login_logo.png`.
+
 ## Entregable 2: Selección y creación de personaje ✅
 
 ![Selección](docs/capturas/2_seleccion.png) ![Creación](docs/capturas/2_creacion.png)
@@ -53,9 +58,15 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
 - Las animaciones PNG traen, sobre negro, un resplandor en degradé de 0x01 a ~0x40 que el original sumaba al fondo. Solo se quitaba el negro y los casi negros, y el resto del degradé quedaba opaco.
 - **Ahora** (`quitar_fondo_negro`): desde el negro puro se recorren los píxeles oscuros unidos a él y cada uno pasa a alfa proporcional a su brillo, con el color compensado; al dibujarse equivale a sumarlo al fondo. Lo oscuro dentro de una figura (las versiones apagadas) queda opaco. Verificado en captura y con un test.
 
+**UI simple** (con `ui_simple=1`; F2 vuelve a la original):
+- **Selección:** lista de todos los personajes (nombre, nivel, clase, clan) y "+ New character" en las ranuras libres; a la derecha, la animación y los datos del elegido; Enter, Delete (pide un segundo clic: "Sure?") y Back.
+- **Creación:** clase y sexo a la izquierda; atributos con −/+, puntos libres, nombre y la animación a la derecha; Create y Back.
+- Capturas: `docs/capturas/2_seleccion_simple.png` y `2_crear_simple.png`.
+
 **Pendiente:**
 - Las flechas de página (`1765/1767.img`) no se ven con esta instalación: falta buscar sus nombres nuevos.
-- Borrar no pide confirmación.
+- Borrar no pide confirmación en la pantalla original (sí en la simple).
+- Crear y borrar desde la UI simple solo se probó con la automatización, no a mano.
 
 ## Entregable 3: Dentro del juego, moverse ✅
 
@@ -339,6 +350,7 @@ Adelanta la parte de uso del entregable 8 del plan: lanzar hechizos, sus efectos
   - muestra los íconos originales (`spellicon.idx` de `Sprite.pak` da el `N.tbt` de cada hechizo), la cantidad de los ítems y oscurece lo que no se puede usar (sin MP, hechizo no sabido, ítem que ya no está);
   - un ítem se guarda por su id y su gfx: si la pila se acabó y se consiguió otra, se usa esa;
   - se guarda por personaje en `settings.ini` (`barra=`);
+  - clic del medio sobre un casillero lo elige (marco dorado; se guarda con un `*` en `barra=`) y clic del medio sobre el mundo usa el elegido sobre lo que hay bajo el puntero, como en el original. Un hechizo con objetivo sin nada bajo el puntero no se lanza. El usuario lo probó en vivo;
   - en algunos teclados Alt con un número escribe un carácter (Option+2 = "@" en el teclado español del Mac): si sale un carácter ASCII se toma como texto, no como atajo.
 - **F5–F12** siguen como atajos solo de hechizos.
 - **Efectos activos:** arriba a la izquierda, con lo que les queda ("Shield 29:57", "Haste 4:49").
@@ -606,12 +618,27 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Clima:** `.weather 19` y `.weather 3`: lluvia y nieve en Talking Island y Giran, y nada en la mazmorra de Gludio.
 - **Tests:** `tests/test_sonidos.cpp` cubre `music.def` y `envsound.def`, de muestra y los reales.
 
+**Prueba de oído:** el usuario confirmó en vivo que la música, el ambiente y los efectos se escuchan bien.
+
+**Monstruos sin sprite** (`tipo_objeto` en `app/npc_ui.cpp`):
+- **Qué son:** 30 de los monstruos de la base de esta versión usan un gfx que falta en la tabla de sprites y en los `.pak` (Depraved Soul, gfx 8457, y los de las islas nuevas). Se dibujan como un bloque magenta.
+- **Antes:** el bloque era de 8×8 y no se podía elegir. Además, como su gfx no tiene tipo (atributo 102), se lo trataba como un NPC: el clic caminaba hasta él para hablarle.
+- **Ahora:** el bloque es del tamaño de un cuerpo (24×36), entra en la lista de cosas clicables, y un gfx sin acciones en la tabla cuenta como monstruo: el clic lo ataca y el cursor es la espada.
+- **Verificado:** `.spawn 46186` junto a Charla y un clic simulado (`--arrastrar`): caminó hasta él y atacó (3 efectos de ataque). Captura: `docs/capturas/10_monstruo_sin_sprite.png`.
+
+**Techos y árboles translúcidos** (`dibujar_objetos_mapa` en `app/pantalla_juego.cpp`):
+- **Qué hace:** si una pieza de un objeto del mapa (casa, árbol, muro) está delante del personaje y le cubre el centro del cuerpo, todo lo que ese objeto tiene delante del personaje se dibuja translúcido (alfa 110). El interior y la pared de atrás siguen opacos: al entrar a una casa se ve adentro.
+- **Silueta:** cuando algo lo tapa, el personaje se dibuja otra vez encima de todo con alfa 120. Varias piezas translúcidas superpuestas casi lo escondían.
+- **Objetos:** el `.s32` trae las piezas agrupadas por objeto. Al cargar el segmento se guarda, por objeto, su rango de piezas y su rectángulo de celdas (`ObjetoMapa`).
+- **Verificado:** dentro de la posada de Talking Island (32600, 32928) y detrás de una palmera (32589, 32940). Capturas: `docs/capturas/10_techo_posada.png` y `10_arbol_translucido.png`.
+
 **Pendiente o conocido:**
-- **Prueba de oído:** no se escuchó en vivo. Las pruebas corrieron con `--mudo`.
 - **Paneo:** los efectos no se panean a izquierda o derecha.
 - **Sonidos sin conectar:** los de equipar (`equipsound.def`) y los de la voz del personaje (`charsound.def`) faltan.
 - **Mapas "al aire libre":** la lista es fija; otros mapas abiertos (Aden nueva, islas nuevas) no tienen clima.
-- **Monstruos sin sprite:** en las mazmorras hay algunos (Corroded Zombie y otros) que se ven como un cuadrado magenta. Faltan en la tabla de sprites o en los .pak; queda para revisar.
+- **Monstruos sin sprite:** se pueden atacar, pero siguen siendo un bloque magenta: no hay de dónde sacar su dibujo en esta instalación.
+- **Transparencia:** es inmediata (sin fundido) y vale para el objeto entero: un muro largo de un pueblo se vuelve translúcido en todo su largo.
+- **Monstruos de prueba:** quedaron en el pueblo de Talking Island un Cotrot y un Depraved Soul invocados con `.spawn`; desaparecen al reiniciar el servidor.
 - **Personajes al final:** Charla quedó de vuelta en el valle (2005) y el clima del servidor, despejado (`.weather 0`).
 
 ## Aprender magia: maestros y libros
@@ -743,8 +770,22 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 - Decodificar es barato (0,3 µs por tile); lo caro era leer del disco, y una caché en RGBA8 ocuparía el doble que el RGB555 original y también habría que leerla.
 - Lo único caro en CPU son los PNG de la selección de personaje (~9 ms en total), una vez, al cambiar de pantalla.
 
+**Segmentos de mapa en un hilo** (`mundo/cargador_segmentos.*`):
+- **Antes:** los `.s32` se leían en el hilo principal (0,5–1 ms cada uno); al cruzar a una zona nueva entraban varios en el mismo frame (hasta ~5 ms). Nunca se liberaban: ~100 KB por segmento visitado.
+- **Ahora:**
+  - el render los pide sin esperar (`segmento_cargado`) y los recibe uno o dos frames después; la lógica del juego (celdas pasables) los sigue cargando en el momento (`segmento`);
+  - `actualizar_segmentos`, una vez por frame, guarda los terminados y libera los que quedan a más de 2 segmentos del borde de lo que se dibuja.
+- **Objetos del mapa por rectángulo:** el render descarta objetos enteros fuera de la pantalla sin mirar sus piezas. Dibujarlos pasó de ~0,8 ms a menos de la mitad, y paga la comprobación de transparencia.
+- **Medido** (Release, 1600×900, `.move` a Gludio y 180 pasos): CPU media 1,13–1,20 ms, igual que antes de agregar la transparencia (1,14 ms; la variación entre corridas es de ±0,07). Peor frame después del segundo 3: 2,3–5 ms (antes 4,25).
+- **Memoria:** 12 teletransportes por el continente con el RSS plano en ~160 MB.
+
+**Arenas de textos:** los nombres de los objetos y del inventario se guardaban en arenas que solo crecían (cada cantidad nueva de flechas agrega el nombre). Ahora, pasados 256 KB, se compactan con solo los vivos (`compactar_textos`).
+
+**Fugas:** `leaks --atExit` en una sesión de juego: 415 bloques (26 KB), todos de macOS (conexiones XPC de AppIntents al abrir la ventana); ninguno del cliente.
+
+**Probado y descartado:** un radix sort con los 5 histogramas en una pasada y pares (clave, índice) contiguos no mejoró el orden de la lista de dibujo (dentro de la variación).
+
 **Pendiente o conocido:**
-- **Segmentos de mapa:** los `.s32` se leen en el hilo principal, 0,5–1 ms cada uno. Se cargan con margen, pero al cruzar a una zona nueva entran varios en el mismo frame (hasta ~5 ms). Tampoco se descargan: ~100 KB por segmento visitado.
 - **Primer frame del juego:** el primer segundo todavía tiene un frame de ~20 ms: las imágenes de la interfaz y el armado inicial.
 - **Ritmo de pantalla:** con vsync a 120 Hz quedan ~6 ms de margen en el peor frame medido.
 
@@ -752,8 +793,10 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 57 | 57 passed | 0 failed
+[doctest] test cases: 59 | 59 passed | 0 failed
 ```
+
+Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).
 
 El del entregable 9 está en `tests/test_proto.cpp`: pregunta, intercambio, título, emblema, la página del clan (3 datos que pasan a 5) y los bytes de los comandos sociales.
 

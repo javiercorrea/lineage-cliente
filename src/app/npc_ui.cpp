@@ -319,8 +319,19 @@ void dibujar_tienda(App& a, int x0, int y0) {
 
 }  // namespace
 
+u8 tipo_objeto(const App& a, Slot s) {
+    const GfxId gfx = a.mundo.objetos.col<O_GFX>()[s];
+    const u8 tipo = a.sprites.tipo(gfx);
+    // Sin el gfx en la tabla de sprites (se dibuja como un bloque magenta): casi siempre es un
+    // monstruo de una versión más nueva que esta instalación; así se lo puede atacar.
+    if (tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR) &&
+        s != a.mundo.objetos.buscar(a.mundo.jugador.id))
+        return TIPO_MONSTRUO;
+    return tipo;
+}
+
 bool es_npc(const App& a, Slot s) {
-    u8 tipo = a.sprites.tipo(a.mundo.objetos.col<O_GFX>()[s]);
+    u8 tipo = tipo_objeto(a, s);
     return tipo != TIPO_MONSTRUO && tipo != TIPO_ITEM && tipo != TIPO_PERSONAJE && s != a.mundo.objetos.buscar(a.mundo.jugador.id);
 }
 

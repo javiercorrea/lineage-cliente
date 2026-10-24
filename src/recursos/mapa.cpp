@@ -43,6 +43,7 @@ bool decodificar_s32(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
     for (u16& v : s.atributos) v = l.u16_();
     if (l.error) return false;
     s.tiles_objetos.clear();
+    s.objetos.clear();
     u32 nobj = l.u32_();
     for (u32 i = 0; i < nobj && !l.error; ++i) {
         l.u16_();
@@ -65,6 +66,16 @@ bool decodificar_s32(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
             s.tiles_objetos.push_back(t);
         }
         calcular_bases(s.tiles_objetos.data() + inicio, s.tiles_objetos.size() - inicio);
+        if (s.tiles_objetos.size() == inicio) continue;
+        ObjetoMapa o{static_cast<u32>(inicio), static_cast<u32>(s.tiles_objetos.size() - inicio), 255, 255, 0, 0};
+        for (size_t k = inicio; k < s.tiles_objetos.size(); ++k) {
+            const TileObjetoMapa& t = s.tiles_objetos[k];
+            o.x0 = std::min<u8>(o.x0, t.x / 2);
+            o.x1 = std::max<u8>(o.x1, t.x / 2);
+            o.y0 = std::min(o.y0, t.y);
+            o.y1 = std::max(o.y1, t.y);
+        }
+        s.objetos.push_back(o);
     }
     return true;  // los objetos son opcionales: un error ahí no invalida el suelo
 }

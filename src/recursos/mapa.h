@@ -25,6 +25,14 @@ struct TileObjetoMapa {
     u32 tile;    // juego << 8 | tile
 };
 
+// Un objeto del mapa (árbol, casa, cerca): sus piezas van seguidas en tiles_objetos. El rectángulo
+// (en celdas relativas al segmento; las piezas del borde pueden salir de 0..63) deja descartar el
+// objeto entero sin mirar sus piezas.
+struct ObjetoMapa {
+    u32 primera, cantidad;
+    u8 x0, y0, x1, y1;
+};
+
 // Orden de dibujo de los objetos del mapa. Un objeto (árbol, casa, cerca) son muchas piezas de
 // media celda; la copa de un árbol ocupa celdas más arriba en pantalla que el tronco. Para que un
 // personaje que pasa por detrás quede tapado, cada pieza se ordena por la fila más baja del objeto
@@ -45,6 +53,7 @@ struct SegmentoMapa {
     std::vector<u32> suelo;                        // [y][x][2]
     std::vector<u16> atributos;                    // [y][x][2]
     std::vector<TileObjetoMapa> tiles_objetos;     // aplanado, en orden de archivo
+    std::vector<ObjetoMapa> objetos;
     // Celdas con una pieza de sombra (tile translúcido; ver tiles.h), un u64 por fila. Hace falta
     // leer los .til para saberlo: lo calcula el render la primera vez que lo necesita.
     mutable std::vector<u64> sombra;

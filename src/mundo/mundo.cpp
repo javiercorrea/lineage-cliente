@@ -15,6 +15,13 @@ void Mundo::limpiar() {
 }
 
 TextoRef guardar_texto(Mundo& m, std::string_view t) {
+    if (m.textos.size() > MAX_ARENA_TEXTOS)
+        compactar_textos(m.textos, [&](auto&& f) {
+            for (Slot s = 0; s < m.objetos.tamano(); ++s) {
+                f(m.objetos.col<O_NOMBRE>()[s]);
+                f(m.objetos.col<O_TITULO>()[s]);
+            }
+        });
     TextoRef r{static_cast<u32>(m.textos.size()), static_cast<u16>(t.size() > 0xFFFF ? 0xFFFF : t.size())};
     m.textos.insert(m.textos.end(), t.begin(), t.begin() + r.len);
     return r;
@@ -346,21 +353,74 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
     aplicar_inventario(m.inventario, eventos);
 }
 
+namespace {
+
+constexpr u32 SEG_NO_EXISTE = 0xFFFFFFFFu, SEG_CARGANDO = 0xFFFFFFFEu;
+
+u64 clave_segmento(MapId mapa, int x, int y) {
+    return (static_cast<u64>(mapa) << 32) | (static_cast<u64>(x >> 6) << 16) | static_cast<u64>(y >> 6);
+}
+
+void guardar_segmento(Mundo& m, u64 k, SegmentoMapa&& s) {
+    m.indice_segmentos.poner(k, static_cast<u32>(m.segmentos.size()));
+    m.segmentos.push_back(std::move(s));
+}
+
+}  // namespace
+
+const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y) {
+    if (x < 0 || y < 0) return nullptr;
+    const u64 k = clave_segmento(m.mapa, x, y);
+    if (const u32* i = m.indice_segmentos.buscar(k)) return *i >= SEG_CARGANDO ? nullptr : &m.segmentos[*i];
+    if (!m.cargador) m.cargador = std::make_unique<CargadorSegmentos>();
+    m.cargador->pedir(rec.carpeta() + nombre_segmento(m.mapa, x, y), k, x & ~63, y & ~63);
+    m.indice_segmentos.poner(k, SEG_CARGANDO);
+    return nullptr;
+}
+
+void actualizar_segmentos(Mundo& m, int x, int y, int radio) {
+    if (m.cargador) {
+        m.cargador->recoger(m.segmentos_hechos);
+        for (CargadorSegmentos::Hecho& h : m.segmentos_hechos) {
+            // Si ya no se espera (cambio de mapa, o se cargó en el momento con segmento()), se descarta.
+            u32* i = m.indice_segmentos.buscar(h.clave);
+            if (!i || *i != SEG_CARGANDO) continue;
+            if (h.ok) guardar_segmento(m, h.clave, std::move(h.s));
+            else *i = SEG_NO_EXISTE;
+        }
+        m.segmentos_hechos.clear();
+    }
+    // Los lejanos se liberan (~100 KB cada uno): el último ocupa el lugar del que se va.
+    for (size_t i = 0; i < m.segmentos.size();) {
+        const SegmentoMapa& s = m.segmentos[i];
+        if (std::abs((s.base_x >> 6) - (x >> 6)) <= radio && std::abs((s.base_y >> 6) - (y >> 6)) <= radio) {
+            ++i;
+            continue;
+        }
+        m.indice_segmentos.quitar(clave_segmento(m.mapa, s.base_x, s.base_y));
+        if (i + 1 < m.segmentos.size()) {
+            m.segmentos[i] = std::move(m.segmentos.back());
+            m.indice_segmentos.poner(clave_segmento(m.mapa, m.segmentos[i].base_x, m.segmentos[i].base_y), static_cast<u32>(i));
+        }
+        m.segmentos.pop_back();
+    }
+}
+
 const SegmentoMapa* segmento(Mundo& m, const Recursos& rec, int x, int y) {
     if (x < 0 || y < 0) return nullptr;
-    u64 k = (static_cast<u64>(m.mapa) << 32) | (static_cast<u64>(x >> 6) << 16) | static_cast<u64>(y >> 6);
-    if (const u32* i = m.indice_segmentos.buscar(k)) return *i == 0xFFFFFFFFu ? nullptr : &m.segmentos[*i];
+    const u64 k = clave_segmento(m.mapa, x, y);
+    if (const u32* i = m.indice_segmentos.buscar(k); i && *i != SEG_CARGANDO)
+        return *i == SEG_NO_EXISTE ? nullptr : &m.segmentos[*i];
     std::vector<u8> datos;
     SegmentoMapa s;
     bool ok = leer_archivo(rec.carpeta() + nombre_segmento(m.mapa, x, y), datos) &&
               decodificar_s32(datos, x & ~63, y & ~63, s);
     // MULTIPLATAFORMA (Linux): la carpeta "map" puede venir como "Map"; ver carpeta_juego_valida.
     if (!ok) {
-        m.indice_segmentos.poner(k, 0xFFFFFFFFu);
+        m.indice_segmentos.poner(k, SEG_NO_EXISTE);
         return nullptr;
     }
-    m.indice_segmentos.poner(k, static_cast<u32>(m.segmentos.size()));
-    m.segmentos.push_back(std::move(s));
+    guardar_segmento(m, k, std::move(s));
     return &m.segmentos.back();
 }
 

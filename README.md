@@ -73,6 +73,8 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
   - Muestra los íconos originales (`N.tbt`), el nombre al pasar el mouse, los equipados con una "E" y el peso.
   - Doble clic usa el ítem: equipa o quita armas y armaduras, bebe pociones.
   - Arrastrar un ítem fuera de la ventana lo suelta al suelo.
+- **Techos y árboles:** al entrar a una casa o pasar detrás de un árbol, lo que tapa al personaje se vuelve translúcido y se ve su silueta.
+- **Monstruos sin sprite:** los que faltan en esta instalación se ven como un bloque magenta y se atacan con el clic como cualquier otro.
 - **Ítems del suelo:** clic sobre un ítem para recogerlo; si está lejos, el personaje camina hasta él. El nombre aparece al pasar el mouse por encima.
 - **Chat:**
   - escribir y Enter para enviar; Esc borra lo escrito;
