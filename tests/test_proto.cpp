@@ -234,3 +234,26 @@ TEST_CASE("Social: preguntas, intercambio, título, emblema, página del clan y 
     CHECK(em.cuerpo()[0] == 107);
     CHECK(em.cuerpo().size() >= 1 + BYTES_EMBLEMA);
 }
+
+TEST_CASE("Maestro de magia: S_SkillBuy, C_SkillBuy y C_SkillBuyOK") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    std::vector<u8> p = {222, 100, 0, 0, 0, 3, 0, 1, 0, 0, 0, 2, 0, 0, 0, 40, 0, 0, 0};
+    REQUIRE(decodificar(p, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::MAGIA_EN_VENTA);
+    CHECK(static_cast<u32>(ev[0].v[MV_MASCARA]) == 0b110u);
+    CHECK(static_cast<u32>(ev[0].v[MV_MASCARA + 1]) == 1u << 8);
+
+    Escritor c = cmd::pedir_magia(t, 0x1003F87F);
+    const u8 ec[] = {173, 0x7F, 0xF8, 0x03, 0x10};
+    REQUIRE(c.cuerpo().size() >= sizeof ec);
+    CHECK(std::memcmp(c.cuerpo().data(), ec, sizeof ec) == 0);
+    const u32 indices[] = {1, 2};
+    Escritor ok = cmd::aprender_magia(t, indices);
+    const u8 eo[] = {207, 2, 0, 1, 0, 0, 0, 2, 0, 0, 0};
+    REQUIRE(ok.cuerpo().size() >= sizeof eo);
+    CHECK(std::memcmp(ok.cuerpo().data(), eo, sizeof eo) == 0);
+}

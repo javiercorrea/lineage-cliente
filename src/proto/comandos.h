@@ -201,6 +201,19 @@ inline Escritor subir_emblema(const TablaOpcodes& t, std::span<const u8> datos) 
     for (u8 b : datos) e.c(b);
     return e;
 }
+// Maestro de magia. C_SkillBuy: d NPC (el vínculo "buyspell" de su página); el servidor
+// responde con S_SkillBuy. C_SkillBuyOK: h n, n × d índice (skill id - 1).
+inline Escritor pedir_magia(const TablaOpcodes& t, u32 npc) {
+    Escritor e(t, Cli::SKILLBUY);
+    e.d(npc);
+    return e;
+}
+inline Escritor aprender_magia(const TablaOpcodes& t, std::span<const u32> indices) {
+    Escritor e(t, Cli::SKILLBUYOK);
+    e.h(static_cast<u16>(indices.size()));
+    for (u32 i : indices) e.d(i);
+    return e;
+}
 // C_Title: s personaje, s título (el propio desde nivel 40; el príncipe a los de su clan).
 inline Escritor poner_titulo(const TablaOpcodes& t, std::string_view personaje, std::string_view titulo) {
     Escritor e(t, Cli::TITLE);

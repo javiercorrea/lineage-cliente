@@ -40,7 +40,7 @@ cmake --preset debug && cmake --build --preset debug        # también: release,
 servidor_local/instalar.sh                                   # una vez (OpenJDK, MariaDB en 3307, base, parches)
 servidor_local/arrancar.sh                                   # deja el servidor en primer plano; servidor.log
 export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con Sprite*.pak, Text.pak, map/
-LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 54 casos; sin LINEAGE_DIR se saltan 6
+LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 55 casos; sin LINEAGE_DIR se saltan 6
 ```
 
 - **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en
@@ -49,7 +49,8 @@ LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 54 casos; sin LIN
 - **Cuentas:** se crean solas en el primer login (usuario = clave).
 - **Personajes de prueba existentes** (en la base local de la máquina original, no en el repo):
   - cuenta `prueba`: Prueba (príncipe nivel 1), Maga (maga), Caballero (caballero), Exploradora;
-  - cuenta `prueba2`: Charla (príncipe nivel 81, GM, líder del clan Prueberos).
+  - cuenta `prueba2` (GM): Charla (príncipe nivel 81, líder del clan Prueberos) y Aprendiz (mago, en
+    Talking Island junto al maestro Gereng). Hermione y Mago son del usuario: no tocarlos.
 - **Volver GM a una cuenta**, para usar `.item`, `.level`, `.spawn`, `.addskill`, `.allbuff` y `.move`:
 
   ```sh

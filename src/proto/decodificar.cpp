@@ -376,6 +376,17 @@ bool emblema(Lector& l, Evento& e) {
     l.error = false;
     return true;
 }
+// S_SkillBuy: d 100, h n, n × d índice del hechizo (skill id - 1) que todavía no se sabe
+bool magia_en_venta(Lector& l, Evento& e) {
+    e.tipo = Ev::MAGIA_EN_VENTA;
+    l.d();
+    int n = l.h();
+    for (int i = 0; i < n && !l.error; ++i) {
+        u32 k = l.d();
+        if (k < 64) e.v[MV_MASCARA + k / 32] |= static_cast<i32>(1u << (k % 32));
+    }
+    return true;
+}
 // S_Teleport: c 0, c 0x40, d personaje
 bool teletransporte(Lector& l, Evento& e) {
     e.tipo = Ev::TELETRANSPORTE;
@@ -473,6 +484,7 @@ constexpr Decodificador TABLA[] = {
     intercambio_item,   // TRADEADDITEM
     intercambio_fin,    // TRADESTATUS
     emblema,        // EMBLEM
+    magia_en_venta, // SKILLBUY
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

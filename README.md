@@ -88,6 +88,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Alt+1..Alt+0:** barra de atajos (abajo al centro). Se arrastra un hechizo (desde Alt+S) o un ítem (desde Alt+I) a un casillero; clic o Alt+número lo usa, clic derecho lo vacía, arrastrar entre casilleros los mueve. Se guarda por personaje (`barra=` en `settings.ini`).
 - **Clic sobre un NPC:** camina hasta él y le habla (su página aparece arriba a la izquierda; Escape la cierra). En la tienda o el almacén: clic suma 1, Shift+clic 10, clic derecho resta; OK confirma.
 - **Ventanas:** se mueven arrastrando la barra de título (la posición se guarda). Se abren también con los botones: los del panel original o los de texto a la derecha del chat (UI simple). **Options** tiene la interfaz, la cámara, la sombra, la opacidad de las ventanas, el zoom y "Reset" de posiciones.
+- **Aprender magia:** en el maestro de magia (Gereng en Talking Island...), "Learn magic" abre la lista: clic elige y OK compra. Los libros de magia se usan con doble clic dentro de un templo.
 - **Alt+S:** ventana de hechizos (clic lanza; con el puntero sobre un hechizo, F5–F12 lo asigna a esa tecla).
 - **F5–F12:** lanzan el hechizo asignado (se guardan por personaje en `settings.ini`, `atajos=`). Un hechizo con objetivo espera el clic sobre el objetivo; clic derecho cancela.
 - **Social** (botón, o el del panel original): grupo, intercambio y clan con botones y ayuda. Las preguntas del servidor (invitaciones, pedidos de intercambio o de entrar al clan) aparecen con **Yes/No** (Enter/Escape).

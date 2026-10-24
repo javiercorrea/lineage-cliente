@@ -17,7 +17,7 @@ enum class Ev : u8 {
     EXPERIENCIA, LEGAL, SP_MR, DEFENSA, ATRIBUTOS, PESO, COMIDA, ATAQUE, HP_OBJETO,
     INVENTARIO_VACIAR, ITEM, ITEM_QUITAR, ITEM_NOMBRE, ITEM_CANTIDAD, ITEM_BENDICION,
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
-    PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA,
+    PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     IGNORADO,
 };
 
@@ -91,6 +91,9 @@ enum : int { PR_NUMERO, PR_TIPO };
 // propio, 1 lo del otro; IN_GFX, IN_BENDICION, s[0] = nombre con la cantidad) e
 // INTERCAMBIO_FIN (S_TradeStatus: IN_CANCELADO).
 enum : int { IN_LADO, IN_GFX, IN_BENDICION };
+// MAGIA_EN_VENTA (S_SkillBuy): los hechizos que el maestro de magia puede enseñar, como máscara
+// de índices (índice i = skill id i + 1): bits 0–31 en MV_MASCARA y 32–63 en MV_MASCARA + 1.
+enum : int { MV_MASCARA };
 enum : int { IN_CANCELADO };
 // TITULO (S_CharTitle; id = personaje, s[0] = título). EMBLEMA (S_Emblem; id = clan, s[0] = los
 // 384 bytes: 16 × 12 píxeles RGB555).

@@ -8,6 +8,8 @@
 //    (retirar) abren la lista en la misma ventana. Clic suma 1 (con Shift, 10 o todo), clic
 //    derecho resta 1 (con Shift, nada); OK manda C_Result.
 //  - Teletransporte: el servidor manda S_Teleport y espera C_Teleport para mover al personaje.
+//  - Maestros de magia: el vínculo "buyspell" no va con C_NPCAction sino con C_SkillBuy; la lista
+//    (S_SkillBuy) se elige como una tienda (un hechizo por fila) y OK manda C_SkillBuyOK.
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -42,11 +44,6 @@ void abrir_pagina(App& a, ObjId npc, std::string_view id, std::string_view datos
             std::string aviso = "(page \"" + std::string(id) + "\" not found)";
             html.assign(aviso.begin(), aviso.end());
         }
-    }
-    if (const char* otra = std::getenv("LIN_HTML_OTRA")) {
-        std::vector<u8> h2;
-        a.rec.texto(std::string(otra) + "-e.html", h2);
-        std::fprintf(stderr, "[html %s]\n%.*s\n", otra, static_cast<int>(h2.size()), reinterpret_cast<const char*>(h2.data()));
     }
     if (std::getenv("LIN_HTML"))
         std::fprintf(stderr, "[html %.*s] datos=\"%.*s\"\n%.*s\n", static_cast<int>(id.size()), id.data(), static_cast<int>(datos.size()),
@@ -103,6 +100,8 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
     if (vinculo.empty()) return;
     if (es_enlace) {
         abrir_pagina(a, a.npc, vinculo, a.npc_datos);
+    } else if (vinculo == "buyspell") {
+        enviar(a, cmd::pedir_magia(a.op, a.npc));
     } else if (vinculo == "deposit") {
         abrir_tienda(a, a.npc, TipoTienda::DEPOSITO);
     } else if (vinculo.substr(0, 6) == "raise-") {  // RaiseAttr: subir un atributo (C_Attr 479)
@@ -124,6 +123,15 @@ u64 total(const App& a) {
 }
 
 void confirmar(App& a) {
+    if (a.tienda == TipoTienda::MAGIA) {
+        u32 indices[64];
+        size_t n = 0;
+        for (const FilaTienda& f : a.tienda_filas)
+            if (f.elegido && n < 64) indices[n++] = f.id;
+        if (n) enviar(a, cmd::aprender_magia(a.op, {indices, n}));
+        cerrar(a);
+        return;
+    }
     LineaResultado lineas[255];
     size_t n = 0;
     for (const FilaTienda& f : a.tienda_filas)
@@ -293,6 +301,12 @@ void dibujar_tienda(App& a, int x0, int y0) {
     char pie[96];
     const u64 t = total(a);
     switch (a.tienda) {
+    case TipoTienda::MAGIA:
+        if (a.tienda_filas.empty()) {
+            std::snprintf(pie, sizeof pie, "Nothing to learn now");
+            break;
+        }
+        [[fallthrough]];
     case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena(a)); break;
     case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
     case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
@@ -332,6 +346,22 @@ void eventos_npc(App& a, const Evento& e) {
         abrir_tienda(a, e.id, TIPOS[e.v[LT_TIPO]]);
         break;
     }
+    case Ev::MAGIA_EN_VENTA: {
+        // Precio del servidor (C_SkillBuyOK): 100 adena el nivel 1, 400 el 2 y 900 el 3 (k / 8 = nivel - 1).
+        abrir_tienda(a, a.npc, TipoTienda::MAGIA);
+        for (u32 k = 0; k < 64; ++k) {
+            if (!(static_cast<u32>(e.v[MV_MASCARA + k / 32]) >> (k % 32) & 1)) continue;
+            const Hechizo& h = a.hechizos[k + 1];
+            FilaTienda f;
+            f.id = k;
+            f.gfx = h.icono;
+            f.maximo = 1;
+            f.precio = 100 * (k / 8 + 1) * (k / 8 + 1);
+            f.nombre = h.existe() ? std::string(h.nombre) : "Spell " + std::to_string(k + 1);
+            a.tienda_filas.push_back(std::move(f));
+        }
+        break;
+    }
     case Ev::ITEM_TIENDA: {
         FilaTienda f;
         f.id = e.id;
@@ -368,7 +398,7 @@ void dibujar_npc(App& a) {
     Graficos& g = *a.g;
     char titulo[96] = "";
     if (a.tienda != TipoTienda::NINGUNA) {
-        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit"};
+        static const char* NOMBRES[] = {"", "Buy", "Sell", "Retrieve", "Deposit", "Learn magic"};
         std::snprintf(titulo, sizeof titulo, "%s", NOMBRES[static_cast<int>(a.tienda)]);
     } else if (Slot s = a.mundo.objetos.buscar(a.npc); s != SIN_SLOT) {
         size_t n = expandir_desc(a.desc, texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s]), titulo, sizeof titulo - 1);

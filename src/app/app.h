@@ -88,7 +88,7 @@ constexpr int CASILLEROS_BARRA = 10;
 
 // Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
 // del ítem (venta, retiro, depósito).
-enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO };
+enum class TipoTienda : u8 { NINGUNA, COMPRA, VENTA, RETIRO, DEPOSITO, MAGIA };
 struct FilaTienda {
     u32 id = 0;
     u16 gfx = 0;

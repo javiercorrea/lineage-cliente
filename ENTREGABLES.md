@@ -568,6 +568,31 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Sin probar:** alianzas, guerras de clan y el reparto automático del grupo.
 - **Datos de prueba:** Charla y Prueba quedaron en el clan Prueberos en la base local.
 
+## Aprender magia: maestros y libros
+
+![Lista del maestro de magia](docs/capturas/8_aprender_magia.png)
+
+**Maestro de magia** (Gereng en Talking Island, Siriss, Sedia...):
+- **Por qué no andaba:** sus páginas tienen el vínculo `action="buyspell"`, que el cliente original no manda como `C_NPCAction` (el servidor lo ignora) sino como `C_SkillBuy` (d NPC).
+- **Lista:** el servidor responde `S_SkillBuy` con los índices que todavía no se saben y que la clase y el nivel permiten. Se muestra en la ventana del NPC como una tienda: ícono, nombre y precio (100, 400 o 900 adena según el nivel del hechizo).
+- **Compra:** clic elige y OK manda `C_SkillBuyOK` (h n, n × d índice). El servidor cobra, manda el efecto 224 y `S_AddSkill`.
+- **Lista vacía:** dice "Nothing to learn now".
+
+**Libro de magia:** se usa como cualquier ítem (doble clic) y ya funcionaba. Las condiciones son del servidor:
+- hay que leerlo dentro de un templo: Gludio, Oren o Aden según el alineamiento;
+- hace falta el nivel suficiente para el nivel del hechizo;
+- un libro del alineamiento contrario se pierde y hace daño;
+- un GM lo aprende en cualquier lugar.
+
+**Verificado:**
+- **Aprendiz** (mago nuevo en la cuenta GM `prueba2`) le habla a Gereng (`--hablar=Gereng --npc-accion=buyspell`): 22 hechizos en la lista.
+- **Compra:** elige Shield y Light (`--tienda=`). En la base pasa a saber 2, 3 y 4, y la ventana de magia los muestra.
+- **Libro:** con el de Slow (`.item 40174`, `--usar=Spellbook`), aprende el 29 y el libro desaparece.
+- **Charla** (príncipe 81) recibe la lista vacía, porque ya sabe todo lo de su clase.
+- **Test:** `S_SkillBuy` y los dos comandos en `tests/test_proto.cpp`.
+
+**Pendiente o conocido:** `action="xchgspell"` (Horun, magia de la torre de marfil) no se probó.
+
 ## Ataques con arco
 
 ![Flecha en vuelo](docs/capturas/5_flecha.png)
@@ -681,7 +706,7 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 54 | 54 passed | 0 failed
+[doctest] test cases: 55 | 55 passed | 0 failed
 ```
 
 El del entregable 9 está en `tests/test_proto.cpp`: pregunta, intercambio, título, emblema, la página del clan (3 datos que pasan a 5) y los bytes de los comandos sociales.
