@@ -5,6 +5,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include "audio/audio.h"
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
 #include "plataforma/rutas.h"
@@ -14,6 +15,7 @@
 #include "recursos/fuente.h"
 #include "recursos/hechizos.h"
 #include "recursos/html.h"
+#include "recursos/sonidos.h"
 #include "recursos/tabla_sprites.h"
 #include "recursos/textos.h"
 #include "render/graficos.h"
@@ -38,6 +40,7 @@ struct Automatizacion {
     Pantalla pantalla_captura = Pantalla::JUEGO;
     int espera_frames = 120;        // frames en esa pantalla antes de capturar
     bool salir_tras_captura = false;
+    bool mudo = false;              // --mudo: el audio corre (y cuenta) pero sin volumen
     int pasos = 0;                  // pasos de prueba al entrar al juego (hacia la derecha)
     std::string ruta;               // pasos de prueba con dirección fija: dígitos 0–7
     std::string atacar;             // atacar al más cercano cuyo nombre contenga esto
@@ -143,6 +146,14 @@ struct App {
     TablaHechizos hechizos;
     Gpu gpu;
     std::unique_ptr<Graficos> g;
+    // Audio (sonido.cpp): definiciones de music.def/envsound.def (los textos viven aquí) y el
+    // ambiente vigente con el próximo sonido suelto de cada grupo.
+    Audio audio;
+    DefSonidos sonidos;
+    std::vector<u8> texto_music_def, texto_envsound_def;
+    const AmbienteZona* ambiente = nullptr;
+    u64 proximo_ambiente[8] = {};
+    u64 t_zona_sonido = 0;
 
     TablaOpcodes op{};
     HiloRed red;
@@ -177,6 +188,9 @@ struct App {
 
     // Juego
     u64 t_mantener_vivo = 0;
+    bool ayuda_teclas = false;     // F1
+    u64 t_intento_portal = 0;      // último paso hacia una celda bloqueada (pantalla_juego.cpp: intento_portal)
+    u32 celda_intento_portal = 0;
     int pasos_auto_hechos = 0;
     // Combate: lo que se dibujó en el frame anterior (para saber qué hay bajo el puntero), el
     // objetivo del ataque y hasta cuándo dura el ataque en curso.
@@ -287,6 +301,18 @@ u8 opacidad_ventanas(const App& a);
 void dibujar_botones_panel(App& a, int x, int y);
 int dibujar_botones_texto(App& a, int x_derecha, int y);
 void dibujar_opciones(App& a);
+void dibujar_ayuda_teclas(App& a);  // F1
+// Clima (clima.cpp): lluvia o nieve sobre el mundo (hasta la fila `h`, donde empieza el panel).
+void dibujar_clima(App& a, int w, int h, u64 ahora);
+// Sonido (sonido.cpp).
+void cargar_sonidos(App& a);
+void aplicar_volumenes(App& a);
+void actualizar_sonido(App& a, u64 ahora);  // una vez por frame: música, ambiente y streams
+// Al dibujar un frame de animación: si cambió desde el anterior y tiene sonido, suena (con el
+// volumen según la distancia al personaje). `ultimo`: O_SONIDO o EfectoVisual::sonido.
+// `sonar_primero`: el primer frame también suena (los efectos de hechizos; un personaje recién
+// aparecido no, porque puede estar a mitad de una acción).
+void sonido_de_frame(App& a, u32& ultimo, const FrameAccion& f, double x, double y, u64 ahora, bool sonar_primero);
 // Cursores (cursores.cpp).
 void crear_cursores(App& a);
 void aplicar_cursor(App& a);  // al final del frame, si cambió

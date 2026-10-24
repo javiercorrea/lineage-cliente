@@ -274,6 +274,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             const FrameAccion* f =
                 &a.sprites.frame_en(*r, ahora - acc.inicio, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
             if (termino && acc.puntual) o.col<O_ACCION>()[s] = 0xFF;  // fin de la acción puntual
+            sonido_de_frame(a, o.col<O_SONIDO>()[s], *f, vis_x, vis_y, ahora, false);
             u16 sub = static_cast<u16>(f->sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
             i16 sombra = a.sprites.sombra(gfx);
             if (sombra >= 0)
@@ -402,6 +403,7 @@ void dibujar_efectos(App& a, u64 ahora, double ox, double oy) {
                 posicion_visible(m, s, ahora, x, y);
             }
         }
+        sonido_de_frame(a, ef.sonido, *f, x, y, ahora, true);
         u16 sub = static_cast<u16>(f->sub + (r->direccional ? ef.dir : 0));
         const RegionAtlas& rg = g.frame_sprite(a.sprites.gfx_archivos(ef.gfx), sub, f->frame);
         float px = static_cast<float>(mundo_px(x, y) + ox), py = static_cast<float>(mundo_py(x, y) + oy);
@@ -480,6 +482,29 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
 
 // Movimiento propio con predicción: se avanza localmente y se avisa al servidor (C_MoveChar
 // lleva la celda de origen). Si la celda está bloqueada solo se gira.
+
+// Portales (entradas de mazmorras, escaleras): el servidor teletransporta cuando el destino de un
+// paso es un portal de su tabla (C_MoveChar mira DungeonTable antes que nada), pero el mapa del
+// cliente marca casi todas esas celdas como bloqueadas y no dice cuáles son portales (en el mapa
+// 4, 39 de 74 tienen el atributo 0x08, que también tienen 3857 celdas que no lo son). Así que, al
+// intentar entrar a una celda bloqueada vecina con el teclado o con un clic justo sobre ella, se
+// manda el paso sin moverse aquí: si es un portal llega el teletransporte; si no, no pasa nada
+// visible (el servidor toma el origen del próximo paso del paquete). Una vez por segundo por celda.
+bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
+    const u32 celda = static_cast<u32>(nx & 0xFFFF) << 16 | static_cast<u32>(ny & 0xFFFF);
+    if (celda == a.celda_intento_portal && ahora < a.t_intento_portal + 1000) return false;
+    if (!teclado) {
+        // ¿El puntero está sobre esa celda? (inversa de mundo_px / mundo_py desde el centro del personaje)
+        const Vista vi = vista(a);
+        const double rx = (a.entrada.mx - vi.cx) / 24.0, ry = (a.entrada.my - vi.cy) / 12.0;
+        const int cx = static_cast<int>(std::lround((rx - ry) / 2)), cy = static_cast<int>(std::lround((rx + ry) / 2));
+        if (cx != DIR_DX[dir] || cy != DIR_DY[dir]) return false;
+    }
+    a.celda_intento_portal = celda;
+    a.t_intento_portal = ahora;
+    return true;
+}
+
 void mover_jugador(App& a, u64 ahora) {
     TablaObjetos& o = a.mundo.objetos;
     Slot s = o.buscar(a.mundo.jugador.id);
@@ -488,6 +513,8 @@ void mover_jugador(App& a, u64 ahora) {
     u64 inicio_paso = (o.col<O_TMOV>()[s] > 0 && ahora - fin_paso < MS_ENCADENAR_PASO) ? fin_paso : ahora;
     const EntradaFrame& e = a.entrada;
     int dir = direccion_teclas(e);
+    const int dir_teclas = dir;
+    bool ruta = false;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
                        sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
@@ -562,6 +589,7 @@ void mover_jugador(App& a, u64 ahora) {
     if (dir < 0 && a.aut.ruta_hecha < a.aut.ruta.size() && a.frames_en_pantalla > 60) {
         // Prueba automática: direcciones fijas (dígitos 0–7), una por paso.
         dir = (a.aut.ruta[a.aut.ruta_hecha++] - '0') & 7;
+        ruta = true;
     }
     if (dir < 0 && a.aut.pasos > a.pasos_auto_hechos && a.frames_en_pantalla > 60) {
         // Prueba automática: caminar en la primera dirección libre empezando por la derecha.
@@ -584,6 +612,9 @@ void mover_jugador(App& a, u64 ahora) {
         o.col<O_DURMOV>()[s] = static_cast<u16>(intervalo_propio(
             a.mundo.jugador, Intervalo::CAMINAR, duracion_paso(a.mundo, o.col<O_GFX>()[s], o.col<O_ESTADO>()[s], 0),
             MS_ENCADENAR_PASO));
+        o.col<O_DIR>()[s] = static_cast<u8>(dir);
+    } else if (intento_portal(a, nx, ny, dir, dir_teclas >= 0 || ruta, ahora)) {
+        enviar(a, cmd::mover(a.op, x, y, static_cast<u8>(dir)));
         o.col<O_DIR>()[s] = static_cast<u8>(dir);
     } else if (o.col<O_DIR>()[s] != dir) {
         enviar(a, cmd::girar(a.op, static_cast<u8>(dir)));
@@ -952,6 +983,7 @@ void frame_juego(App& a) {
     dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
     dibujar_personajes(a, ahora, ox, oy);
     dibujar_efectos(a, ahora, ox, oy);
+    dibujar_clima(a, vi.w, vi.panel_y, ahora);
     a.teclas_f_y = -1;  // dibujar_panel los ubica si se dibuja el panel original
     if (a.cfg.ui_simple) {
         dibujar_panel_simple(a);
@@ -968,6 +1000,7 @@ void frame_juego(App& a) {
     if (a.ventana_hechizos) dibujar_hechizos(a);
     dibujar_npc(a);
     dibujar_opciones(a);
+    dibujar_ayuda_teclas(a);
     dibujar_salida(a);
     dibujar_social(a);
     dibujar_intercambio(a);

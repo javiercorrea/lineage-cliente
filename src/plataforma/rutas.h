@@ -26,6 +26,7 @@ struct Config {
     // opacidad del fondo (0–255).
     std::string ventanas;
     int opacidad_ventanas = 170;
+    int volumen_musica = 60, volumen_efectos = 80;  // 0–100
 };
 
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").

@@ -48,6 +48,7 @@ bool cargar_recursos(App& a) {
     if (!cargar_formas(a)) LIN_LOG("Aviso: no se encontró polymorph.tbl (sugerencias de polymorph)");
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
+    cargar_sonidos(a);
     return true;
 }
 
@@ -116,6 +117,7 @@ void leer_entrada(App& a) {
                     e.alt_numero = 1 + static_cast<int>(ev.key.key - SDLK_1);  // SDLK_1..SDLK_9 son consecutivos
                 texto_antes = e.ntexto;
                 break;
+            case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
             case SDLK_F3: a.depuracion = !a.depuracion; break;
             case SDLK_F2:  // UI simple (texto) o panel original
                 a.cfg.ui_simple = !a.cfg.ui_simple;
@@ -263,6 +265,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s == "--salir") a.aut.salir_tras_captura = true;
         else if (s == "--depuracion") a.depuracion = true;
         else if (s == "--perf") a.perf = true;
+        else if (s == "--mudo") a.aut.mudo = true;
         else if (s.rfind("--pasos=", 0) == 0) a.aut.pasos = std::atoi(valor("--pasos=").c_str());
         else if (s.rfind("--decir=", 0) == 0) a.aut.decir.push_back(valor("--decir="));
         else if (s == "--estado") a.aut.estado = true;
@@ -282,6 +285,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--arrastrar=", 0) == 0)
             std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &a.aut.arrastre[0], &a.aut.arrastre[1], &a.aut.arrastre[2], &a.aut.arrastre[3]);
         else if (s == "--opciones") a.ventana_opciones = true;
+        else if (s == "--teclas") a.ayuda_teclas = true;
         else if (s == "--salida") a.ventana_salida = true;
         else if (s == "--aceptar") a.aut.aceptar = true;
         else if (s.rfind("--girar=", 0) == 0) a.aut.girar = std::atoi(valor("--girar=").c_str());
@@ -326,10 +330,10 @@ static void cerrar_medicion(App& a) {
     a.asign_frame_max = a.max_asign;
     a.asign_total = a.acum_asign;
     if (a.perf)
-        LIN_LOG("perf: %.0f fps  cpu %.2f ms (max %.2f)  decod %.2f ms (%u)  asign %llu (max/frame %llu)  inst %u  pag %u (reemplazos %u)  precarga %u",
+        LIN_LOG("perf: %.0f fps  cpu %.2f ms (max %.2f)  decod %.2f ms (%u)  asign %llu (max/frame %llu)  inst %u  pag %u (reemplazos %u)  precarga %u  efectos %u  musica %d",
                 a.fps, a.ms_cpu, a.ms_cpu_max, a.ms_decod, a.decodificados, static_cast<unsigned long long>(a.asign_total),
                 static_cast<unsigned long long>(a.asign_frame_max), a.gpu.instancias_ultimo_frame(), a.gpu.paginas_usadas(), a.gpu.reemplazos_atlas(),
-                a.g ? a.g->precargas_en_curso() : 0u);
+                a.g ? a.g->precargas_en_curso() : 0u, a.audio.efectos_tocados(), a.audio.musica_actual());
     a.acum_cpu = a.max_cpu = 0;
     a.acum_asign = a.max_asign = 0;
     a.frames_fps = 0;
@@ -354,6 +358,7 @@ void bucle_app(App& a) {
         case Pantalla::CARGANDO:
         case Pantalla::JUEGO: frame_juego(a); break;
         }
+        actualizar_sonido(a, a.entrada.ahora_ms);
         ++a.frames_en_pantalla;
         if (!a.aut.captura.empty() && a.pantalla == a.aut.pantalla_captura &&
             a.frames_en_pantalla == static_cast<u64>(a.aut.espera_frames)) {
@@ -385,6 +390,7 @@ void cerrar_app(App& a) {
         SDL_Delay(200);  // tiempo para que el hilo escritor lo envíe
     }
     a.red.cerrar();
+    a.audio.cerrar();
     a.g.reset();
     destruir_cursores(a);
     a.gpu.cerrar();

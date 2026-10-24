@@ -30,10 +30,11 @@ enum ColObjeto : size_t {
     O_CANTIDAD,          // ítems del suelo: cantidad (para recogerlos todos)
     O_CLAN,              // id del clan (0 sin clan): para su emblema
     O_LEGAL,             // alineamiento (color del nombre)
+    O_SONIDO,            // último frame de animación dibujado (índice + 1; 0 = ninguno): su sonido suena una vez
     O_NOMBRE, O_TITULO,
 };
 using TablaObjetos =
-    TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, TextoRef, TextoRef>;
+    TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32, TextoRef, TextoRef>;
 
 // Efecto con duración sobre el propio personaje (módulo "Buffs" del plan): haste, brave, escudos...
 // Clase EA_* y tipo según el paquete que lo informó (ver ICONO_EFECTO y VELOCIDAD en eventos.h).
@@ -76,6 +77,7 @@ struct EfectoVisual {
     double x0 = 0, y0 = 0, x1 = 0, y1 = 0;
     u64 inicio = 0;
     u32 vuelo_ms = 0;
+    u32 sonido = 0;  // último frame dibujado (como O_SONIDO)
 };
 constexpr u32 MAX_EFECTOS_VISUALES = 128;
 // Velocidad de los proyectiles (hechizos y flechas). No está en los datos: estimada mirando el

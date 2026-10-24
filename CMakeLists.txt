@@ -30,7 +30,7 @@ endif()
 # datos/ (tabla de sprites) junto a los ejecutables
 file(COPY ${CMAKE_SOURCE_DIR}/datos DESTINATION ${CMAKE_BINARY_DIR})
 
-# --- Módulos (librerías estáticas). Solo plataforma y render ven SDL3. -----------------------
+# --- Módulos (librerías estáticas). Solo plataforma, render y audio ven SDL3. -----------------------
 add_library(lin_core INTERFACE)
 target_include_directories(lin_core INTERFACE src)
 
@@ -61,7 +61,8 @@ add_library(lin_recursos STATIC
     src/recursos/textos.cpp
     src/recursos/precarga.cpp
     src/recursos/hechizos.cpp
-    src/recursos/html.cpp)
+    src/recursos/html.cpp
+    src/recursos/sonidos.cpp)
 target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb)
 
 add_library(lin_mundo STATIC
@@ -75,6 +76,10 @@ add_library(lin_render STATIC
     src/render/gpu.cpp
     src/render/graficos.cpp)
 target_link_libraries(lin_render PUBLIC lin_core lin_recursos SDL3::SDL3)
+
+add_library(lin_audio STATIC
+    src/audio/audio.cpp)
+target_link_libraries(lin_audio PUBLIC lin_core PRIVATE SDL3::SDL3 dr_mp3)
 
 add_library(lin_ui STATIC
     src/ui/ui.cpp)
@@ -95,8 +100,10 @@ add_executable(lineage
     src/app/ventanas.cpp
     src/app/cursores.cpp
     src/app/social_ui.cpp
+    src/app/sonido.cpp
+    src/app/clima.cpp
     src/core/asignaciones.cpp)  # operator new instrumentado (ver core/asignaciones.h)
-target_link_libraries(lineage PRIVATE lin_mundo lin_ui)  # traen proto, recursos, render y SDL3
+target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
 if(APPLE)
     # MULTIPLATAFORMA: en macOS se compila como ejecutable de consola para depurar;
     # el empaquetado .app (MACOSX_BUNDLE, Info.plist, icono) queda para el entregable 11.
@@ -121,6 +128,7 @@ if(LIN_TESTS)
         tests/test_asignaciones.cpp
         tests/test_hechizos.cpp
         tests/test_npc.cpp
+        tests/test_sonidos.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)
     add_test(NAME lin_tests COMMAND lin_tests)

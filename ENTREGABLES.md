@@ -1,4 +1,4 @@
-# Entregables 1–9: estado y verificación
+# Entregables 1–10: estado y verificación
 
 Todo se probó en macOS 26.5 (Apple Silicon, pantalla de 120 Hz) contra el servidor L1J-JP 3.63c
 local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas están en
@@ -568,6 +568,52 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Sin probar:** alianzas, guerras de clan y el reparto automático del grupo.
 - **Datos de prueba:** Charla y Prueba quedaron en el clan Prueberos en la base local.
 
+## Entregable 10: Mundo completo ✅
+
+![Lluvia](docs/capturas/10_lluvia.png) ![Giran con nieve](docs/capturas/10_giran_nieve.png) ![Portal a la mazmorra](docs/capturas/10_portal_mazmorra.png) ![Opciones con volumen](docs/capturas/10_opciones_volumen.png)
+
+**Audio** (módulo nuevo `src/audio`, sobre SDL3):
+- **Arquitectura:** un dispositivo y varios streams que SDL mezcla: música, ambiente y 16 para efectos. Si todos los de efectos están ocupados, se corta el más viejo.
+- **Música** (`sound/music<n>.mp3`): se decodifica de a poco con dr_mp3, que es la única dependencia nueva.
+  - Fuera del juego suena la del login.
+  - Dentro, la de la zona según `music.def` de Text.pak. Vale la primera zona que contiene la posición, así los pueblos ganan al campo que los rodea. Se respeta la pausa `INTERVAL` entre repeticiones.
+  - Muerto, el tema "Death".
+  - El valle escondido de esta versión (mapa 2005) usa las zonas del 69, del que es copia.
+- **Efectos:** los frames de la tabla de sprites con sonido (`[n`, `<n`) suenan al empezar a dibujarse: golpes, daño, muerte y los efectos de hechizos. El volumen baja con la distancia al personaje y es cero a 20 celdas. El mismo sonido no se repite dentro de 60 ms.
+- **Ambiente** (`envsound.def`): el sonido en bucle de la zona y, de cada grupo, uno al azar cada tanto. Cambia de día a noche con la hora del juego (noche fuera de 6:00–17:59, como el servidor).
+- **Volumen:** música y efectos en la ventana de opciones (de 20 en 20 %, "Off"), guardados en `settings.ini`.
+- **`--mudo`:** todo corre igual pero sin volumen. Las pruebas automáticas lo usan, y `--perf` muestra los efectos tocados y la música vigente.
+
+**Clima** (`S_Weather`: 1–3 nieve, 17–19 lluvia; ".weather N" con un GM):
+- **Dibujo:** gotas en diagonal o copos que se mecen, más un velo oscuro con lluvia.
+- **Sin estado:** cada partícula es función del tiempo y de su número.
+- **Dónde:** solo al aire libre (mapas 0, 4, 68, 69, 70 y 2005); en las mazmorras no.
+
+**Portales:**
+- **El problema:** el servidor teletransporta si el destino de un paso es un portal de su tabla, pero el mapa del cliente marca casi todas esas celdas como bloqueadas (393 de 1305) y ningún atributo las distingue: el 0x08 lo tienen 39 de 74 portales del mapa 4 y también 3857 celdas que no lo son.
+- **La solución:** al intentar entrar a una celda bloqueada vecina, con el teclado o con un clic justo sobre ella, se manda el paso sin moverse aquí (una vez por segundo por celda). Si es un portal, llega el teletransporte. Si no, no pasa nada visible: el servidor toma el origen del paso siguiente del propio paquete.
+
+**F1:** ayuda con todas las teclas. F2–F4 y F5–F12 ya existían (interfaz, depuración, cámara y hechizos asignados).
+
+**Verificado:**
+- **Música por zona:** Charla recorrió, con `.move`, Gludio, Kent, Giran, Oren, Silver Knight Town, Woodbeck, Heine, el pueblo élfico, Aden, el Valle del Dragón y las mazmorras de Talking Island y de Gludio. En cada lugar la música cambió a la de la zona (83, 14, 20, 54, 57, 52, 23, 13, 41, 19, 63 y 65), sin avisos.
+- **Presupuestos** (`--perf`):
+  - CPU de 0,4 a 1,2 ms por frame, con picos de 4,7 ms;
+  - 120 fps, salvo el primer segundo de cada mapa (92 fps, con 18–27 ms de decodificación);
+  - sin asignaciones de memoria en el frame después de cargar.
+- **Combate con sonido:** 8 efectos en un combate. El valle escondido elige la música 53 y Talking Island la 30.
+- **Portal:** desde (32477, 32852) un paso al norte entra a la mazmorra de Talking Island (`S_MapID` 1, música 63).
+- **Clima:** `.weather 19` y `.weather 3`: lluvia y nieve en Talking Island y Giran, y nada en la mazmorra de Gludio.
+- **Tests:** `tests/test_sonidos.cpp` cubre `music.def` y `envsound.def`, de muestra y los reales.
+
+**Pendiente o conocido:**
+- **Prueba de oído:** no se escuchó en vivo. Las pruebas corrieron con `--mudo`.
+- **Paneo:** los efectos no se panean a izquierda o derecha.
+- **Sonidos sin conectar:** los de equipar (`equipsound.def`) y los de la voz del personaje (`charsound.def`) faltan.
+- **Mapas "al aire libre":** la lista es fija; otros mapas abiertos (Aden nueva, islas nuevas) no tienen clima.
+- **Monstruos sin sprite:** en las mazmorras hay algunos (Corroded Zombie y otros) que se ven como un cuadrado magenta. Faltan en la tabla de sprites o en los .pak; queda para revisar.
+- **Personajes al final:** Charla quedó de vuelta en el valle (2005) y el clima del servidor, despejado (`.weather 0`).
+
 ## Aprender magia: maestros y libros
 
 ![Lista del maestro de magia](docs/capturas/8_aprender_magia.png)
@@ -706,7 +752,7 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 55 | 55 passed | 0 failed
+[doctest] test cases: 57 | 57 passed | 0 failed
 ```
 
 El del entregable 9 está en `tests/test_proto.cpp`: pregunta, intercambio, título, emblema, la página del clan (3 datos que pasan a 5) y los bytes de los comandos sociales.

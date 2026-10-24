@@ -40,7 +40,7 @@ cmake --preset debug && cmake --build --preset debug        # también: release,
 servidor_local/instalar.sh                                   # una vez (OpenJDK, MariaDB en 3307, base, parches)
 servidor_local/arrancar.sh                                   # deja el servidor en primer plano; servidor.log
 export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con Sprite*.pak, Text.pak, map/
-LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 55 casos; sin LINEAGE_DIR se saltan 6
+LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 57 casos; sin LINEAGE_DIR se saltan 6
 ```
 
 - **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en
@@ -80,6 +80,7 @@ comandos (proto/comandos.h: Escritor) ─► anillo ─► hilo escritor (cifra)
 | `src/recursos` | `.pak/.idx`, DES de Text.pak, imágenes, tiles, sprites, mapas, fuentes, textos, HTML | core, plataforma |
 | `src/mundo` | estado del juego: objetos (SoA), jugador, inventario, chat, mapas; aplicar eventos | core, proto, recursos |
 | `src/render` | SDL_GPU, atlas (texture array con LRU), gráficos de alto nivel | core, recursos, SDL |
+| `src/audio` | dispositivo y streams de SDL3: música MP3 (dr_mp3), efectos WAV, ambiente | core, SDL |
 | `src/ui` | UI inmediata (botones, cajas de texto) | render |
 | `src/app` | bucle principal, pantallas, ventanas y una `*_ui.cpp` por función de juego | todo |
 
@@ -131,7 +132,8 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - **Probar contra el servidor:** el cliente tiene automatización completa (tabla en el README):
   - `--auto --usuario= --clave= --personaje=` entran solos;
   - `--decir`, `--ruta`, `--atacar`, `--usar`, `--hablar`, `--lanzar`, `--ofrecer`... actúan;
-  - `--captura=x.bmp --captura-espera=N --salir` sacan una captura y salen.
+  - `--captura=x.bmp --captura-espera=N --salir` sacan una captura y salen;
+  - `--mudo` es obligatorio en las pruebas automáticas: si no, se escucha en la máquina del usuario.
   - **Siempre poner `--salir`**, o el proceso queda colgado.
 - **Trazas:**
   - `LIN_TRAZA=1`: cada paquete enviado y recibido, con sus primeros 16 bytes;
@@ -168,7 +170,7 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - **Antes de empezar:** mirar los issues abiertos y las ramas `agente/*` (`git branch -r`), para no
   duplicar trabajo.
 - **Buenas divisiones** (casi no se tocan entre sí):
-  - **entregable 10:** clima, audio (módulo nuevo `src/audio`), portales, F1–F4;
+  - **pendientes del entregable 10:** paneo, sonidos de equipar y de voz, monstruos sin sprite;
   - **portabilidad:** Windows y Linux (`grep -rn MULTIPLATAFORMA`; tabla en el README);
   - **entregable 11:** empaquetado y otras versiones de protocolo (tablas de opcodes desde
     `docs/analisis/opcodes`);
@@ -205,8 +207,8 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
   Seguir la densidad del código que rodea al cambio.
 - **Datos:** sin herencia ni polimorfismo dinámico en el camino caliente. Datos planos, tablas y funciones
   libres.
-- **Dependencias:** solo las de `cmake/dependencias.cmake` (SDL3, stb_image, doctest, con versiones
-  fijas). No agregar otras sin una razón fuerte.
+- **Dependencias:** solo las de `cmake/dependencias.cmake` (SDL3, stb_image, dr_mp3, doctest, con
+  versiones fijas). No agregar otras sin una razón fuerte.
 - **Portabilidad:** lo específico de una plataforma queda en `plataforma/` y `render/`. Lo que falta para
   otra plataforma se marca con `// MULTIPLATAFORMA: ...`.
 

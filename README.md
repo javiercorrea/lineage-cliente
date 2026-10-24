@@ -1,9 +1,10 @@
 # Cliente Lineage (C++20 + SDL3)
 
 Cliente nuevo de Lineage 1 que usa los recursos de la instalación original (abandonware) y habla
-el protocolo L1J. Implementa los **entregables 1 a 9** del plan (`docs/analisis/PLAN_CLIENTE.md`):
+el protocolo L1J. Implementa los **entregables 1 a 10** del plan (`docs/analisis/PLAN_CLIENTE.md`):
 login, selección y creación de personaje, entrar al juego y moverse, chat y estado, combate,
-inventario e ítems, hechizos y polymorph, NPCs y comercio, magia y lo social (grupo, intercambio, clan). Por ahora se probó
+inventario e ítems, hechizos y polymorph, NPCs y comercio, magia, lo social (grupo, intercambio, clan) y
+el mundo completo (música por zona, sonidos, clima y portales). Por ahora se probó
 **solo en macOS** (Apple Silicon); los puntos que faltan para Windows y Linux están marcados en el
 código con `MULTIPLATAFORMA` (ver la sección final).
 
@@ -18,7 +19,7 @@ Para trabajar en el proyecto (personas o agentes, también en paralelo): **[AGEN
 - CMake ≥ 3.25 y Ninja: `brew install cmake ninja`
 - La instalación del juego (la carpeta con `Sprite*.pak`, `Tile.pak`, `Text.pak`, `map/`, `font/`)
 
-SDL3 3.4.18, stb_image y doctest se descargan solos en la primera configuración (FetchContent,
+SDL3 3.4.18, stb_image, dr_mp3 y doctest se descargan solos en la primera configuración (FetchContent,
 versiones fijas). No hace falta instalar nada más.
 
 ## Compilar y probar
@@ -95,6 +96,9 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Intercambio:** hay que estar al lado del otro y mirándolo. Se arrastra un ítem del inventario a la ventana (o doble clic con el intercambio abierto), y OK cuando los dos están conformes.
 - **Comandos de chat:** `/invite Nombre`, `/party`, `/leave`, `/kick Nombre` (grupo); `/trade`; `/clan Nombre` (crear, príncipe con 30000 adena), `/join` (frente a un príncipe), `/pledge`, `/leaveclan`, `/banclan Nombre`, `/emblem` (sube un emblema de muestra); `/title [Nombre] Título`; `/who [Nombre]`. Lo que no es un comando va al chat.
 - **Nombres:** azul con alineamiento ≥ 500, rojo con ≤ −500; el título arriba y el emblema del clan a la izquierda.
+- **F1:** ayuda con todas las teclas.
+- **Sonido:** música por zona, efectos de las animaciones y ambiente. El volumen de música y efectos está en **Options**.
+- **Portales:** para entrar a una mazmorra o subir una escalera, caminar hacia la entrada con las flechas o hacer clic justo sobre ella.
 - **Shift+F4:** oscurece a los personajes parados en la sombra de un árbol (por defecto) o no. Se guarda en `settings.ini` (`sombra_personajes=1/0`).
 - **Shift+F12:** guarda `captura.bmp`.
 - **Esc:** en el login, sale.
@@ -137,6 +141,8 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--girar=2` | Mira hacia esa dirección (0–7) en el frame 200 del juego: para quedar frente a otro personaje (intercambio, `/join`) |
 | `--ofrecer=Healing` | Cuando se abre un intercambio, ofrece todo el primer ítem que lo contenga y da OK 1,5 s después |
 | `--social` | Abre la ventana Social al entrar |
+| `--mudo` | El audio corre sin volumen (pruebas automáticas); `--perf` muestra efectos tocados y música |
+| `--teclas` | Abre la ayuda de teclas (F1) al entrar |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

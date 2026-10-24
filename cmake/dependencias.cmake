@@ -25,11 +25,20 @@ FetchContent_Declare(doctest_src
     GIT_SHALLOW TRUE
     SOURCE_SUBDIR sin_cmake)  # solo se usa el header; su CMakeLists no es compatible con CMake 4
 
-FetchContent_MakeAvailable(SDL3 stb_src doctest_src)
+# dr_libs: solo dr_mp3 (la música del juego es MP3; SDL3 no trae decodificador). Dominio público / MIT-0.
+FetchContent_Declare(dr_libs_src
+    GIT_REPOSITORY https://github.com/mackron/dr_libs.git
+    GIT_TAG d422edf14ec2b81ac40a7f22b5a7f64276b5fc34
+    SOURCE_SUBDIR sin_cmake)
+
+FetchContent_MakeAvailable(SDL3 stb_src doctest_src dr_libs_src)
 
 # stb no trae CMakeLists: se expone como librería de solo headers
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE ${stb_src_SOURCE_DIR})
+
+add_library(dr_mp3 INTERFACE)
+target_include_directories(dr_mp3 SYSTEM INTERFACE ${dr_libs_src_SOURCE_DIR})
 
 # doctest: solo header; con -fno-exceptions se activa su modo sin ellas
 add_library(doctest INTERFACE)

@@ -15,7 +15,7 @@ namespace {
 
 constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
-constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 200;
+constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 252;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 92;
 constexpr int SEPARACION = 4, MARGEN = 7;
 
@@ -215,12 +215,53 @@ void dibujar_opciones(App& a) {
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;
         cambio = true;
     }
+    // Volúmenes: 0 -> 20 -> ... -> 100 -> 0 (Off).
+    auto volumen = [&](std::string_view nombre, int& v) {
+        std::snprintf(t, sizeof t, v ? "%d%%" : "Off", v);
+        if (fila(nombre, t)) {
+            v = v >= 100 ? 0 : (v / 20 + 1) * 20;
+            aplicar_volumenes(a);
+            cambio = true;
+        }
+    };
+    volumen("Music", a.cfg.volumen_musica);
+    volumen("Sound effects", a.cfg.volumen_efectos);
     if (fila("Window positions", "Reset")) {
         for (PosVentana& p : a.pos_ventanas) p = {};
         a.cfg.ventanas.clear();
         cambio = true;
     }
     if (cambio) guardar_config(a.cfg);
+}
+
+void dibujar_ayuda_teclas(App& a) {
+    if (!a.ayuda_teclas) return;
+    static constexpr const char* FILAS[][2] = {
+        {"F1", "This help"},
+        {"F2", "Simple / original interface"},
+        {"F3", "Debug overlay (fps, CPU)"},
+        {"F4 / Shift+F4", "Camera / shade in shadows"},
+        {"F5-F12", "Cast the assigned spell"},
+        {"Shift+F12", "Screenshot (captura.bmp)"},
+        {"Alt+1..0", "Shortcut bar (spells, items)"},
+        {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
+        {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},
+        {"Arrows, mouse", "Walk; click a monster to attack"},
+        {"Ctrl+click", "Attack a player or NPC"},
+        {"Enter / Esc", "Send chat / close window"},
+    };
+    const int n = static_cast<int>(sizeof FILAS / sizeof FILAS[0]);
+    Rect r{(a.gpu.ancho() - 360) / 2, 60, 360, ui::ALTO_TITULO + 14 + n * (ALTO_GLIFO + 6)};
+    if (recuadro(a, r, "Keys (F1)") || a.entrada.escape) {
+        a.ayuda_teclas = false;
+        return;
+    }
+    const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
+    for (int i = 0; i < n; ++i) {
+        const float y = static_cast<float>(r.y + ui::ALTO_TITULO + 8 + i * (ALTO_GLIFO + 6));
+        a.g->texto(FILAS[i][0], static_cast<float>(r.x + 12), y, kt, rgba(255, 230, 120));
+        a.g->texto(FILAS[i][1], static_cast<float>(r.x + 150), y, kt, rgba(230, 220, 190));
+    }
 }
 
 void dibujar_salida(App& a) {
