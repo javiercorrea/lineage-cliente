@@ -58,11 +58,31 @@ void leer_entrada(App& a) {
     e.pagina_arriba = e.pagina_abajo = e.alt_c = e.alt_i = e.alt_s = e.pulsado = false;
     e.tecla_f = 0;
     e.alt_numero = 0;
+    e.numero = 0;
     int texto_antes = 0;  // para distinguir Alt+número de un carácter escrito con Option (ver abajo)
     e.rueda = 0;
     e.zoom = 0;
     e.ntexto = 0;
     e.ahora_ms = SDL_GetTicks();
+    // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego, como
+    // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
+    Automatizacion& au = a.aut;
+    if (au.pulsadas < au.pulsar.size() && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 &&
+        (a.frames_en_pantalla - 300) % 10 == 0) {
+        const char c = au.pulsar[au.pulsadas++];
+        SDL_Event k{};
+        k.type = SDL_EVENT_KEY_DOWN;
+        k.key.key = c == '#' ? SDLK_RETURN : c == '~' ? SDLK_ESCAPE : static_cast<SDL_Keycode>(c);
+        SDL_PushEvent(&k);
+        if (c != '#' && c != '~') {
+            static char texto[2];
+            texto[0] = c;
+            SDL_Event t{};
+            t.type = SDL_EVENT_TEXT_INPUT;
+            t.text.text = texto;
+            SDL_PushEvent(&t);
+        }
+    }
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -111,12 +131,15 @@ void leer_entrada(App& a) {
             case SDLK_0: case SDLK_KP_0:
                 if (ev.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) e.zoom = 2;
                 else if ((ev.key.mod & SDL_KMOD_ALT) && ev.key.key == SDLK_0) e.alt_numero = 10;
+                else if (ev.key.key == SDLK_0 && !(ev.key.mod & (SDL_KMOD_ALT | SDL_KMOD_SHIFT))) e.numero = 10;
                 texto_antes = e.ntexto;
                 break;
             case SDLK_1: case SDLK_2: case SDLK_3: case SDLK_4: case SDLK_5: case SDLK_6: case SDLK_7: case SDLK_8:
             case SDLK_9:
                 if ((ev.key.mod & SDL_KMOD_ALT) && !(ev.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)))
                     e.alt_numero = 1 + static_cast<int>(ev.key.key - SDLK_1);  // SDLK_1..SDLK_9 son consecutivos
+                else if (!(ev.key.mod & (SDL_KMOD_ALT | SDL_KMOD_SHIFT | SDL_KMOD_CTRL | SDL_KMOD_GUI)))
+                    e.numero = 1 + static_cast<int>(ev.key.key - SDLK_1);
                 texto_antes = e.ntexto;
                 break;
             case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
@@ -295,6 +318,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--tienda=", 0) == 0) a.aut.tienda.push_back(valor("--tienda="));
         else if (s.rfind("--arrastrar=", 0) == 0)
             std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &a.aut.arrastre[0], &a.aut.arrastre[1], &a.aut.arrastre[2], &a.aut.arrastre[3]);
+        else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
         else if (s.rfind("--medio=", 0) == 0)
             std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
         else if (s == "--opciones") a.ventana_opciones = true;

@@ -70,6 +70,8 @@ struct Automatizacion {
     std::vector<int> alt;           // casilleros de la barra a usar (Alt+número), uno cada 3 s
     int arrastre[4] = {-1, -1, -1, -1};
     int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
+    std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
+    size_t pulsadas = 0;
     std::string captura_proyectil;
     std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
     bool aceptar = false;           // responder que sí a toda pregunta del servidor (S_MessageYN)
@@ -258,7 +260,8 @@ struct App {
     u8 orden_ventanas[static_cast<int>(IdVentana::CANTIDAD)] = {0, 1, 2, 3, 4, 5, 6, 7};
     bool ventana_abierta_antes[static_cast<int>(IdVentana::CANTIDAD)] = {};
     int ventana_arriba = -1;
-    bool ventana_sobre_otra = false;  // la que se está dibujando tapa a otra abierta (fondo opaco)
+    bool ventana_sobre_otra = false;
+    bool escribiendo_chat = false;  // con chat_con_enter: la línea del chat está abierta (Enter la abrió)  // la que se está dibujando tapa a otra abierta (fondo opaco)
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;

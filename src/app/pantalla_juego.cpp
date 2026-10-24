@@ -810,7 +810,7 @@ AreaChat area_chat(const App& a) {
 // como en el original: se escribe y Enter envía; Esc borra; rueda o Re Pág/Av Pág desplazan.
 void dibujar_chat(App& a) {
     Graficos& g = *a.g;
-    const EntradaFrame& e = a.entrada;
+    EntradaFrame& e = a.entrada;
     const AreaChat ac = area_chat(a);
     u32 n = a.chat.cantidad();
     int paso = (ui::sobre(e, ac.zona_x, ac.zona_y, ac.zona_w, ac.zona_h) ? e.rueda : 0) + (e.pagina_arriba ? CHAT_FILAS : 0) -
@@ -836,12 +836,29 @@ void dibujar_chat(App& a) {
     }
     if (a.chat_desplazamiento > 0) g.texto_sombra("^", ac.x + ac.ancho - 6, ac.y, kt, rgba(255, 220, 120));
 
-    if (a.cfg.ui_simple) g.texto(">", ac.entrada_x - 12, ac.entrada_y, kt, rgba(214, 190, 140));
-    if (e.escape) a.chat_entrada.clear();
-    if (ui::caja_texto(g, e, a.chat_entrada, ac.entrada_x, ac.entrada_y, ac.entrada_ancho, true, false, MAX_ENTRADA_CHAT)) {
-        enviar_chat(a, a.chat_entrada);
+    // Línea de entrada. Con "chat con Enter" está cerrada hasta apretar Enter (así las teclas son
+    // acciones); Enter envía y la cierra, Esc la vacía y la cierra (y no llega a las ventanas).
+    const bool con_enter = a.cfg.chat_con_enter;
+    if (con_enter && !a.escribiendo_chat && e.enter && !a.ventana_forma) {
+        a.escribiendo_chat = true;
+        e.enter = false;
+    }
+    const bool abierta = !con_enter || a.escribiendo_chat;
+    if (a.cfg.ui_simple) g.texto(">", ac.entrada_x - 12, ac.entrada_y, kt, abierta ? rgba(214, 190, 140) : rgba(110, 100, 80));
+    if (abierta && e.escape) {
+        a.chat_entrada.clear();
+        if (con_enter) {
+            a.escribiendo_chat = false;
+            e.escape = false;
+        }
+    }
+    if (!abierta) {
+        g.texto("Enter: chat", ac.entrada_x, ac.entrada_y, kt, rgba(110, 100, 80));
+    } else if (ui::caja_texto(g, e, a.chat_entrada, ac.entrada_x, ac.entrada_y, ac.entrada_ancho, true, false, MAX_ENTRADA_CHAT)) {
+        if (!a.chat_entrada.empty()) enviar_chat(a, a.chat_entrada);
         a.chat_entrada.clear();
         a.chat_desplazamiento = 0;
+        if (con_enter) a.escribiendo_chat = false;
     }
 }
 

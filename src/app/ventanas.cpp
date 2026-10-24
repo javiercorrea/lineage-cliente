@@ -17,7 +17,7 @@ namespace {
 constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
-constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 252;
+constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 276;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 92;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -288,6 +288,11 @@ void dibujar_opciones(App& a) {
         a.cfg.opacidad_ventanas = o > 255 ? 102 : o;
         cambio = true;
     }
+    if (fila("Chat", a.cfg.chat_con_enter ? "Enter to type" : "Always typing")) {
+        a.cfg.chat_con_enter = !a.cfg.chat_con_enter;
+        a.escribiendo_chat = false;
+        cambio = true;
+    }
     std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
     if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;
@@ -321,7 +326,8 @@ void dibujar_ayuda_teclas(App& a) {
         {"F4 / Shift+F4", "Camera / shade in shadows"},
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},
-        {"Alt+1..0", "Shortcut bar (spells, items)"},
+        {"1..0 / Alt+1..0", "Shortcut bar (spells, items)"},
+        {"Enter", "Open chat / send (Esc: cancel)"},
         {"Middle click", "Select bar slot / use it on target"},
         {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
         {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},

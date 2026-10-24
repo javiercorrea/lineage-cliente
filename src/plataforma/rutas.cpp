@@ -34,6 +34,7 @@ static void aplicar(Config& c, std::string_view clave, std::string_view valor) {
     else if (clave == "volumen_musica") c.volumen_musica = std::atoi(std::string(valor).c_str());
     else if (clave == "volumen_efectos") c.volumen_efectos = std::atoi(std::string(valor).c_str());
     else if (clave == "logo") c.logo = valor;
+    else if (clave == "chat_con_enter") c.chat_con_enter = valor != "0";
 }
 
 Config cargar_config(int argc, char** argv) {
@@ -89,10 +90,10 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
 bool guardar_config(const Config& c) {
     FILE* f = std::fopen(ruta_configuracion().c_str(), "wb");
     if (!f) return false;
-    std::fprintf(f, "# Configuración del cliente Lineage\njuego=%s\nhost=%s\npuerto=%u\nprotocolo=%s\nusuario=%s\nzoom=%d\ncamara_a_saltos=%d\nui_simple=%d\nsombra_personajes=%d\natajos=%s\nbarra=%s\nventanas=%s\nopacidad_ventanas=%d\nvolumen_musica=%d\nvolumen_efectos=%d\nlogo=%s\n",
+    std::fprintf(f, "# Configuración del cliente Lineage\njuego=%s\nhost=%s\npuerto=%u\nprotocolo=%s\nusuario=%s\nzoom=%d\ncamara_a_saltos=%d\nui_simple=%d\nsombra_personajes=%d\natajos=%s\nbarra=%s\nventanas=%s\nopacidad_ventanas=%d\nvolumen_musica=%d\nvolumen_efectos=%d\nlogo=%s\nchat_con_enter=%d\n",
                  c.carpeta_juego.c_str(), c.host.c_str(), c.puerto, c.protocolo.c_str(), c.usuario.c_str(), c.zoom,
                  c.camara_a_saltos ? 1 : 0, c.ui_simple ? 1 : 0, c.sombra_personajes ? 1 : 0, c.atajos.c_str(), c.barra.c_str(), c.ventanas.c_str(),
-                 c.opacidad_ventanas, c.volumen_musica, c.volumen_efectos, c.logo.c_str());
+                 c.opacidad_ventanas, c.volumen_musica, c.volumen_efectos, c.logo.c_str(), c.chat_con_enter ? 1 : 0);
     std::fclose(f);
     return true;
 }

@@ -30,6 +30,9 @@ struct Config {
     // Logo propio de la pantalla de login con la UI simple: un PNG (de hasta 2048×2048; se achica
     // para entrar). Ruta absoluta o relativa a la carpeta de settings.ini; vacío = el título en texto.
     std::string logo;
+    // Chat con Enter: las teclas son acciones (1–0 usan la barra) y Enter abre la línea del chat
+    // (Enter envía, Esc cancela). false: se escribe siempre y la barra va con Alt+número.
+    bool chat_con_enter = true;
 };
 
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").

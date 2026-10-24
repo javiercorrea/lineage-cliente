@@ -27,6 +27,7 @@ struct EntradaFrame {
     bool alt_s = false;           // Alt+S este frame (hechizos)
     int tecla_f = 0;              // F5..F12 apretada este frame (5..12; 0 = ninguna): atajos de hechizos
     int alt_numero = 0;           // Alt+1..Alt+9, Alt+0 este frame (1..10; 0 = ninguna): barra de atajos
+    int numero = 0;               // 1..9, 0 sin modificadores este frame (1..10): barra, si no se escribe en el chat
     int rueda = 0;                // rueda del mouse este frame (+ hacia arriba)
     int zoom = 0;                 // Ctrl/Cmd + (+1) o - (-1) este frame; 2 = Ctrl/Cmd 0 (automático)
     char texto[64] = {};          // texto escrito este frame (UTF-8; solo se acepta ASCII)
