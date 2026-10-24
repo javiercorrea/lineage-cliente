@@ -244,6 +244,7 @@ void dibujar_ayuda_teclas(App& a) {
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},
         {"Alt+1..0", "Shortcut bar (spells, items)"},
+        {"Middle click", "Select bar slot / use it on target"},
         {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
         {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},
         {"Arrows, mouse", "Walk; click a monster to attack"},

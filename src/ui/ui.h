@@ -17,6 +17,7 @@ struct EntradaFrame {
     bool shift = false;           // Shift mantenido
     bool clic_derecho = false;
     bool derecho_presionado = false;
+    bool clic_medio = false;      // botón del medio (rueda) soltado este frame
     bool enter = false, tab = false, escape = false, retroceso = false;
     bool arriba = false, abajo = false, izquierda = false, derecha = false;  // mantenidas
     bool pagina_arriba = false, pagina_abajo = false;  // Re Pág / Av Pág este frame

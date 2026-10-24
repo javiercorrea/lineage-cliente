@@ -2,7 +2,9 @@
 // panel. Se llenan arrastrando un hechizo desde su ventana (Alt+S) o un ítem desde el inventario
 // (Alt+I); entre casilleros se arrastra para mover, y clic derecho o soltar fuera los vacía. Clic
 // o Alt+número usa: el hechizo (si pide objetivo, espera el clic) o el ítem (como el doble clic en
-// el inventario). Se guarda por personaje en settings.ini ("barra=").
+// el inventario). Clic del medio sobre un casillero lo elige (marco dorado; otra vez lo suelta) y
+// clic del medio sobre el mundo usa el elegido sobre lo que haya bajo el puntero, como en el
+// original. Se guarda por personaje en settings.ini ("barra="; "*" tras el elegido).
 #include <charconv>
 #include <cstring>
 #include "app/app.h"
@@ -18,11 +20,13 @@ constexpr int MOVIMIENTO_ARRASTRE = 4;  // px antes de que un clic se tome como 
 void cargar_barra(App& a) {
     a.barra_de = nombre_personaje(a);
     for (Atajo& b : a.barra) b = {};
+    a.casillero_elegido = -1;
     std::string_view v = valor_de_personaje(a.cfg.barra, a.barra_de);
     for (int i = 0; i < CASILLEROS_BARRA && !v.empty(); ++i) {
         std::string_view t = v.substr(0, v.find(','));
         v = t.size() < v.size() ? v.substr(t.size() + 1) : std::string_view{};
         if (t.size() < 2) continue;
+        if (t.back() == '*') a.casillero_elegido = i;
         const char* p = t.data() + 1;
         const char* fin = t.data() + t.size();
         Atajo& b = a.barra[i];
@@ -44,6 +48,7 @@ void guardar_barra(App& a) {
         if (b.tipo == TipoAtajo::HECHIZO) v += 'h' + std::to_string(b.id);
         else if (b.tipo == TipoAtajo::ITEM) v += 'i' + std::to_string(b.gfx) + ':' + std::to_string(b.id);
         else v += '0';
+        if (i == a.casillero_elegido) v += '*';
         if (i + 1 < CASILLEROS_BARRA) v += ',';
     }
     poner_valor_de_personaje(a.cfg.barra, a.barra_de, v);
@@ -73,6 +78,23 @@ void usar_casillero(App& a, int i) {
     } else if (b.tipo == TipoAtajo::ITEM) {
         Slot s = item_de(a, b);
         if (s != SIN_SLOT) usar_item(a, a.mundo.inventario.items.ids()[s]);
+    }
+}
+
+// Clic del medio: sobre un casillero lo elige; sobre el mundo usa el elegido. Un hechizo con
+// objetivo va a lo que haya bajo el puntero (uno mismo incluido) y sin nada ahí no se lanza.
+void clic_medio(App& a) {
+    if (int c = casillero_bajo_puntero(a); c >= 0) {
+        a.casillero_elegido = a.casillero_elegido == c || a.barra[c].tipo == TipoAtajo::VACIO ? -1 : c;
+        guardar_barra(a);
+        return;
+    }
+    if (a.casillero_elegido < 0 || sobre_barra(a) || sobre_alguna_ventana(a)) return;
+    const Atajo& b = a.barra[a.casillero_elegido];
+    if (b.tipo == TipoAtajo::HECHIZO && a.hechizos[b.id].con_objetivo) {
+        if (ObjId obj = objeto_bajo_puntero(a, true)) pedir_hechizo(a, b.id, obj);
+    } else {
+        usar_casillero(a, a.casillero_elegido);
     }
 }
 
@@ -110,12 +132,14 @@ bool sobre_barra(const App& a) {
 void poner_atajo(App& a, int casillero, Atajo atajo) {
     if (casillero < 0 || casillero >= CASILLEROS_BARRA) return;
     a.barra[casillero] = atajo;
+    if (atajo.tipo == TipoAtajo::VACIO && a.casillero_elegido == casillero) a.casillero_elegido = -1;
     guardar_barra(a);
 }
 
 void procesar_barra(App& a) {
     if (a.barra_de != nombre_personaje(a)) cargar_barra(a);
     if (a.entrada.alt_numero) usar_casillero(a, a.entrada.alt_numero - 1);
+    if (a.entrada.clic_medio) clic_medio(a);
     // Prueba automática (--alt=N): como apretar Alt+N, uno cada 3 s.
     Automatizacion& au = a.aut;
     if (au.alt_hechos < au.alt.size() && a.frames_en_pantalla >= 300 + 360 * au.alt_hechos) {
@@ -138,6 +162,13 @@ void dibujar_barra(App& a, int y) {
         const Atajo& b = a.barra[i];
         u32 fondo = i == bajo ? (trayendo ? rgba(90, 75, 30, 230) : rgba(60, 50, 35, 230)) : rgba(20, 18, 15, 200);
         g.gpu().rectangulo(x, y, CELDA, CELDA, kf, fondo);
+        if (i == a.casillero_elegido) {
+            const u32 oro = rgba(240, 200, 80);
+            g.gpu().rectangulo(x, y, CELDA, 2, kf + 1, oro);
+            g.gpu().rectangulo(x, y + CELDA - 2, CELDA, 2, kf + 1, oro);
+            g.gpu().rectangulo(x, y, 2, CELDA, kf + 1, oro);
+            g.gpu().rectangulo(x + CELDA - 2, y, 2, CELDA, kf + 1, oro);
+        }
         if (i != a.arrastrando_atajo || !movio(a)) {
             const RegionAtlas& ic = icono_atajo(a, b);
             // Hechizo que no se sabe o sin MP suficiente, o ítem que ya no está: oscurecido.
@@ -208,6 +239,8 @@ void dibujar_barra(App& a, int y) {
             if (bajo == desde) usar_casillero(a, desde);
         } else if (bajo >= 0) {
             std::swap(a.barra[desde], a.barra[bajo]);
+            if (a.casillero_elegido == desde) a.casillero_elegido = bajo;
+            else if (a.casillero_elegido == bajo) a.casillero_elegido = desde;
             guardar_barra(a);
         } else if (!sobre_barra(a)) {
             poner_atajo(a, desde, {});

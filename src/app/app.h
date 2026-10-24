@@ -225,6 +225,7 @@ struct App {
     int barra_x = 0, barra_y = -1000; // posición del último frame (para el puntero)
     u32 arrastrando_hechizo = 0;      // desde la ventana de hechizos
     int arrastrando_atajo = -1;       // desde un casillero de la barra
+    int casillero_elegido = -1;       // el que usa el clic del medio sobre el mundo (-1 ninguno)
     int arrastre_x0 = 0, arrastre_y0 = 0;
     // Polymorph (forma_ui.cpp): diálogo para escribir el monstruo.
     bool ventana_forma = false;
