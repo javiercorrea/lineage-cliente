@@ -153,6 +153,9 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - Integrar seguido: `git fetch && git rebase origin/main`. Al terminar, PR a `main` con `gh pr create`
   (descripción: qué, cómo se verificó y qué queda pendiente). Si nadie revisa, el mismo agente puede
   mergear después de rebasear y volver a correr los tests.
+- **Credenciales:** el repo es privado de la cuenta `javiercorrea`. Si `git push` dice "Repository not found",
+  el llavero de macOS tiene otra cuenta. Hacer push con las credenciales de gh:
+  `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`.
 - Para trabajar en la misma máquina sin pisarse:
   - `git worktree add ../cliente-<tema> -b agente/<tema>`;
   - cada worktree con su propio `build/`.
