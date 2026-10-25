@@ -82,6 +82,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Cambiar de personaje:** Exit > "Character select".
 - **Estados alterados:** envenenado (verde), congelado (gris), ciego (pantalla negra salvo el propio personaje) y un aviso arriba si está paralizado, dormido, aturdido o atado (no se puede mover ni actuar).
 - **Monstruos sin sprite:** los que faltan en esta instalación se ven como un bloque magenta y se atacan con el clic como cualquier otro.
+- **Atacar:** clic sobre un monstruo y mantener: el personaje camina hasta él y lo ataca aunque la cámara se mueva y el puntero ya no esté encima (el objetivo se fija al apretar). Soltar deja de atacar, salvo con **A** (con el chat cerrado): sigue atacando al objetivo, o al monstruo bajo el puntero, hasta que muera, se camine con las flechas o se haga otro clic.
 - **Ítems del suelo:** clic sobre un ítem para recogerlo; si está lejos, el personaje camina hasta él. El nombre aparece al pasar el mouse por encima.
 - **Chat:**
   - **Enter abre la línea del chat** (abajo dice "Enter: chat"); se escribe y Enter envía y la cierra; Esc la vacía y la cierra. Mientras está cerrada, las teclas son acciones (1–0 usan la barra). En Options, "Chat: Always typing" vuelve a escribir siempre, con la barra en Alt+número (`chat_con_enter=0` en `settings.ini`);
@@ -158,6 +159,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--cantidad=N` | En el próximo diálogo de cantidad (del servidor, o al dar una pila a un NPC o mascota), elige N y acepta |
 | `--dar="Ítem@Nombre"` | Da ese ítem al más cercano con ese nombre (con `--cantidad` si es una pila); se puede repetir, uno cada 2 s, en la misma cola que `--usar` |
 | `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |
+| `--mantener=x,y,N` / `--mantener-sobre=Nombre,N` | Mantiene el botón izquierdo N frames desde el frame 300 del juego, en (x, y) o en el punto de pantalla donde está en ese momento el objeto con ese nombre (el punto queda fijo) |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

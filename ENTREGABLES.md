@@ -684,6 +684,18 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Marcadores** (`S_Bookmarks`, `C_AddBookmark`, `C_DeleteBookmark`; `app/marcadores_ui.cpp`): "/bookmark nombre" en el chat guarda el lugar, "/delbookmark nombre" lo borra. Con marcadores, el pergamino de teleport (usos 6 y 29: `C_UseItem` con mapa y marcador) y los hechizos Teleport y Mass Teleport (`C_UseSkill` con mapa y marcador) abren la lista de destinos ("Random" o un marcador; clic derecho borra uno). Sin marcadores, el pergamino va al azar como antes (antes se mandaba sin mapa ni marcador).
   - **El servidor de pruebas no los permite:** ningún mapa de la base tiene `markable` = 1 ("You cannot bookmark this location", también para un GM), y `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama. Se verificó en vivo que "/bookmark" manda `C_AddBookmark` y que el pergamino sin marcadores teletransporta al azar; el decodificador y los comandos, con tests.
 
+## Atacar manteniendo el clic y tecla A
+
+- **Antes:** mientras se mantenía el clic, el objetivo se volvía a calcular en cada paso con lo que hubiera bajo el puntero. Al caminar hacia un monstruo lejano la cámara se movía, el puntero quedaba sobre el suelo y el personaje empezaba a caminar en otra dirección. Además, el frame en que se apretaba se perdía si el personaje estaba a mitad de un paso.
+- **Ahora** (`mover_jugador`, `app/pantalla_juego.cpp`):
+  - lo que está bajo el puntero al apretar (monstruo, ítem, NPC) queda fijo como objetivo mientras se mantiene el botón; apretado sobre el suelo se camina hacia el puntero y lo primero que el puntero toque queda fijo;
+  - la elección se hace antes de esperar el fin del paso;
+  - **tecla A** (con el chat cerrado): ataque sostenido al objetivo, o al monstruo bajo el puntero, sin mantener el botón. Termina si el objetivo muere o desaparece, al caminar con las flechas o con un clic nuevo en el mundo.
+- **Verificado** con un Jack-O-Lantern (45166) en la plaza de Talking Island y `--mantener-sobre` (el puntero queda fijo donde estaba el monstruo al apretar):
+  - sin arma (alcance 1), 5 celdas: 4 pasos hacia el monstruo con la cámara moviéndose y 2 ataques;
+  - con el arco (alcance 18): ataca desde donde está;
+  - clic de 30 frames + A: 5 pasos y 9 ataques en 10 s después de soltar; el mismo clic sin A: 1 paso y nada más.
+
 ## Aprender magia: maestros y libros
 
 ![Lista del maestro de magia](docs/capturas/8_aprender_magia.png)

@@ -59,6 +59,7 @@ void leer_entrada(App& a) {
     e.tecla_f = 0;
     e.alt_numero = 0;
     e.numero = 0;
+    e.tecla_a = false;
     int texto_antes = 0;  // para distinguir Alt+número de un carácter escrito con Option (ver abajo)
     e.rueda = 0;
     e.zoom = 0;
@@ -123,6 +124,9 @@ void leer_entrada(App& a) {
                 break;
             case SDLK_S:
                 if (ev.key.mod & SDL_KMOD_ALT) e.alt_s = true;
+                break;
+            case SDLK_A:
+                if (!(ev.key.mod & (SDL_KMOD_ALT | SDL_KMOD_CTRL | SDL_KMOD_GUI | SDL_KMOD_SHIFT))) e.tecla_a = true;
                 break;
             case SDLK_EQUALS: case SDLK_PLUS: case SDLK_KP_PLUS:
                 if (ev.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) e.zoom = 1;
@@ -200,6 +204,30 @@ void leer_entrada(App& a) {
         e.pulsado = k == 0;
         e.presionado = k < 31;
         e.clic = k == 31;
+    }
+    // Prueba automática (--mantener=x,y,N): mantener el botón izquierdo en (x, y) desde el frame
+    // 300 durante N frames.
+    if (!a.aut.mantener_sobre.empty() && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla == 300) {
+        // El punto de pantalla (fijo desde ahí) del más cercano con ese nombre.
+        const std::string& v = a.aut.mantener_sobre;
+        const size_t coma = v.rfind(',');
+        const std::string_view nombre = std::string_view(v).substr(0, coma);
+        for (const App::ObjetoEnPantalla& r : a.en_pantalla) {
+            const Slot so = a.mundo.objetos.buscar(r.id);
+            if (so == SIN_SLOT || a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[so])).find(nombre) == std::string_view::npos) continue;
+            a.aut.mantener[0] = static_cast<int>((r.x0 + r.x1) / 2);
+            a.aut.mantener[1] = static_cast<int>((r.y0 + r.y1) / 2);
+            a.aut.mantener[2] = coma == std::string::npos ? 120 : std::atoi(v.c_str() + coma + 1);
+            break;
+        }
+    }
+    const int* ma = a.aut.mantener;
+    if (ma[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + ma[2]) {
+        e.mx = ma[0];
+        e.my = ma[1];
+        e.pulsado = a.frames_en_pantalla == 300;
+        e.presionado = a.frames_en_pantalla < 300u + ma[2];
+        e.clic = a.frames_en_pantalla == 300u + ma[2];
     }
     // Prueba automática (--medio=x,y,N): mantener el botón del medio en (x, y) desde el frame 300
     // durante N frames.
@@ -336,6 +364,9 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
         else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
         else if (s.rfind("--destino=", 0) == 0) a.aut.destino = valor("--destino=");
+        else if (s.rfind("--mantener-sobre=", 0) == 0) a.aut.mantener_sobre = valor("--mantener-sobre=");
+        else if (s.rfind("--mantener=", 0) == 0)
+            std::sscanf(s.c_str() + 11, "%d,%d,%d", &a.aut.mantener[0], &a.aut.mantener[1], &a.aut.mantener[2]);
         else if (s.rfind("--medio=", 0) == 0)
             std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
         else if (s == "--opciones") a.ventana_opciones = true;

@@ -589,41 +589,74 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
     return true;
 }
 
+// Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
+// NPC se le habla (sin Ctrl) y a otros personajes solo con Ctrl. 0 si no hay (se camina).
+void elegir_objetivo_bajo_puntero(App& a) {
+    const TablaObjetos& o = a.mundo.objetos;
+    const EntradaFrame& e = a.entrada;
+    a.objetivo = objeto_bajo_puntero(a);
+    Slot b = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
+    u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
+    // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
+    a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
+    if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !e.ctrl) a.objetivo = 0;
+}
+
 void mover_jugador(App& a, u64 ahora) {
     TablaObjetos& o = a.mundo.objetos;
     Slot s = o.buscar(a.mundo.jugador.id);
-    if (s == SIN_SLOT || a.mundo.jugador.muerto || moviendose(a.mundo, s, ahora) || ahora < a.fin_ataque) return;
-    if (a.mundo.jugador.inmovil) return;  // paralizado, dormido, congelado...: el servidor no lo dejaría
-    u64 fin_paso = o.col<O_TMOV>()[s] + o.col<O_DURMOV>()[s];
-    u64 inicio_paso = (o.col<O_TMOV>()[s] > 0 && ahora - fin_paso < MS_ENCADENAR_PASO) ? fin_paso : ahora;
     const EntradaFrame& e = a.entrada;
-    int dir = direccion_teclas(e);
-    const int dir_teclas = dir;
-    bool ruta = false;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
                        sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
-    // Objetivo: lo que hay bajo el puntero mientras se mantiene el clic (soltar lo abandona),
-    // según su tipo de gfx: un ítem se recoge, un monstruo se ataca, y a otros personajes y NPCs
-    // solo con Ctrl; si no, se camina hacia el puntero.
+    // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
+    // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
+    // lo ataca). Apretado sobre el suelo se camina hacia el puntero, y si el puntero pasa sobre
+    // algo, eso queda como objetivo. Soltar lo abandona, salvo con la tecla A (ataque sostenido).
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
-    if (clic_en_mundo && e.pulsado) a.hechizo_pendiente = 0;  // un clic nuevo cancela el hechizo en camino
+    // Antes de esperar el fin del paso: el frame en que se aprieta no se pierde.
+    if (clic_en_mundo && e.pulsado) {
+        a.hechizo_pendiente = 0;  // un clic nuevo cancela el hechizo en camino
+        a.ataque_sostenido = false;
+        elegir_objetivo_bajo_puntero(a);
+        a.objetivo_fijo = a.objetivo != 0;
+    }
+    if (!e.presionado) a.objetivo_fijo = false;
+    // Tecla A (con el chat cerrado): atacar al objetivo, o al monstruo bajo el puntero, hasta que
+    // muera o se camine.
+    if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !a.ventana_forma) {
+        ObjId t = a.objetivo && !a.hablar_objetivo ? a.objetivo : objeto_bajo_puntero(a);
+        Slot b = t ? o.buscar(t) : SIN_SLOT;
+        if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl)) {
+            a.objetivo = t;
+            a.hablar_objetivo = false;
+            a.ataque_sostenido = true;
+        }
+    }
+    if (s == SIN_SLOT || a.mundo.jugador.muerto || moviendose(a.mundo, s, ahora) || ahora < a.fin_ataque) return;
+    if (a.mundo.jugador.inmovil) return;  // paralizado, dormido, congelado...: el servidor no lo dejaría
+    u64 fin_paso = o.col<O_TMOV>()[s] + o.col<O_DURMOV>()[s];
+    u64 inicio_paso = (o.col<O_TMOV>()[s] > 0 && ahora - fin_paso < MS_ENCADENAR_PASO) ? fin_paso : ahora;
+    int dir = direccion_teclas(e);
+    const int dir_teclas = dir;
+    if (dir_teclas >= 0 && a.ataque_sostenido) {  // caminar con el teclado lo termina
+        a.ataque_sostenido = false;
+        a.objetivo = 0;
+    }
+    bool ruta = false;
     // Hechizo pendiente: un paso hacia el objetivo o lanzarlo.
     if (dir < 0 && !clic_en_mundo) {
         int d = paso_hechizo_pendiente(a, s, ahora);
         if (d == -2) return;
         dir = d;
     }
-    if (clic_en_mundo) {
-        a.objetivo = objeto_bajo_puntero(a);
-        Slot b = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
-        u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
-        // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
-        a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
-        if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !e.ctrl) a.objetivo = 0;
-    } else if (!e.presionado && a.aut.atacar.empty() && !a.aut.recoger && !a.hablar_objetivo) {
+    if (clic_en_mundo && !a.objetivo_fijo) {
+        // Apretado sobre el suelo: lo que el puntero toque al caminar queda como objetivo.
+        elegir_objetivo_bajo_puntero(a);
+        a.objetivo_fijo = a.objetivo != 0;
+    } else if (!e.presionado && a.aut.atacar.empty() && !a.aut.recoger && !a.hablar_objetivo && !a.ataque_sostenido) {
         a.objetivo = 0;
     }
     if (a.objetivo == 0 && a.frames_en_pantalla > 60) {
@@ -632,9 +665,11 @@ void mover_jugador(App& a, u64 ahora) {
     }
     Slot obj = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
     if (obj != SIN_SLOT && o.col<O_ESTADO>()[obj] == ESTADO_MUERTO) obj = SIN_SLOT;
-    if (obj == SIN_SLOT) {
+    if (obj == SIN_SLOT) {  // murió o ya no está
         a.objetivo = 0;
         a.hablar_objetivo = false;
+        a.ataque_sostenido = false;
+        a.objetivo_fijo = false;
     }
     if (dir < 0 && obj != SIN_SLOT) {
         int dx = o.col<O_X>()[obj] - o.col<O_X>()[s], dy = o.col<O_Y>()[obj] - o.col<O_Y>()[s];

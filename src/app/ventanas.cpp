@@ -328,6 +328,7 @@ void dibujar_ayuda_teclas(App& a) {
         {"Shift+F12", "Screenshot (captura.bmp)"},
         {"1..0 / Alt+1..0", "Shortcut bar (spells, items)"},
         {"Enter", "Open chat / send (Esc: cancel)"},
+        {"A", "Keep attacking the target (until it dies or you walk)"},
         {"Middle click", "Select bar slot / use it on target"},
         {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
         {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},
