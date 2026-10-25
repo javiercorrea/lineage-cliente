@@ -74,6 +74,7 @@ struct Automatizacion {
     int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
     int mantener[3] = {-1, 0, 0};  // --mantener: mantener el botón izquierdo en (x, y) N frames
     std::string mantener_sobre;  // --mantener-sobre=Nombre,N: como --mantener, sobre donde está ese objeto en el frame 300
+    bool ctrl = false;  // --ctrl: Ctrl mantenido todo el tiempo (forzar ataque)
     std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
     int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
     std::string destino;  // --destino: en el diálogo de teleport, el marcador con ese nombre ("Random": al azar)
@@ -291,6 +292,7 @@ struct App {
     bool hablar_objetivo = false;  // a.objetivo es un NPC al que se camina para hablarle
     bool objetivo_fijo = false;    // elegido al apretar el botón: se mantiene aunque el puntero ya no esté encima
     bool ataque_sostenido = false; // tecla A: se sigue atacando al objetivo sin mantener el botón
+    bool modo_pk = false;          // "/pk": el clic sobre otro jugador lo ataca sin Ctrl
     // Ventanas: posiciones, la que se está arrastrando y la de opciones.
     PosVentana pos_ventanas[static_cast<int>(IdVentana::CANTIDAD)];
     bool ventanas_cargadas = false;

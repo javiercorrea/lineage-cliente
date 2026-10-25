@@ -696,6 +696,12 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   - con el arco (alcance 18): ataca desde donde está;
   - clic de 30 frames + A: 5 pasos y 9 ataques en 10 s después de soltar; el mismo clic sin A: 1 paso y nada más.
 
+## Almacén, forzar ataque y modo PK
+
+- **Almacén (regresión):** el NPC del almacén de Talking Island (Storage^Dorin, gfx 10669) no está en la tabla de sprites, y desde el cambio de los monstruos sin sprite contaba como monstruo: el clic lo atacaba. Ahora un gfx desconocido cuenta como monstruo salvo que el nombre sea "Oficio^Nombre", como el de los NPCs de los pueblos (ningún monstruo sin sprite de esta base lo tiene). **Verificado:** el clic le habla y abre su página.
+- **Forzar ataque (Ctrl+clic, también ⌘):** ya estaba; verificado con `--ctrl` sobre el almacén: `C_Attack` aceptado por el servidor (gastó una flecha y respondió el ataque).
+- **Modo PK** ("/pk", del cliente: el servidor no tiene ese comando): el clic sobre otro jugador lo ataca sin Ctrl (también la tecla A), con el cursor de espada e indicador "PK". **Verificado** con dos clientes en el mapa 2005: Prueba en segundo plano y Charla con "/pk" y un clic sobre él: 2 ataques (sin daño: zona segura) (`docs/capturas/9_modo_pk.png`).
+
 ## Aprender magia: maestros y libros
 
 ![Lista del maestro de magia](docs/capturas/8_aprender_magia.png)

@@ -191,7 +191,7 @@ void leer_entrada(App& a) {
     e.abajo = teclas[SDL_SCANCODE_DOWN];
     e.izquierda = teclas[SDL_SCANCODE_LEFT];
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
-    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
+    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0 || a.aut.ctrl;
     e.shift = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
     // Prueba automática (--arrastrar, repetible): el n-ésimo aprieta en (x1, y1) en el frame
     // 300 + 180·n del juego, se mueve en 30 frames hasta (x2, y2) y suelta.
@@ -364,6 +364,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
         else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
         else if (s.rfind("--destino=", 0) == 0) a.aut.destino = valor("--destino=");
+        else if (s == "--ctrl") a.aut.ctrl = true;
         else if (s.rfind("--mantener-sobre=", 0) == 0) a.aut.mantener_sobre = valor("--mantener-sobre=");
         else if (s.rfind("--mantener=", 0) == 0)
             std::sscanf(s.c_str() + 11, "%d,%d,%d", &a.aut.mantener[0], &a.aut.mantener[1], &a.aut.mantener[2]);

@@ -590,7 +590,8 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
 }
 
 // Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
-// NPC se le habla (sin Ctrl) y a otros personajes solo con Ctrl. 0 si no hay (se camina).
+// NPC se le habla (con Ctrl se lo ataca) y a otros personajes se los ataca con Ctrl o en modo PK
+// ("/pk"). 0 si no hay (se camina).
 void elegir_objetivo_bajo_puntero(App& a) {
     const TablaObjetos& o = a.mundo.objetos;
     const EntradaFrame& e = a.entrada;
@@ -599,7 +600,8 @@ void elegir_objetivo_bajo_puntero(App& a) {
     u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
     // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
     a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
-    if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !e.ctrl) a.objetivo = 0;
+    const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
+    if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
 }
 
 void mover_jugador(App& a, u64 ahora) {
@@ -629,7 +631,7 @@ void mover_jugador(App& a, u64 ahora) {
     if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !a.ventana_forma) {
         ObjId t = a.objetivo && !a.hablar_objetivo ? a.objetivo : objeto_bajo_puntero(a);
         Slot b = t ? o.buscar(t) : SIN_SLOT;
-        if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl)) {
+        if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
             a.objetivo = t;
             a.hablar_objetivo = false;
             a.ataque_sostenido = true;
@@ -1046,6 +1048,10 @@ void dibujar_estados_alterados(App& a, int w, int h) {
     case ATADO: t = "Bound"; break;
     default: break;
     }
+    if (a.modo_pk) {  // recordatorio del modo PK, arriba a la derecha
+        a.g->gpu().rectangulo(w - 40, 40, 32, ALTO_GLIFO + 8, clave_orden(CAPA_UI, 20), rgba(110, 20, 20, 220));
+        a.g->texto_sombra("PK", static_cast<float>(w - 32), 44.0f, clave_orden(CAPA_UI_TEXTO, 20), rgba(255, 210, 200));
+    }
     if (!t) return;
     const int tw = ancho_texto(t, std::strlen(t));
     a.g->gpu().rectangulo(w / 2 - tw / 2 - 8, 40, tw + 16, ALTO_GLIFO + 8, clave_orden(CAPA_UI, 20), rgba(60, 20, 20, 210));
@@ -1092,7 +1098,8 @@ void elegir_cursor(App& a) {
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
     u8 tipo = tipo_objeto(a, s);
-    if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM)) a.cursor = Cursor::ESPADA;
+    if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM) || (a.modo_pk && tipo == TIPO_PERSONAJE))
+        a.cursor = Cursor::ESPADA;
 }
 
 }  // namespace
