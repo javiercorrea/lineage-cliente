@@ -64,10 +64,12 @@ void leer_entrada(App& a) {
     e.zoom = 0;
     e.ntexto = 0;
     e.ahora_ms = SDL_GetTicks();
-    // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego, como
+    // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego (o del
+    // login, para probarlo sin --auto), como
     // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
     Automatizacion& au = a.aut;
-    if (au.pulsadas < au.pulsar.size() && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 &&
+    if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN) &&
+        a.frames_en_pantalla >= 300 &&
         (a.frames_en_pantalla - 300) % 10 == 0) {
         const char c = au.pulsar[au.pulsadas++];
         SDL_Event k{};

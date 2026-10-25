@@ -129,11 +129,11 @@ void frame_login(App& a) {
     }
 
     // Noticias del servidor (S_CommonNews): se aceptan para pedir la lista de personajes.
+    // Por encima de todo el formulario (textos y botones incluidos), y opaca.
     if (a.mostrando_noticias) {
         const int x = 150, y = 120, w = 340, h = 220;
-        g.gpu().rectangulo(x, y, w, h, clave_orden(CAPA_UI, 10), rgba(20, 15, 10, 235));
-        g.gpu().rectangulo(x, y, w, 1, clave_orden(CAPA_UI, 11), rgba(160, 130, 80));
-        g.gpu().rectangulo(x, y + h - 1, w, 1, clave_orden(CAPA_UI, 11), rgba(160, 130, 80));
+        g.gpu().nivel_ventana(31);
+        ui::recuadro(g, x, y, w, h, 255);
         std::string_view t = a.noticias;
         int fila = 0;
         while (!t.empty() && fila < 14) {
@@ -143,10 +143,11 @@ void frame_login(App& a) {
             t = (fin == std::string_view::npos) ? std::string_view{} : t.substr(fin + 1);
             ++fila;
         }
-        if (ui::boton_texto(g, e, "Aceptar", x + w / 2 - 40, y + h - 26, 80, 18) || e.enter) {
+        if (ui::boton_texto(g, e, "OK", x + w / 2 - 40, y + h - 26, 80, 18) || e.enter) {
             a.mostrando_noticias = false;
             enviar(a, cmd::lista_personajes(a.op));
         }
+        g.gpu().nivel_ventana(0);
     }
 }
 
