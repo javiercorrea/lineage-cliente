@@ -11,6 +11,9 @@ código. El idioma del proyecto es el **español**: código (identificadores), c
 - **Plan:** [docs/analisis/PLAN_CLIENTE.md](docs/analisis/PLAN_CLIENTE.md) (11 entregables jugables).
 - **Protocolo:** [docs/analisis/PROTOCOLO_RED.md](docs/analisis/PROTOCOLO_RED.md) y `docs/analisis/opcodes/`.
 - **Uso, flags y controles:** [README.md](README.md).
+- **Descubrimientos y decisiones** (formatos, tiempos de los sprites, orden de dibujo, transparencias,
+  particularidades del servidor, por qué la interfaz es así): [docs/DESCUBRIMIENTOS.md](docs/DESCUBRIMIENTOS.md).
+  Leerlo antes de tocar el render, el movimiento o el combate.
 
 ## 1. Reglas que no se discuten
 
@@ -155,9 +158,10 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - Integrar seguido: `git fetch && git rebase origin/main`. Al terminar, PR a `main` con `gh pr create`
   (descripción: qué, cómo se verificó y qué queda pendiente). Si nadie revisa, el mismo agente puede
   mergear después de rebasear y volver a correr los tests.
-- **Credenciales:** el repo es privado de la cuenta `javiercorrea`. Si `git push` dice "Repository not found",
-  el llavero de macOS tiene otra cuenta. Hacer push con las credenciales de gh:
-  `git -c credential.helper= -c 'credential.helper=!gh auth git-credential' push`.
+- **Credenciales:** el repo es privado de la cuenta `javiercorrea`. El llavero de macOS y la cuenta activa
+  de `gh` pueden ser otras (si `git push` dice "Repository not found", es eso). Hacer push con el token
+  de esa cuenta, sin cambiar la configuración del usuario:
+  `git -c credential.helper= -c 'credential.helper=!f() { echo username=javiercorrea; echo "password=$(gh auth token -u javiercorrea)"; }; f' push`.
 - Para trabajar en la misma máquina sin pisarse:
   - `git worktree add ../cliente-<tema> -b agente/<tema>`;
   - cada worktree con su propio `build/`.
@@ -217,6 +221,7 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 | Documento | Para qué |
 |---|---|
 | `README.md` | compilar, ejecutar, controles, flags de automatización |
+| `docs/DESCUBRIMIENTOS.md` | lo que se averiguó de los datos, el protocolo y el servidor, y las decisiones tomadas con eso |
 | `ENTREGABLES.md` | estado, verificación y pendientes de cada entregable |
 | `docs/analisis/PLAN_CLIENTE.md` | plan completo, arquitectura y presupuestos |
 | `docs/analisis/PROTOCOLO_RED.md`, `docs/analisis/opcodes/` | cifrado, opcodes por versión, formatos |

@@ -9,6 +9,7 @@ el mundo completo (música por zona, sonidos, clima y portales). Por ahora se pr
 código con `MULTIPLATAFORMA` (ver la sección final).
 
 Estado detallado y evidencia de cada entregable: **[ENTREGABLES.md](ENTREGABLES.md)**.
+Descubrimientos (formatos, tiempos, dibujo, servidor) y decisiones de diseño: **[docs/DESCUBRIMIENTOS.md](docs/DESCUBRIMIENTOS.md)**.
 Para trabajar en el proyecto (personas o agentes, también en paralelo): **[AGENTS.md](AGENTS.md)**.
 
 ![Juego](docs/capturas/3_juego.png)
