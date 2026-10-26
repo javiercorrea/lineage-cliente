@@ -793,6 +793,7 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   - los cursores de `Lineage.exe` son los estándar de Windows (ayuda y flechas de desplazamiento);
   - entre todas las imágenes y sprites chicos de los `.pak` tampoco aparecen.
   - Seguramente van en el código cifrado (`lin.bin`). Estos son dibujos propios en el mismo estilo; si aparecen los originales, se reemplazan los tres dibujos de 16×16.
+- **Labios** sobre un NPC (el clic le habla); con Ctrl, la espada (forzar ataque). Dibujo propio de 16×16 como los demás, revisado en una imagen aparte.
 - **Pendiente:** el cambio de cursor no sale en las capturas (son del juego, no del escritorio), y falta probarlo a mano.
 
 ## Rendimiento

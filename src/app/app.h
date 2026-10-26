@@ -172,7 +172,7 @@ struct Intercambio {
 };
 
 // Cursor del mouse (cursores.cpp): mano, espada sobre un monstruo, círculo al elegir objetivo.
-enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, CANTIDAD };
+enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, LABIOS, CANTIDAD };
 
 struct App {
     Config cfg;

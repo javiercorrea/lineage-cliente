@@ -1,5 +1,6 @@
-// Cursores del juego: mano (moverse, interfaz), espada (sobre un monstruo, o con Ctrl sobre otro
-// personaje) y círculo de objetivo (un hechizo espera su objetivo), como en el original.
+// Cursores del juego: mano (moverse, interfaz), espada (sobre un monstruo, o con Ctrl sobre un NPC
+// u otro personaje, o sobre un personaje en modo PK), labios (sobre un NPC: hablarle) y círculo de
+// objetivo (un hechizo espera su objetivo), como en el original.
 //
 // Los del original no están en esta instalación: no hay archivos de cursor, Lineage.exe solo trae
 // los cursores estándar de Windows (ayuda y flechas de desplazamiento) y en los .pak no aparecen
@@ -14,7 +15,8 @@ namespace lin {
 
 namespace {
 
-// Paleta: K contorno, Y/y dorado claro/oscuro, W/G/g acero claro/medio/oscuro, B cuero, R rojo.
+// Paleta: K contorno, Y/y dorado claro/oscuro, W/G/g acero claro/medio/oscuro, B cuero, R/r rojo
+// claro/oscuro, P rosa (brillo de los labios).
 u32 color(char c) {
     switch (c) {
     case 'K': return rgba(24, 16, 8);
@@ -25,6 +27,8 @@ u32 color(char c) {
     case 'g': return rgba(112, 118, 130);
     case 'B': return rgba(128, 76, 34);
     case 'R': return rgba(226, 54, 42);
+    case 'r': return rgba(150, 28, 30);
+    case 'P': return rgba(255, 160, 150);
     default: return 0;
     }
 }
@@ -42,6 +46,14 @@ constexpr const char* ESPADA[16] = {
     "...KWGK.........", "....KWGK........", ".....KWGK.......", "......KWGK......",
     ".......KWGK..K..", "........KWGKKYK.", ".........KWYYK..", "..........KYyK..",
     ".........KYKKBK.", "........KYK..KBK", ".........K....KB", "..............KK",
+};
+
+// Labios (hablar con un NPC; punto activo: el centro de la boca).
+constexpr const char* LABIOS[16] = {
+    "................", "................", "................", "................",
+    "....KKK..KKK....", "...KRRRKKRRRK...", "..KRPRRRRRRPRK..", ".KRRRRRRRRRRRRK.",
+    ".KKKKKKKKKKKKKK.", ".KrRRRRRRRRRRrK.", "..KrRRPPPPRRrK..", "...KrRRRRRRrK...",
+    "....KKrrrrKK....", "......KKKK......", "................", "................",
 };
 
 // Círculo de objetivo: anillo rojo con contorno, marcas en cruz y un punto al centro.
@@ -89,6 +101,7 @@ void crear_cursores(App& a) {
     a.cursores[static_cast<int>(Cursor::MANO)] = crear(de_arte, MANO, 2, 0);
     a.cursores[static_cast<int>(Cursor::ESPADA)] = crear(de_arte, ESPADA, 0, 0);
     a.cursores[static_cast<int>(Cursor::OBJETIVO)] = crear(de_objetivo, nullptr, 7, 7);
+    a.cursores[static_cast<int>(Cursor::LABIOS)] = crear(de_arte, LABIOS, 7, 8);
 }
 
 void aplicar_cursor(App& a) {

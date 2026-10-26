@@ -1100,6 +1100,8 @@ void elegir_cursor(App& a) {
     u8 tipo = tipo_objeto(a, s);
     if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM) || (a.modo_pk && tipo == TIPO_PERSONAJE))
         a.cursor = Cursor::ESPADA;
+    else if (es_npc(a, s) && tipo != TIPO_PUERTA)  // sin Ctrl, el clic le habla
+        a.cursor = Cursor::LABIOS;
 }
 
 }  // namespace
