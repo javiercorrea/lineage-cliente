@@ -163,6 +163,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |
 | `--mantener=x,y,N` / `--mantener-sobre=Nombre,N` | Mantiene el botón izquierdo N frames desde el frame 300 del juego, en (x, y) o en el punto de pantalla donde está en ese momento el objeto con ese nombre (el punto queda fijo) |
 | `--ctrl` | Ctrl mantenido todo el tiempo (forzar ataque) |
+| `--modelos=carpeta` / `--modelos_3d=0` | Modelos 3D (rama `agente/modelos-3d`): carpeta con `modelos.txt` y los `.glb`; `modelos_3d=0` dibuja los sprites (Shift+F2 alterna). `LIN_MODELO_SPRITE=1` dibuja además el sprite encima, para calibrar |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

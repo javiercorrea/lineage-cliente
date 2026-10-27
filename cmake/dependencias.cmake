@@ -31,11 +31,21 @@ FetchContent_Declare(dr_libs_src
     GIT_TAG d422edf14ec2b81ac40a7f22b5a7f64276b5fc34
     SOURCE_SUBDIR sin_cmake)
 
-FetchContent_MakeAvailable(SDL3 stb_src doctest_src dr_libs_src)
+# cgltf: lector de glTF 2.0 / .glb (modelos 3D, rama agente/modelos-3d). Un solo header, MIT.
+FetchContent_Declare(cgltf_src
+    GIT_REPOSITORY https://github.com/jkuhlmann/cgltf.git
+    GIT_TAG v1.14
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR sin_cmake)
+
+FetchContent_MakeAvailable(SDL3 stb_src doctest_src dr_libs_src cgltf_src)
 
 # stb no trae CMakeLists: se expone como librería de solo headers
 add_library(stb INTERFACE)
 target_include_directories(stb SYSTEM INTERFACE ${stb_src_SOURCE_DIR})
+
+add_library(cgltf INTERFACE)
+target_include_directories(cgltf SYSTEM INTERFACE ${cgltf_src_SOURCE_DIR})
 
 add_library(dr_mp3 INTERFACE)
 target_include_directories(dr_mp3 SYSTEM INTERFACE ${dr_libs_src_SOURCE_DIR})

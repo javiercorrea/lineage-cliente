@@ -296,6 +296,18 @@ u32 color_alineamiento(i32 legal) {
     return rgba(240, 240, 240);
 }
 
+// Color con el que se dibuja un personaje: oscurecido en la sombra de un árbol, verdoso si está
+// envenenado y gris azulado si está congelado (S_Poison y los flags de S_CharPack).
+u32 color_personaje(App& a, Slot s, double vis_x, double vis_y) {
+    const TablaObjetos& o = a.mundo.objetos;
+    u32 color = BLANCO;
+    if (a.cfg.sombra_personajes && en_sombra(a, static_cast<int>(std::lround(vis_x)), static_cast<int>(std::lround(vis_y))))
+        color = rgba(LUZ_EN_SOMBRA, LUZ_EN_SOMBRA, LUZ_EN_SOMBRA);
+    if (o.col<O_FLAGS>()[s] & FLAG_CONGELADO) color = rgba(150, 160, 185);
+    else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
+    return color;
+}
+
 void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
     Graficos& g = *a.g;
     TablaObjetos& o = a.mundo.objetos;
@@ -330,53 +342,82 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         const AccionVisible acc = elegir_accion(a, s, ahora);
         const RangoAccion* r = acc.rango;
         float top = sy - 40;
-        RegionAtlas rg;
-        if (r) {
-            bool termino = false;
-            bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
-            const FrameAccion* f =
-                &a.sprites.frame_en(*r, ahora - acc.inicio, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
-            if (termino && acc.puntual) o.col<O_ACCION>()[s] = 0xFF;  // fin de la acción puntual
-            sonido_de_frame(a, o.col<O_SONIDO>()[s], *f, vis_x, vis_y, ahora, false);
-            u16 sub = static_cast<u16>(f->sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
-            i16 sombra = a.sprites.sombra(gfx);
-            if (sombra >= 0)
-                g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(sombra), sub, f->frame), px, py,
-                                   clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
-            rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub, f->frame);
-        } else {
-            // Sin acciones en la tabla (los ítems del suelo, por ejemplo): el primer frame de N-0.spr.
-            rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), 0, 0);
-        }
         bool bajo_puntero = false;
-        if (rg.valida()) {
-            // El ancla de los .spr es la esquina superior izquierda de la celda (calibrada con el
-            // explorador: los pies quedan en el centro del rombo).
-            u32 color = BLANCO;
-            if (a.cfg.sombra_personajes && en_sombra(a, static_cast<int>(std::lround(vis_x)), static_cast<int>(std::lround(vis_y))))
-                color = rgba(LUZ_EN_SOMBRA, LUZ_EN_SOMBRA, LUZ_EN_SOMBRA);
-            // Envenenado: verdoso; congelado: gris azulado (S_Poison y los flags de S_CharPack).
-            if (o.col<O_FLAGS>()[s] & FLAG_CONGELADO) color = rgba(150, 160, 185);
-            else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
-            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
-            // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
-            // translúcidas superpuestas casi lo esconden).
-            if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
-                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
+        DibujoModelo dm;
+        if (preparar_modelo(a, s, fx, fy, ox, oy, ahora, dm)) {
+            // Modelo 3D en lugar del sprite (modelos.cpp): su ranura del atlas se dibuja como un
+            // frame más, con el mismo orden, color, silueta y rectángulo para el mouse.
+            const u32 color = color_personaje(a, s, vis_x, vis_y);
+            // La sombra en el suelo es la del sprite (su frame de la misma acción), en la posición continua.
+            if (r && a.sprites.sombra(gfx) >= 0) {
+                bool termino = false;
+                const bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
+                const FrameAccion& f = a.sprites.frame_en(*r, ahora - acc.inicio, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
+                const u16 sub = static_cast<u16>(f.sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
+                g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(a.sprites.sombra(gfx)), sub, f.frame), sx, sy,
+                                   clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
+            }
+            g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_MUNDO, prof), color);
+            // Calibración (LIN_MODELO_SPRITE=1): el sprite semitransparente encima, para comparar pies y alto.
+            static const bool con_sprite = std::getenv("LIN_MODELO_SPRITE") != nullptr;
+            if (con_sprite && r) {
+                bool termino = false;
+                const FrameAccion& f = a.sprites.frame_en(*r, ahora - acc.inicio, termino, 0, acc.bucle);
+                const u16 sub = static_cast<u16>(f.sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
+                g.gpu().dibujar_en(g.frame_sprite(a.sprites.gfx_archivos(gfx), sub, f.frame), px, py, clave_orden(CAPA_EFECTOS, 2),
+                                   rgba(255, 120, 120, 110));
+            }
+            if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)
+                g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
             else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
-                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
-            top = py + rg.oy - desfase_y;
-            const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
-            bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+                g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_EFECTOS, 0),
+                                         rgba(255, 255, 255, ALFA_SILUETA));
+            top = dm.y0;
+            bajo_puntero = a.entrada.mx >= dm.x0 && a.entrada.mx < dm.x1 && a.entrada.my >= dm.y0 && a.entrada.my < dm.y1;
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], dm.x0, dm.y0, dm.x1, dm.y1, prof});
         } else {
-            // Sin sprite: un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
-            const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
-            const float x1 = x0 + 24, y1 = y0 + 36;
-            g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
-            top = y0;
-            bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            RegionAtlas rg;
+            if (r) {
+                bool termino = false;
+                bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
+                const FrameAccion* f =
+                    &a.sprites.frame_en(*r, ahora - acc.inicio, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
+                if (termino && acc.puntual) o.col<O_ACCION>()[s] = 0xFF;  // fin de la acción puntual
+                sonido_de_frame(a, o.col<O_SONIDO>()[s], *f, vis_x, vis_y, ahora, false);
+                u16 sub = static_cast<u16>(f->sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
+                i16 sombra = a.sprites.sombra(gfx);
+                if (sombra >= 0)
+                    g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(sombra), sub, f->frame), px, py,
+                                       clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
+                rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub, f->frame);
+            } else {
+                // Sin acciones en la tabla (los ítems del suelo, por ejemplo): el primer frame de N-0.spr.
+                rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), 0, 0);
+            }
+            if (rg.valida()) {
+                // El ancla de los .spr es la esquina superior izquierda de la celda (calibrada con el
+                // explorador: los pies quedan en el centro del rombo).
+                const u32 color = color_personaje(a, s, vis_x, vis_y);
+                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
+                // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
+                // translúcidas superpuestas casi lo esconden).
+                if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
+                    g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
+                else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
+                    g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
+                top = py + rg.oy - desfase_y;
+                const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
+                bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
+                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            } else {
+                // Sin sprite: un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
+                const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
+                const float x1 = x0 + 24, y1 = y0 + 36;
+                g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
+                top = y0;
+                bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
+                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            }
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.

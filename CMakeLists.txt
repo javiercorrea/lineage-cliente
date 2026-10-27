@@ -62,8 +62,9 @@ add_library(lin_recursos STATIC
     src/recursos/precarga.cpp
     src/recursos/hechizos.cpp
     src/recursos/html.cpp
-    src/recursos/sonidos.cpp)
-target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb)
+    src/recursos/sonidos.cpp
+    src/recursos/modelo.cpp)
+target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb cgltf)
 
 add_library(lin_mundo STATIC
     src/mundo/cargador_segmentos.cpp
@@ -75,6 +76,7 @@ target_link_libraries(lin_mundo PUBLIC lin_core lin_proto lin_recursos)
 add_library(lin_render STATIC
     src/render/atlas.cpp
     src/render/gpu.cpp
+    src/render/gpu_modelos.cpp
     src/render/graficos.cpp)
 target_link_libraries(lin_render PUBLIC lin_core lin_recursos SDL3::SDL3)
 
@@ -106,6 +108,7 @@ add_executable(lineage
     src/app/cantidad_ui.cpp
     src/app/mascotas_ui.cpp
     src/app/marcadores_ui.cpp
+    src/app/modelos.cpp
     src/core/asignaciones.cpp)  # operator new instrumentado (ver core/asignaciones.h)
 target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
 if(APPLE)
@@ -133,6 +136,7 @@ if(LIN_TESTS)
         tests/test_hechizos.cpp
         tests/test_npc.cpp
         tests/test_sonidos.cpp
+        tests/test_modelo.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)
     add_test(NAME lin_tests COMMAND lin_tests)

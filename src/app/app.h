@@ -116,6 +116,29 @@ enum class IdVentana : u8 { ESTADO, INVENTARIO, HECHIZOS, NPC, OPCIONES, SALIDA,
 struct Rect {
     int x, y, w, h;
 };
+// Modelo 3D de un gfx (modelos.cpp; rama agente/modelos-3d) y estado de animación por objeto.
+struct ModeloGfx {
+    GfxId gfx = 0;
+    Modelo modelo;
+    MallaGpu malla;
+    float giro = 0, sentido = 1, elevacion = 20, px_unidad = 30;  // registro de cámara y escala
+    int clip[5] = {-1, -1, -1, -1, -1};  // quieto, caminar, atacar, daño, morir
+};
+struct AnimModelo {
+    ObjId id = 0;
+    int clip = -1, clip_ant = -1;
+    float t = 0, t_ant = 0;
+    bool bucle = true, bucle_ant = true;
+    u64 cambio = 0, visto = 0;
+    float yaw = 0;
+};
+// Dónde se dibuja la ranura de un modelo (px lógicos) y su rectángulo para el mouse y el nombre.
+struct DibujoModelo {
+    RegionAtlas region;
+    float x = 0, y = 0, lado = 0;
+    float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+};
+
 // Mascota o invocación propia (S_PetCtrlMenu; mascotas_ui.cpp).
 struct Mascota {
     ObjId id = 0;
@@ -304,6 +327,9 @@ struct App {
     bool escribiendo_chat = false;
     DialogoCantidad cantidad;
     std::vector<Mascota> mascotas;
+    std::vector<ModeloGfx> modelos;
+    MapaHash indice_modelos{16};  // gfx -> índice en modelos
+    AnimModelo anim_modelos[64];
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
     // Destino elegido para el próximo Teleport (se usa al lanzarlo; 0, 0 = al azar).
@@ -471,6 +497,12 @@ void eventos_mascotas(App& a, const Evento& e);
 void procesar_mascotas(App& a);  // antes del movimiento: elegir el objetivo de una mascota
 void dibujar_mascotas(App& a);
 bool sobre_mascotas(const App& a);
+
+// Modelos 3D (modelos.cpp): cargar al iniciar, y por objeto en cada frame: si su gfx tiene modelo,
+// lo encola para el pase de modelos y dice dónde dibujar su ranura (false: se dibuja el sprite).
+void cargar_modelos(App& a);
+void liberar_modelos(App& a);
+bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy, u64 ahora, DibujoModelo& d);
 
 // Marcadores de teleport (marcadores_ui.cpp).
 void eventos_marcadores(App& a, const Evento& e);

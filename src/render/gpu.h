@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 #include "recursos/imagen.h"
+#include "recursos/modelo.h"
 #include "render/atlas.h"
 
 namespace lin {
@@ -50,6 +51,23 @@ constexpr int PAGINAS_ATLAS = 8;           // 8 × 16 MB; LIN_ATLAS_PAGINAS y LI
 constexpr u32 MAX_INSTANCIAS = 1u << 16;
 constexpr u32 TAM_SUBIDA_ATLAS = 32u << 20; // máximo de píxeles nuevos por frame
 
+// Modelos 3D (rama agente/modelos-3d): cada modelo visible se dibuja en una ranura de una capa extra
+// del atlas (PAGINA_MODELOS, fuera del reemplazo LRU) en un pase previo, y la ranura se dibuja como
+// el frame de un sprite: así queda ordenada con el mundo 2D, se tiñe, se vuelve translúcida y se
+// elige con el mouse igual que un sprite. Ver docs/analisis/PLAN_3D.md.
+constexpr u16 PAGINA_MODELOS = PAGINAS_ATLAS;
+constexpr int TAM_RANURA = 512;  // px reales (la ranura se dibuja a TAM_RANURA / escala px lógicos)
+constexpr int RANURAS_MODELOS = (TAM_PAGINA / TAM_RANURA) * (TAM_PAGINA / TAM_RANURA);
+
+// Malla de un modelo subida a la GPU (una vez, al cargarlo).
+struct MallaGpu {
+    SDL_GPUBuffer* vertices = nullptr;  // VerticeModelo (storage buffer: el shader los lee por índice)
+    SDL_GPUBuffer* indices = nullptr;   // u32
+    SDL_GPUTexture* textura = nullptr;
+    u32 n_indices = 0;
+    bool valida() const { return vertices && indices && textura; }
+};
+
 class Gpu {
 public:
     // ancho/alto lógicos mínimos (los del original).
@@ -73,6 +91,14 @@ public:
     void dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color = BLANCO,
                           Mezcla mezcla = Mezcla::NORMAL);
     void rectangulo(int x, int y, int w, int h, u64 clave, u32 color);
+    // Modelos 3D. subir_malla una vez por modelo (bloquea hasta terminar); dibujar_modelo cada frame:
+    // encola el modelo para el pase de modelos y devuelve la región de su ranura en el atlas (inválida
+    // si no quedan ranuras), que se dibuja como cualquier otra (dibujar_escalado). `mvp` lleva el
+    // espacio del modelo al de la ranura (NDC: x, y en −1..1, z en 0..1); `rotacion`, al de la cámara
+    // (para la luz); `huesos`, las matrices de Modelo::matrices_huesos.
+    bool subir_malla(const Modelo& m, MallaGpu& salida);
+    void liberar_malla(MallaGpu& m);
+    RegionAtlas dibujar_modelo(const MallaGpu& m, const float* mvp, const float* rotacion, const float (*huesos)[16], int n_huesos);
     // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
@@ -103,6 +129,8 @@ private:
         u32 offset;  // en el buffer de subida
     };
     bool crear_pipeline();
+    bool crear_pipeline_modelos();
+    void pase_modelos(SDL_GPUCommandBuffer* cmd);
     bool crear_destino();
     void ordenar();
     SDL_GPUCommandBuffer* guardar_captura(SDL_GPUCommandBuffer* cmd);
@@ -110,6 +138,17 @@ private:
     SDL_Window* ventana_ = nullptr;
     SDL_GPUDevice* dev_ = nullptr;
     SDL_GPUGraphicsPipeline* pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* pipeline_modelos_ = nullptr;
+    SDL_GPUTexture* profundidad_modelos_ = nullptr;
+    // Modelos del frame (los dibuja pase_modelos antes del pase principal). Uniformes del shader:
+    // mvp, rotación (para la luz) y las matrices de los huesos.
+    struct ModeloEncolado {
+        const MallaGpu* malla;
+        float uniformes[(2 + MAX_HUESOS) * 16];
+        u32 bytes_uniformes;
+    };
+    ModeloEncolado modelos_[RANURAS_MODELOS];
+    int n_modelos_ = 0;
     SDL_GPUTexture* atlas_ = nullptr;
     SDL_GPUTexture* destino_ = nullptr;  // resolución lógica
     SDL_GPUSampler* muestreo_ = nullptr;

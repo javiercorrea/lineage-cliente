@@ -69,14 +69,16 @@ bool Gpu::iniciar(SDL_Window* ventana, int ancho_logico, int alto_logico) {
     }
     SDL_SetGPUSwapchainParameters(dev_, ventana_, SDL_GPU_SWAPCHAINCOMPOSITION_SDR, SDL_GPU_PRESENTMODE_VSYNC);
     if (!crear_pipeline()) return false;
+    if (!crear_pipeline_modelos()) LIN_LOG("Aviso: sin modelos 3D (no se pudo crear su pipeline)");
 
     SDL_GPUTextureCreateInfo ti{};
     ti.type = SDL_GPU_TEXTURETYPE_2D_ARRAY;
     ti.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
-    ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    // Una capa más que las del empaquetado: la de los modelos 3D (se dibuja en ella).
+    ti.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER | SDL_GPU_TEXTUREUSAGE_COLOR_TARGET;
     ti.width = TAM_PAGINA;
     ti.height = TAM_PAGINA;
-    ti.layer_count_or_depth = PAGINAS_ATLAS;
+    ti.layer_count_or_depth = PAGINAS_ATLAS + 1;
     ti.num_levels = 1;
     atlas_ = SDL_CreateGPUTexture(dev_, &ti);
 
@@ -183,6 +185,8 @@ void Gpu::cerrar() {
     SDL_ReleaseGPUTexture(dev_, destino_);
     SDL_ReleaseGPUTexture(dev_, atlas_);
     SDL_ReleaseGPUGraphicsPipeline(dev_, pipeline_);
+    if (pipeline_modelos_) SDL_ReleaseGPUGraphicsPipeline(dev_, pipeline_modelos_);
+    if (profundidad_modelos_) SDL_ReleaseGPUTexture(dev_, profundidad_modelos_);
     SDL_ReleaseWindowFromGPUDevice(dev_, ventana_);
     SDL_DestroyGPUDevice(dev_);
     dev_ = nullptr;
@@ -211,7 +215,7 @@ bool Gpu::subir(const ImagenRGBA& img, RegionAtlas& r) {
 void Gpu::dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color, Mezcla mezcla) {
     if (!r.valida() || inst_.size() >= MAX_INSTANCIAS) return;
     if (x >= ancho_ || y >= alto_ || x + w <= 0 || y + h <= 0) return;  // fuera de pantalla
-    empaquetado_.usar(r.pagina, frame_);
+    if (r.pagina != PAGINA_MODELOS) empaquetado_.usar(r.pagina, frame_);
     // Al píxel real más cercano: con muestreo "nearest" el arte no se deforma en posiciones
     // fraccionarias (cada texel ocupa siempre escala × escala píxeles).
     const float e = static_cast<float>(escala_ > 0 ? escala_ : 1);
@@ -352,7 +356,12 @@ void Gpu::presentar() {
     }
     SDL_EndGPUCopyPass(copia);
 
-    // 2. Dibujo a la textura de destino (lógica × escala): una sola llamada instanciada. El
+    // 2. Los modelos 3D del frame, cada uno en su ranura de la capa PAGINA_MODELOS del atlas (el
+    // pase principal los dibuja después como cualquier región).
+    llamadas_ = 0;
+    if (n_modelos_) pase_modelos(cmd);
+
+    // 3. Dibujo a la textura de destino (lógica × escala): una sola llamada instanciada. El
     // shader sigue trabajando en coordenadas lógicas.
     crear_destino();
     SDL_GPUColorTargetInfo objetivo{};
@@ -361,7 +370,6 @@ void Gpu::presentar() {
     objetivo.load_op = SDL_GPU_LOADOP_CLEAR;
     objetivo.store_op = SDL_GPU_STOREOP_STORE;
     SDL_GPURenderPass* pase = SDL_BeginGPURenderPass(cmd, &objetivo, 1, nullptr);
-    llamadas_ = 0;
     if (n) {
         SDL_BindGPUGraphicsPipeline(pase, pipeline_);
         SDL_BindGPUVertexStorageBuffers(pase, 0, &instancias_gpu_, 1);
@@ -370,13 +378,13 @@ void Gpu::presentar() {
         float uni[4] = {static_cast<float>(ancho_), static_cast<float>(alto_), 0, 0};
         SDL_PushGPUVertexUniformData(cmd, 0, uni, sizeof uni);
         SDL_DrawGPUPrimitives(pase, 6, n, 0, 0);
-        llamadas_ = 1;
+        ++llamadas_;
     }
     SDL_EndGPURenderPass(pase);
 
     if (!ruta_captura_.empty()) cmd = guardar_captura(cmd);
 
-    // 3. Copia 1:1 a la ventana, centrada (la textura ya tiene el tamaño escalado).
+    // 4. Copia 1:1 a la ventana, centrada (la textura ya tiene el tamaño escalado).
     SDL_GPUTexture* swap = nullptr;
     Uint32 sw = 0, sh = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(cmd, ventana_, &swap, &sw, &sh) && swap) {

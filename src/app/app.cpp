@@ -49,6 +49,7 @@ bool cargar_recursos(App& a) {
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
     cargar_sonidos(a);
+    cargar_modelos(a);
     return true;
 }
 
@@ -150,8 +151,9 @@ void leer_entrada(App& a) {
                 break;
             case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
             case SDLK_F3: a.depuracion = !a.depuracion; break;
-            case SDLK_F2:  // UI simple (texto) o panel original
-                a.cfg.ui_simple = !a.cfg.ui_simple;
+            case SDLK_F2:  // UI simple (texto) o panel original; con Shift, modelos 3D o sprites
+                if (ev.key.mod & SDL_KMOD_SHIFT) a.cfg.modelos_3d = !a.cfg.modelos_3d;
+                else a.cfg.ui_simple = !a.cfg.ui_simple;
                 guardar_config(a.cfg);
                 break;
             case SDLK_F4:
@@ -477,6 +479,7 @@ void cerrar_app(App& a) {
     }
     a.red.cerrar();
     a.audio.cerrar();
+    liberar_modelos(a);
     a.g.reset();
     destruir_cursores(a);
     a.gpu.cerrar();

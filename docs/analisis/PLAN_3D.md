@@ -18,6 +18,37 @@ Lo que el cliente ya sabe y este plan respeta está en [../DESCUBRIMIENTOS.md](.
 
 ---
 
+## Estado: MVP en la rama `agente/modelos-3d`
+
+![Gólems y esqueleto en 3D](../capturas/3d_golem_esqueleto.png) ![Calibración contra el sprite](../capturas/3d_calibracion_sprite.png)
+
+Hecho (fases 2 y 3, y parte de la 4), con el esqueleto (gfx 30) y el gólem (gfx 49):
+- **Contenido:** el esqueleto animado de client-3d y el gólem, animado con el mismo proceso
+  (`prueba_3d/salida/animacion/golem_rig.json`: articulaciones ubicadas a partir de las medidas de
+  la malla, ataque de puño). En la máquina del usuario, en `Lineage Justice/modelos/` con
+  `modelos.txt`: `gfx archivo giro sentido elevación px_por_unidad` (registro de cámara de
+  `prueba_3d` y escala medida contra el sprite con `escala_comun`).
+- **Carga y poses** (`recursos/modelo.*`, cgltf v1.14): malla con skin, textura PNG embebida, clips;
+  muestreo continuo (lerp / slerp), mezcla, matrices de huesos sin asignaciones. Tests con el `.glb`
+  real (`LINEAGE_MODELOS`).
+- **Render** (`render/gpu_modelos.cpp`): una capa extra del atlas (`PAGINA_MODELOS`, fuera del LRU)
+  con 16 ranuras de 512×512; un pase previo con profundidad dibuja cada modelo con skinning en el
+  vertex shader (MSL); la ranura entra a la lista de dibujo como un frame.
+- **Animación** (`app/modelos.cpp`): clip según la acción (morir detenido al final, ataque y daño
+  estirados a la duración del sprite, caminar un ciclo cada dos pasos sin cortes, quieto), transición
+  de 150 ms, giro gradual (90° en 100 ms), posición continua.
+- **Encaje:** orden con el mapa, tintes, silueta, ceguera, rectángulo para el mouse y el nombre, y la
+  sombra del sprite en el suelo. Shift+F2 alterna modelos y sprites.
+- **Calibración:** el ancla es la del registro de `prueba_3d` (borde de abajo y centro de la caja
+  proyectada en cada dirección); con `LIN_MODELO_SPRITE=1` el sprite se dibuja encima en rojo: el
+  gólem coincide en pies y tamaño.
+- **Medido** (Release, 1600×900): con 3 modelos en pantalla, 0,7–0,9 ms de CPU por frame (igual que
+  sin modelos), 120 fps, sin asignaciones nuevas; atacando al gólem, 3 ataques sin "Overspeed".
+
+Pendiente: sonidos de las animaciones en el modelo, armas enganchadas, polymorph, refresco de los
+lejanos a menor ritmo, la elección "pixel-art / alta definición", más modelos y la prueba a ojo de la
+suavidad (videos a 120 fps).
+
 ## 1. Lo que no se puede romper
 
 1. **Los tiempos los manda el sprite.** El servidor mide caminar, atacar y lanzar con la duración de

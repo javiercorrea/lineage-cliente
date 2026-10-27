@@ -33,6 +33,10 @@ struct Config {
     // Chat con Enter: las teclas son acciones (1–0 usan la barra) y Enter abre la línea del chat
     // (Enter envía, Esc cancela). false: se escribe siempre y la barra va con Alt+número.
     bool chat_con_enter = true;
+    // Modelos 3D en lugar de sprites (rama agente/modelos-3d): carpeta con modelos.txt y los .glb
+    // (fuera del repo), y si se usan (Shift+F2 los alterna).
+    std::string modelos;
+    bool modelos_3d = true;
 };
 
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").
