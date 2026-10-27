@@ -65,7 +65,7 @@ public:
     // Índice del nodo con ese nombre, o -1.
     int nodo(std::string_view nombre) const;
     // Recorrido del clip de caminar (unidades del modelo): r[i] = cuánto avanzó el cuerpo en el instante
-    // i/RECORRIDO_N del ciclo, medido por lo que retrocede el pie apoyado (el más bajo). Es creciente;
+    // i/RECORRIDO_N del ciclo, medido por lo que retrocede el pie apoyado. Es creciente;
     // r[RECORRIDO_N] es el ciclo entero (dos pasos). Todo 0 si no tiene nodos "pie.L" / "pie.R".
     void recorrido(int clip, float* r) const;
 

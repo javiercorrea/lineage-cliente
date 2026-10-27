@@ -348,13 +348,13 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             // Modelo 3D en lugar del sprite (modelos.cpp): su ranura del atlas se dibuja como un
             // frame más, con el mismo orden, color, silueta y rectángulo para el mouse.
             const u32 color = color_personaje(a, s, vis_x, vis_y);
-            // La sombra en el suelo es la del sprite (su frame de la misma acción), en la posición continua.
+            // La sombra en el suelo es la del sprite (su frame de la misma acción), bajo el cuerpo del modelo.
             if (r && a.sprites.sombra(gfx) >= 0) {
                 bool termino = false;
                 const bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
                 const FrameAccion& f = a.sprites.frame_en(*r, ahora - acc.inicio, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
                 const u16 sub = static_cast<u16>(f.sub + (r->direccional ? o.col<O_DIR>()[s] : 0));
-                g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(a.sprites.sombra(gfx)), sub, f.frame), sx, sy,
+                g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(a.sprites.sombra(gfx)), sub, f.frame), dm.sx, dm.sy,
                                    clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
             }
             g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_MUNDO, prof), color);

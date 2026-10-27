@@ -37,15 +37,27 @@ Hecho (fases 2 y 3, y parte de la 4), con el esqueleto (gfx 30) y el gólem (gfx
 - **Animación** (`app/modelos.cpp`): clip según la acción (morir detenido al final, ataque y daño
   estirados a la duración del sprite, caminar sin cortes entre pasos, quieto), transición de 150 ms,
   giro gradual (90° en 100 ms), posición continua.
-- **Pies sin patinar:** la fase de caminar sale de la distancia que avanzó el cuerpo, no del reloj.
-  Al cargar se mide el clip (`Modelo::recorrido`): cuánto retrocede el pie apoyado (el más bajo) en
-  cada instante del ciclo; la fase es la inversa de esa tabla. Así el pie apoyado queda fijo en el
-  piso aunque el clip no lo mueva a velocidad constante. Entre pasos (los monstruos se detienen un
-  momento) el ciclo queda quieto donde está. Medido con `LIN_MODELO_PIES=1` (posición en pantalla
-  del pie apoyado, 30 pasos): el pie se desliza 0,03 px por frame (mediana), contra 0,14 con un
-  ritmo fijo de un ciclo cada dos pasos; el cuerpo avanza 0,17. Lo que queda viene de la diferencia
-  de ±9° entre la dirección del modelo y la del movimiento (la cámara del registro está a 20° y el
-  2:1 isométrico equivale a ~30°).
+- **Pies sin patinar** (las piernas a su ritmo; el cuerpo las sigue):
+  - Al cargar se mide el clip de caminar (`Modelo::recorrido`): cuánto retrocede el pie apoyado en
+    cada instante del ciclo. El apoyado es el que retrocede, no el más bajo: sin IK, la pierna
+    estirada hacia atrás sube como un péndulo y el pie de adelante queda más bajo antes de terminar
+    de avanzar.
+  - Cada paso elige su ritmo: el que no patina, pero como mucho 2 veces el del clip
+    (`MAX_CADENCIA`). Un modelo de piernas cortas patina un poco antes que agitarlas.
+  - Dentro del paso el cuerpo avanza al ritmo del pie (a empujones, no a velocidad constante) y
+    llega a la celda cuando termina el paso, así que nunca se desfasa del servidor. La sombra lo sigue.
+  - El suelo se proyecta como el del juego (2:1, `SUELO = 0,5`) y el alto con la elevación del
+    registro (20°). Con 20° también para el suelo, al caminar en vertical en pantalla el pie
+    avanzaba el 70 % de lo que avanza el cuerpo, y el modelo miraba hasta 9° fuera del paso (ahora 5°).
+  - El gólem es lento de piernas para lo que lo mueve el servidor (una celda cada ~640 ms; con el
+    clip original habría que agitar las piernas 4 veces más rápido). Su caminar es la variante
+    `caminar_largo` de `animar_bpy.py`: pasos 1,7 veces más largos, apoyo de 13 frames y vuelo de 11
+    (en el cambio de pie los dos pies están apoyados) y la rodilla doblada hasta el final del vuelo.
+  - Medido con `LIN_MODELO_PIES=1` (posición en pantalla de los pies, 30 pasos en dos direcciones):
+    el pie apoyado del gólem se desliza 0,04 px por frame (mediana; 0,10 en el percentil 90), contra
+    0,14 al principio; el cuerpo avanza 0,18. Las piernas van a 1,1–1,2 ciclos por segundo (el clip:
+    1,0).
+
 - **Encaje:** orden con el mapa, tintes, silueta, ceguera, rectángulo para el mouse y el nombre, y la
   sombra del sprite en el suelo. Shift+F2 alterna modelos y sprites.
 - **Calibración:** el ancla es la del registro de `prueba_3d` (borde de abajo y centro de la caja

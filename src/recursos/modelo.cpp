@@ -289,9 +289,10 @@ void Modelo::recorrido(int clip, float* r) const {
     for (int i = 0; i <= RECORRIDO_N; ++i) r[i] = 0;
     const int pies[2] = {nodo("pie.L"), nodo("pie.R")};
     if (clip < 0 || pies[0] < 0 || pies[1] < 0) return;
-    // En cada instante el pie más bajo es el apoyado; lo que retrocede (−Z: el modelo mira a +Z) es lo
-    // que avanza el cuerpo. Con un mínimo por tramo: si no, en el cambio de pie (nadie retrocede) la
-    // inversa saltaría ese tramo de golpe.
+    // El pie apoyado es el que retrocede (−Z: el modelo mira a +Z), y si retroceden los dos, el más
+    // bajo; lo que retrocede es lo que avanza el cuerpo. No sirve "el más bajo" a secas: sin IK, la
+    // pierna estirada hacia atrás sube (péndulo) y el pie de adelante queda más bajo antes de
+    // terminar de avanzar. Con un mínimo por tramo: si nadie retrocede, la inversa saltaría ese tramo.
     float z[RECORRIDO_N + 1][2], y[RECORRIDO_N + 1][2];
     Pose p;
     float g[MAX_NODOS][16];
@@ -305,8 +306,9 @@ void Modelo::recorrido(int clip, float* r) const {
     }
     float d[RECORRIDO_N], total = 0;
     for (int i = 0; i < RECORRIDO_N; ++i) {
-        const int k = y[i][0] <= y[i][1] ? 0 : 1;
-        d[i] = std::max(0.0f, z[i][k] - z[i + 1][k]);
+        const float atras[2] = {z[i][0] - z[i + 1][0], z[i][1] - z[i + 1][1]};
+        const int k = atras[0] > 0 && atras[1] > 0 ? (y[i][0] <= y[i][1] ? 0 : 1) : (atras[0] > atras[1] ? 0 : 1);
+        d[i] = std::max(0.0f, atras[k]);
         total += d[i];
     }
     if (total <= 0) return;

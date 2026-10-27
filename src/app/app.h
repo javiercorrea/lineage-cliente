@@ -132,9 +132,9 @@ struct AnimModelo {
     bool bucle = true, bucle_ant = true;
     u64 cambio = 0, visto = 0;
     float yaw = 0;
-    float fase = 0;      // del ciclo de caminar
-    double distancia = 0; // recorrida en el ciclo (unidades del modelo): de ella sale la fase
-    double fx = 0, fy = 0; // posición del frame anterior
+    float fase = 0;      // del ciclo de caminar (0..1)
+    u64 tmov = 0;        // paso en curso (O_TMOV), su fase inicial y su ritmo (ciclos por ms)
+    float fase0 = 0, ritmo = 0;
     u64 fin_caminar = 0; // último instante en que caminaba
 };
 // Dónde se dibuja la ranura de un modelo (px lógicos) y su rectángulo para el mouse y el nombre.
@@ -142,6 +142,7 @@ struct DibujoModelo {
     RegionAtlas region;
     float x = 0, y = 0, lado = 0;
     float x0 = 0, y0 = 0, x1 = 0, y1 = 0;
+    float sx = 0, sy = 0;  // dónde se ve el cuerpo (puede ir detrás o delante de la posición continua)
 };
 
 // Mascota o invocación propia (S_PetCtrlMenu; mascotas_ui.cpp).

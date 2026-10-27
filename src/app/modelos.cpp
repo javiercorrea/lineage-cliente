@@ -25,6 +25,12 @@ constexpr float PI = 3.14159265f;
 constexpr u64 MS_TRANSICION = 150;
 constexpr float GRADOS_POR_MS = 0.9f;        // giro: 90° en 100 ms
 constexpr u64 MS_PAUSA_ENTRE_PASOS = 400;    // hasta esto sin caminar, el ciclo se congela (no pasa a quieto)
+// El suelo del juego es 2:1 (una celda: 48 × 24 px), lo que con una cámara ortográfica sería 30° de
+// elevación; el registro de los sprites da 20°. El alto se ve con la elevación del registro y el
+// suelo con la del juego: si no, al caminar en vertical en pantalla el pie apoyado avanza el 70 %
+// de lo que avanza el cuerpo y patina, y el modelo mira hasta 9° fuera de la dirección del paso.
+constexpr float SUELO = 0.5f;
+constexpr float MAX_CADENCIA = 2.0f;          // caminar, hasta 2 veces el ritmo del clip
 constexpr float PIE_EN_RANURA = 0.8f;        // los pies, al 80 % del alto de la ranura
 constexpr float Z_POR_UNIDAD = 0.08f;        // profundidad en la ranura (NDC 0..1)
 enum ClipBase { CLIP_QUIETO, CLIP_CAMINAR, CLIP_ATACAR, CLIP_DANO, CLIP_MORIR, CLIPS_BASE };
@@ -46,6 +52,14 @@ AnimModelo& anim_de(App& a, ObjId id, u64 ahora) {
     viejo->id = id;
     viejo->visto = ahora;
     return *viejo;
+}
+
+
+// Recorrido acumulado (Modelo::recorrido) en la fase f, sin cortar en 1: cada ciclo suma el total.
+float recorrido_en(const float* r, float f) {
+    const float vueltas = std::floor(f), x = (f - vueltas) * RECORRIDO_N;
+    const int i = std::min(static_cast<int>(x), RECORRIDO_N - 1);
+    return vueltas * r[RECORRIDO_N] + r[i] + (r[i + 1] - r[i]) * (x - static_cast<float>(i));
 }
 
 float diferencia_angulo(float a, float b) {  // b − a por el camino corto, en grados
@@ -123,9 +137,6 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
         am.yaw += std::fabs(dif) <= paso ? dif : (dif > 0 ? paso : -paso);
     }
     am.visto = ahora;
-    const double fx_ant = am.fx, fy_ant = am.fy;
-    am.fx = fx;
-    am.fy = fy;
     const float ay = -am.yaw * PI / 180, e = mg->elevacion * PI / 180;
     const float ca = std::cos(ay), sa = std::sin(ay), ce = std::cos(e), se = std::sin(e);
 
@@ -158,20 +169,36 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
         t = std::min(frac, 1.0f);
     } else if (caminando(a.mundo, s, ahora)) {
         base = CLIP_CAMINAR;
-        // Sin patinar: la fase sale de lo que avanzó el cuerpo, no del reloj. El pie apoyado retrocede
-        // en el clip exactamente eso (recorrido), así que queda fijo en el piso aunque el clip no lo
-        // mueva a velocidad constante. El avance se mide en pantalla y se pasa a unidades del modelo
-        // con lo que mide en pantalla una unidad hacia adelante del modelo.
+        // Las piernas van a su ritmo y el cuerpo las sigue. Cada paso se mide al empezar: el ritmo
+        // que no patina (el pie apoyado retrocede lo que avanza el cuerpo), pero no más que
+        // MAX_CADENCIA veces el del clip: un modelo de piernas cortas patina un poco antes que
+        // agitarlas. Dentro del paso el cuerpo avanza al ritmo del pie (a empujones) y llega a la
+        // celda a tiempo, así que nunca se desfasa del servidor.
         const float* r = mg->recorrido;
-        const double paso_px = std::hypot((fx - fx_ant + fy - fy_ant) * 24, (fy - fy_ant - fx + fx_ant) * 12);
-        if (r[RECORRIDO_N] > 0 && dt && paso_px < 48) {
-            am.distancia += paso_px / (mg->px_unidad * std::hypot(sa, se * ca));
-            am.distancia = std::fmod(am.distancia, static_cast<double>(r[RECORRIDO_N]));
-            const int i = static_cast<int>(std::upper_bound(r, r + RECORRIDO_N + 1, static_cast<float>(am.distancia)) - r) - 1;
-            const float f = (static_cast<float>(am.distancia) - r[i]) / (r[i + 1] - r[i]);
-            am.fase = (static_cast<float>(i) + f) / RECORRIDO_N;
-        } else if (r[RECORRIDO_N] <= 0) {
-            am.fase = std::fmod(am.fase + static_cast<float>(dt) / (2.0f * std::max<float>(o.col<O_DURMOV>()[s], 200)), 1.0f);  // un ciclo cada dos pasos
+        const u64 tmov = o.col<O_TMOV>()[s];
+        const double paso_ms = std::max<double>(o.col<O_DURMOV>()[s], 200);
+        const double dx = o.col<O_X>()[s] - o.col<O_XANT>()[s], dy = o.col<O_Y>()[s] - o.col<O_YANT>()[s];
+        if (am.tmov != tmov) {
+            am.tmov = tmov;
+            am.fase0 = am.fase;
+            if (r[RECORRIDO_N] > 0) {  // (tiene recorrido: tiene clip de caminar)
+                const double natural = 1.0 / (std::max(m.duracion(mg->clip[CLIP_CAMINAR]), 0.1f) * 1000.0);
+                const double unidades = std::hypot((dx + dy) * 24, (dy - dx) * 12) / (mg->px_unidad * std::hypot(sa, SUELO * ca));
+                am.ritmo = static_cast<float>(std::min(unidades / (r[RECORRIDO_N] * paso_ms), MAX_CADENCIA * natural));
+            } else {
+                am.ritmo = static_cast<float>(0.5 / paso_ms);  // sin medida: un ciclo cada dos pasos
+            }
+        }
+        if (moviendose(a.mundo, s, ahora)) {
+            const float u = static_cast<float>(static_cast<double>(ahora - tmov) / paso_ms);
+            const float f0 = am.fase0, f1 = am.fase0 + am.ritmo * static_cast<float>(paso_ms);
+            am.fase = std::fmod(f0 + (f1 - f0) * u, 1.0f);
+            const float e0 = recorrido_en(r, f0), e1 = recorrido_en(r, f1);
+            if (e1 - e0 > 1e-4f) {
+                const double w = (recorrido_en(r, f0 + (f1 - f0) * u) - e0) / (e1 - e0);
+                fx += (w - u) * dx;
+                fy += (w - u) * dy;
+            }
         }
         am.fin_caminar = ahora;
         t = static_cast<float>(am.fase);
@@ -205,9 +232,9 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     }
 
     // Cámara ortográfica: la dirección se ve desde el azimut yaw, con la elevación del registro. En
-    // lugar de mover la cámara se gira el modelo −yaw sobre Y. Filas de la rotación a la cámara:
-    // derecha, arriba y hacia la cámara.
-    const float rot[3][3] = {{ca, 0, sa}, {se * sa, ce, -se * ca}, {-ce * sa, se, ce * ca}};
+    // lugar de mover la cámara se gira el modelo −yaw sobre Y. Filas a la cámara: derecha, arriba
+    // (oblicua: el suelo con SUELO) y hacia la cámara.
+    const float rot[3][3] = {{ca, 0, sa}, {SUELO * sa, ce, -SUELO * ca}, {-ce * sa, se, ce * ca}};
     const float escala = static_cast<float>(a.gpu.escala());
     const float k = 2 * mg->px_unidad * escala / TAM_RANURA;  // unidades del modelo -> NDC de la ranura
     // Ancla como en el registro de prueba_3d: el borde de abajo y el centro horizontal de la caja del
@@ -240,6 +267,8 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
 
     // Ubicación: los pies en el centro del rombo de la posición continua.
     const float pie_x = static_cast<float>(mundo_px(fx, fy) + ox) + 24, pie_y_pant = static_cast<float>(mundo_py(fx, fy) + oy) + 12;
+    d.sx = static_cast<float>(mundo_px(fx, fy) + ox);
+    d.sy = static_cast<float>(mundo_py(fx, fy) + oy);
     d.lado = TAM_RANURA / escala;
     d.x = pie_x - d.lado / 2;
     d.y = pie_y_pant - d.lado * PIE_EN_RANURA;
@@ -252,21 +281,20 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     d.y0 = pie_y_pant - alto;
     d.y1 = pie_y_pant + 4;
 
-    // Medición (LIN_MODELO_PIES=1): dónde cae en pantalla el pie apoyado (el más bajo en altura, no
-    // en pantalla: con la cámara elevada el pie de adelante se ve más abajo), relativo al ancla del
-    // cuerpo; la posición absoluta se arma afuera en double (en float, a 1.5 M px, se pierde precisión).
+    // Medición (LIN_MODELO_PIES=1): dónde caen en pantalla los dos pies, proyectados al suelo (que el
+    // talón se levante al despegar no es patinar), relativos al ancla del cuerpo; la posición absoluta
+    // se arma afuera en double (en float, a 1,5 M px, se pierde precisión).
     static const bool medir_pies = std::getenv("LIN_MODELO_PIES") != nullptr;
     if (medir_pies && m.nodo("pie.L") >= 0) {
-        float g[MAX_NODOS][16];
+        float g[MAX_NODOS][16], rx[2], ry[2];
         m.globales(pose, g);
-        const float* q = &g[m.nodo("pie.L")][12];
-        const float* r = &g[m.nodo("pie.R")][12];
-        const int cual = r[1] < q[1] ? 1 : 0;
-        if (cual) q = r;
-        const float rx = (rot[0][0] * q[0] + rot[0][2] * q[2] - (xmin + xmax) / 2) * mg->px_unidad;
-        const float ry = -(rot[1][0] * q[0] + rot[1][1] * q[1] + rot[1][2] * q[2] - pie_y) * mg->px_unidad;
-        std::fprintf(stderr, "PIES %u %llu %d %d %.3f %.3f %.4f %.4f\n", o.ids()[s], static_cast<unsigned long long>(ahora), base, cual,
-                     rx, ry, fx, fy);
+        for (int k = 0; k < 2; ++k) {
+            const float* q = &g[m.nodo(k ? "pie.R" : "pie.L")][12];
+            rx[k] = (rot[0][0] * q[0] + rot[0][2] * q[2] - (xmin + xmax) / 2) * mg->px_unidad;
+            ry[k] = -(rot[1][0] * q[0] + rot[1][1] * m.minimo()[1] + rot[1][2] * q[2] - pie_y) * mg->px_unidad;
+        }
+        std::fprintf(stderr, "PIES %u %llu %d %u %.4f %.4f %.4f %.3f %.3f %.3f %.3f\n", o.ids()[s], static_cast<unsigned long long>(ahora), base,
+                     mg->gfx, am.fase, fx, fy, rx[0], ry[0], rx[1], ry[1]);
     }
     return true;
 }
