@@ -1,6 +1,8 @@
 // Entregable 6: ventana de inventario (Alt+I). Grilla de íconos originales (N.tbt), nombre al
 // pasar el mouse, ítems equipados marcados, peso; doble clic usa (equipa, bebe...) y arrastrar
-// un ítem fuera de la ventana lo suelta al suelo.
+// un ítem fuera de la ventana lo suelta al suelo. Arrastrarlo al basurero (abajo a la derecha) lo
+// elimina, para lo que no se puede soltar ni vender (el servidor rechaza lo equipado y lo que no se
+// puede borrar, con su mensaje).
 #include <cstring>
 #include "app/app.h"
 
@@ -11,6 +13,18 @@ namespace {
 constexpr int COLUMNAS = 6, FILAS = 7, CELDA = 36;  // 6 × 7 celdas de 36 px (íconos de 32)
 constexpr int GRILLA_X = 14, GRILLA_Y = 30;          // dentro de la ventana
 constexpr u64 MS_DOBLE_CLIC = 400;
+constexpr int BASURA_X = GRILLA_X + COLUMNAS * CELDA - 22, BASURA_Y = GRILLA_Y + FILAS * CELDA + 2, BASURA_W = 20,
+              BASURA_H = 18;  // el basurero, dentro de la ventana
+
+// Basurero dibujado con rectángulos (tapa, asa, cuerpo con ranuras); rojizo si un ítem está encima.
+void dibujar_basurero(Graficos& g, int x, int y, bool encima) {
+    const u64 k = clave_orden(CAPA_UI, 13);
+    const u32 c = encima ? rgba(230, 110, 90) : rgba(170, 160, 140), oscuro = rgba(40, 32, 22, 255);
+    g.gpu().rectangulo(x + 7, y, 6, 2, k, c);
+    g.gpu().rectangulo(x + 1, y + 2, 18, 3, k, c);
+    g.gpu().rectangulo(x + 3, y + 6, 14, 12, k, c);
+    for (int i = 0; i < 3; ++i) g.gpu().rectangulo(x + 6 + i * 3, y + 8, 1, 8, clave_orden(CAPA_UI, 14), oscuro);
+}
 
 // Celda bajo el puntero (índice en la tabla, ya desplazado) o -1.
 int celda_bajo_puntero(const App& a, int x0, int y0) {
@@ -84,6 +98,8 @@ void acciones_item_automaticas(App& a) {
         }
         if (mejor == SIN_SLOT) LIN_LOG("Prueba automática: no hay un \"%s\" a la vista", ac.a_quien.c_str());
         else dar_item(a, o.ids()[mejor], item);
+    } else if (ac.borrar) {
+        borrar_item(a, item);
     } else if (ac.soltar) {
         soltar_item(a, item);
     } else {
@@ -134,6 +150,15 @@ void dibujar_inventario(App& a) {
     char pie[48];
     std::snprintf(pie, sizeof pie, "Weight %d%%   %zu items", a.mundo.jugador.peso * 100 / 240, t.tamano());
     g.texto(pie, x0 + GRILLA_X, y0 + GRILLA_Y + FILAS * CELDA + 6, kt, rgba(214, 190, 140));
+    const bool sobre_basura = ui::sobre(e, x0 + BASURA_X, y0 + BASURA_Y, BASURA_W, BASURA_H);
+    dibujar_basurero(g, x0 + BASURA_X, y0 + BASURA_Y, sobre_basura && a.arrastrando);
+    if (sobre_basura && !a.arrastrando) {
+        constexpr std::string_view AYUDA = "Drag an item here to delete it";
+        const int w = ancho_texto(AYUDA.data(), AYUDA.size());
+        const int tx = std::min(e.mx + 12, a.gpu.ancho() - w - 8), ty = e.my + 16;
+        g.gpu().rectangulo(tx - 4, ty - 3, w + 8, ALTO_GLIFO + 6, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 220));
+        g.texto(AYUDA, tx, ty, clave_orden(CAPA_UI_TEXTO, 30), rgba(255, 255, 254));
+    }
 
     // Nombre del ítem bajo el puntero (blanco; bendito amarillo, maldito rojo).
     if (bajo >= 0 && !a.arrastrando) {
@@ -156,7 +181,9 @@ void dibujar_inventario(App& a) {
         if (s != SIN_SLOT) g.gpu().dibujar(g.icono(t.col<I_GFX>()[s]), e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic) {
-        if (a.arrastrando && sobre_ventana(a, IdVentana::INTERCAMBIO)) {
+        if (a.arrastrando && sobre_basura) {
+            borrar_item(a, a.arrastrando);  // pregunta antes
+        } else if (a.arrastrando && sobre_ventana(a, IdVentana::INTERCAMBIO)) {
             ofrecer_en_intercambio(a, a.arrastrando);  // al intercambio
         } else if (a.arrastrando && casillero_bajo_puntero(a) >= 0) {
             // A la barra de atajos (Alt+número lo usa).

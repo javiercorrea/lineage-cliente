@@ -342,6 +342,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s == "--reiniciar") a.aut.reiniciar = true;
         else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
         else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
+        else if (s.rfind("--borrar=", 0) == 0) a.aut.items.push_back({false, valor("--borrar="), "", true});
         else if (s.rfind("--dar=", 0) == 0) {
             std::string v = valor("--dar=");
             const size_t arroba = v.find('@');

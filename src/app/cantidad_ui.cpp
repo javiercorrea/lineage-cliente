@@ -3,6 +3,8 @@
 //    entre un mínimo y un máximo; se responde con C_Amount (la cantidad y la acción que mandó).
 //  - Dar un ítem (C_GiveItem): arrastrarlo del inventario sobre un NPC o una mascota. De una pila,
 //    el mismo diálogo pregunta cuántos.
+//  - El basurero del inventario (C_DeleteInventoryItem): para lo que no se puede soltar ni vender.
+//    Siempre pregunta (no se puede deshacer): cuántos de una pila, o que confirme si es uno.
 // El diálogo va al centro: números con el teclado, −/+ , Enter acepta y Esc cancela.
 #include <charconv>
 #include "app/app.h"
@@ -26,7 +28,10 @@ void aceptar(App& a) {
     DialogoCantidad& d = a.cantidad;
     d.abierto = false;
     d.valor = std::clamp(d.valor, d.min, d.max);
-    if (d.dar) {
+    if (d.borrar) {
+        if (a.mundo.inventario.items.buscar(d.item) != SIN_SLOT && d.valor > 0)  // 0 sería toda la pila
+            enviar(a, cmd::borrar_item(a.op, d.item, static_cast<u32>(d.valor)));
+    } else if (d.dar) {
         Slot s = a.mundo.objetos.buscar(d.objeto);
         if (s == SIN_SLOT) return;
         const TablaObjetos& o = a.mundo.objetos;
@@ -42,7 +47,7 @@ void aceptar(App& a) {
 void eventos_cantidad(App& a, const Evento& e) {
     if (e.tipo != Ev::PEDIR_CANTIDAD) return;
     DialogoCantidad& d = a.cantidad;
-    d.dar = false;
+    d.dar = d.borrar = false;
     d.objeto = e.id;
     d.precio = e.v[PC_PRECIO];
     d.accion.assign(e.s[0]);
@@ -59,6 +64,7 @@ void dar_item(App& a, ObjId objetivo, ObjId item) {
     if (s == SIN_SLOT) return;
     DialogoCantidad& d = a.cantidad;
     d.dar = true;
+    d.borrar = false;
     d.objeto = objetivo;
     d.item = item;
     d.precio = 0;
@@ -68,6 +74,25 @@ void dar_item(App& a, ObjId objetivo, ObjId item) {
     abrir(a, std::string_view(titulo, m), 1, std::max(n, 1), std::max(n, 1));
     if (n <= 1 || a.aut.cantidad >= 0) {  // uno solo, o prueba automática: sin preguntar
         if (a.aut.cantidad >= 0) d.valor = std::clamp(a.aut.cantidad, 1, std::max(n, 1));
+        aceptar(a);
+    }
+}
+
+void borrar_item(App& a, ObjId item) {
+    const TablaItems& t = a.mundo.inventario.items;
+    Slot s = t.buscar(item);
+    if (s == SIN_SLOT) return;
+    DialogoCantidad& d = a.cantidad;
+    d.dar = false;
+    d.borrar = true;
+    d.item = item;
+    d.precio = 0;
+    const i32 n = std::max(static_cast<i32>(t.col<I_CANTIDAD>()[s]), 1);
+    char titulo[256];
+    const size_t m = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), titulo, sizeof titulo);
+    abrir(a, std::string_view(titulo, m), 1, n, n);
+    if (a.aut.cantidad >= 0) {  // prueba automática: sin preguntar
+        d.valor = std::clamp(a.aut.cantidad, 1, n);
         aceptar(a);
     }
 }
@@ -85,8 +110,9 @@ void dibujar_cantidad(App& a) {
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 90);
     ui::recuadro(g, x, y, ANCHO, ALTO, 240);
     g.texto(d.titulo, static_cast<float>(x + 10), static_cast<float>(y + 8), kt, ui::COLOR_TITULO);
-    g.texto(d.dar ? "Give how many?" : "Amount", static_cast<float>(x + 10), static_cast<float>(y + 30), kt,
-            rgba(170, 160, 140));
+    const char* pregunta = d.borrar ? (d.max > 1 ? "Delete how many? (cannot be undone)" : "Delete it? (cannot be undone)")
+                                    : d.dar ? "Give how many?" : "Amount";
+    g.texto(pregunta, static_cast<float>(x + 10), static_cast<float>(y + 30), kt, d.borrar ? rgba(255, 140, 110) : rgba(170, 160, 140));
 
     // Números con el teclado (se reemplaza el valor al escribir el primero), −/+ y la rueda.
     for (int i = 0; i < e.ntexto; ++i) {
@@ -101,13 +127,16 @@ void dibujar_cantidad(App& a) {
     }
     if (e.rueda) d.valor = std::clamp(d.valor + e.rueda, d.min, d.max);
     const int by = y + 50;
-    if (ui::boton_texto(g, e, "-", x + 10, by, 24, 20)) d.valor = std::max(d.min, d.valor - 1);
+    const bool numero = !(d.borrar && d.max == 1);  // borrar uno solo: solo confirmar
+    if (numero && ui::boton_texto(g, e, "-", x + 10, by, 24, 20)) d.valor = std::max(d.min, d.valor - 1);
     char t[48];
     std::snprintf(t, sizeof t, "%d", d.valor);
-    g.gpu().rectangulo(x + 40, by, 100, 20, clave_orden(CAPA_UI, 3), rgba(40, 32, 22, 255));
-    g.texto(t, static_cast<float>(x + 46), static_cast<float>(by + 4), kt, ui::COLOR_TEXTO);
-    if (ui::boton_texto(g, e, "+", x + 146, by, 24, 20)) d.valor = std::min(d.max, d.valor + 1);
-    if (ui::boton_texto(g, e, "Max", x + 176, by, 40, 20)) d.valor = d.max;
+    if (numero) {
+        g.gpu().rectangulo(x + 40, by, 100, 20, clave_orden(CAPA_UI, 3), rgba(40, 32, 22, 255));
+        g.texto(t, static_cast<float>(x + 46), static_cast<float>(by + 4), kt, ui::COLOR_TEXTO);
+        if (ui::boton_texto(g, e, "+", x + 146, by, 24, 20)) d.valor = std::min(d.max, d.valor + 1);
+        if (ui::boton_texto(g, e, "Max", x + 176, by, 40, 20)) d.valor = d.max;
+    }
     if (d.precio > 0) {
         std::snprintf(t, sizeof t, "%lld adena", static_cast<long long>(d.precio) * d.valor);
         g.texto(t, static_cast<float>(x + 10), static_cast<float>(by + 26), kt, rgba(255, 230, 150));

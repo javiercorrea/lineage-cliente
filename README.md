@@ -74,6 +74,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
   - Muestra los íconos originales (`N.tbt`), el nombre al pasar el mouse, los equipados con una "E" y el peso.
   - Doble clic usa el ítem: equipa o quita armas y armaduras, bebe pociones.
   - Arrastrar un ítem fuera de la ventana lo suelta al suelo.
+  - **Basurero** (abajo a la derecha del inventario): arrastrar un ítem encima lo elimina, para lo que no se puede soltar ni vender. Siempre pregunta antes: cuántos de una pila, o que confirme si es uno. El servidor rechaza lo equipado y lo que no se puede borrar.
 - **Techos y árboles:** al entrar a una casa o pasar detrás de un árbol, lo que tapa al personaje se vuelve translúcido y se ve su silueta.
 - **Puertas:** clic sobre una puerta para abrirla o cerrarla (se camina hasta ella). Las cerradas no se pueden atravesar.
 - **Dar ítems:** arrastrar un ítem del inventario sobre un NPC o una mascota se lo da; de una pila, pregunta cuántos.
@@ -163,6 +164,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |
 | `--mantener=x,y,N` / `--mantener-sobre=Nombre,N` | Mantiene el botón izquierdo N frames desde el frame 300 del juego, en (x, y) o en el punto de pantalla donde está en ese momento el objeto con ese nombre (el punto queda fijo) |
 | `--ctrl` | Ctrl mantenido todo el tiempo (forzar ataque) |
+| `--borrar=Nombre` | Elimina (basurero) el primer ítem cuyo nombre lo contenga; con `--cantidad=N`, N de la pila (si no, pregunta) |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

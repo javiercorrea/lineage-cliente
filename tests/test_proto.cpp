@@ -359,6 +359,7 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::dar_item(t, 5, 1, 2, 7, 3), {244, 5, 0, 0, 0, 1, 0, 2, 0, 7, 0, 0, 0, 3, 0, 0, 0});
     igual(cmd::cantidad(t, 9, 2, "make1"), {109, 9, 0, 0, 0, 2, 0, 0, 0, 0, 'm', 'a', 'k', 'e', '1', 0});
     igual(cmd::inventario_mascota(t, 5), {217, 5, 0, 0, 0});
+    igual(cmd::borrar_item(t, 0x33, 2), {209, 0x33, 0, 0, 0, 2, 0, 0, 0});
     igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
     igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }

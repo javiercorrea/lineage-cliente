@@ -50,6 +50,7 @@ struct Automatizacion {
         bool soltar;                // si no, usar (equipar, beber...)
         std::string nombre;         // el primer ítem del inventario cuyo nombre lo contenga
         std::string a_quien;        // --dar=Ítem@Nombre: dárselo al más cercano con ese nombre
+        bool borrar = false;        // --borrar: al basurero
     };
     std::vector<AccionItem> items;  // una cada 2 s después de entrar
     size_t items_hechos = 0;
@@ -138,6 +139,7 @@ struct ElegirDestino {
 struct DialogoCantidad {
     bool abierto = false;
     bool dar = false;         // true: C_GiveItem del `item` a `objeto`; false: C_Amount a `objeto`
+    bool borrar = false;      // true: C_DeleteInventoryItem del `item` (el basurero)
     bool escribiendo = false; // ya se escribió un número (el siguiente se agrega en vez de reemplazar)
     ObjId objeto = 0, item = 0;
     i32 valor = 1, min = 1, max = 1, precio = 0;
@@ -401,6 +403,8 @@ bool sobre_inventario(const App& a);
 void dibujar_inventario(App& a);
 void usar_item(App& a, ObjId item);
 void soltar_item(App& a, ObjId item);
+// Al basurero: pregunta cuántos (o confirma, si es uno) y lo elimina (cantidad_ui.cpp).
+void borrar_item(App& a, ObjId item);
 // Prueba automática (--usar, --soltar): ejecuta la próxima acción pendiente.
 void acciones_item_automaticas(App& a);
 

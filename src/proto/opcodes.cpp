@@ -53,6 +53,7 @@ constexpr ParCli JP363_CLI[] = {
     {Cli::DOOR, 199},          {Cli::GIVEITEM, 244},     {Cli::AMOUNT, 109},       {Cli::PETMENU, 217},
     {Cli::USEPETITEM, 213},    {Cli::SELECTTARGET, 155},  {Cli::CHANGECHAR, 237},   {Cli::FIXWEAPONLIST, 106},
     {Cli::SELECTLIST, 238},    {Cli::BOOKMARK, 134},     {Cli::BOOKMARKDELETE, 223},
+    {Cli::DELETEINVENTORYITEM, 209},
 };
 
 const char* NOMBRES[] = {

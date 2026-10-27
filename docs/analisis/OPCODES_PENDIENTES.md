@@ -69,7 +69,7 @@ Detalle y verificación en ENTREGABLES.md, "Puertas, estados alterados, cantidad
 - **Clan recomendado:** `S_PledgeRecommendation` (192), `C_PledgeRecommendation` (228).
 - **Reiniciar atributos (Candle of Reminiscence):** `S_CharReset` (33), `C_CharReset` (236).
 - **Varios:** `C_FishClick` (26, pesca), `C_Ship` (117), `C_Rank` (88), `C_ChatParty` (113),
-  `C_CallPlayer` (144, GM), `C_DeleteInventoryItem` (209).
+  `C_CallPlayer` (144, GM). (`C_DeleteInventoryItem` (209) ya está: el basurero del inventario.)
 - **Opciones del original al servidor:** `C_LoginToServerOK` (75: chat global y susurros
   abiertos o cerrados), `C_CharacterConfig` (129: disposición de la interfaz), `C_SendLocation` (41),
   `C_ExtraCommand` (157).
