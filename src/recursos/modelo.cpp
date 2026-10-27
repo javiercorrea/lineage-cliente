@@ -91,10 +91,12 @@ bool Modelo::cargar(Bytes glb) {
     const size_t n_nodos = d->nodes_count;
     auto indice = [&](const cgltf_node* n) { return static_cast<int>(n - d->nodes); };
     padre_.assign(n_nodos, -1);
+    nombres_.clear();
     reposo_.assign(n_nodos, Trs{});
     for (size_t i = 0; i < n_nodos; ++i) {
         const cgltf_node& n = d->nodes[i];
         if (n.parent) padre_[i] = static_cast<i16>(indice(n.parent));
+        nombres_.emplace_back(n.name ? n.name : "");
         Trs& t = reposo_[i];
         if (n.has_translation) std::memcpy(t.t, n.translation, sizeof t.t);
         if (n.has_rotation) std::memcpy(t.r, n.rotation, sizeof t.r);
@@ -262,15 +264,54 @@ void Modelo::mezclar(const Pose& a, const Pose& b, float f, Pose& salida) const 
     }
 }
 
-void Modelo::matrices_huesos(const Pose& p, float (*salida)[16]) const {
-    float global[MAX_NODOS][16];
+void Modelo::globales(const Pose& p, float (*global)[16]) const {
     for (u16 n : orden_) {
         float local[16];
         mat_de_trs(p.local[n], local);
         if (padre_[n] < 0) std::memcpy(global[n], local, sizeof local);
         else mat_mult(global[padre_[n]], local, global[n]);
     }
+}
+
+void Modelo::matrices_huesos(const Pose& p, float (*salida)[16]) const {
+    float global[MAX_NODOS][16];
+    globales(p, global);
     for (size_t j = 0; j < huesos_.size(); ++j) mat_mult(global[huesos_[j]], &bind_inversa_[j * 16], salida[j]);
+}
+
+int Modelo::nodo(std::string_view nombre) const {
+    for (size_t i = 0; i < nombres_.size(); ++i)
+        if (nombres_[i] == nombre) return static_cast<int>(i);
+    return -1;
+}
+
+void Modelo::recorrido(int clip, float* r) const {
+    for (int i = 0; i <= RECORRIDO_N; ++i) r[i] = 0;
+    const int pies[2] = {nodo("pie.L"), nodo("pie.R")};
+    if (clip < 0 || pies[0] < 0 || pies[1] < 0) return;
+    // En cada instante el pie más bajo es el apoyado; lo que retrocede (−Z: el modelo mira a +Z) es lo
+    // que avanza el cuerpo. Con un mínimo por tramo: si no, en el cambio de pie (nadie retrocede) la
+    // inversa saltaría ese tramo de golpe.
+    float z[RECORRIDO_N + 1][2], y[RECORRIDO_N + 1][2];
+    Pose p;
+    float g[MAX_NODOS][16];
+    for (int i = 0; i <= RECORRIDO_N; ++i) {
+        muestrear(clip, duracion(clip) * static_cast<float>(i) / RECORRIDO_N, true, p);
+        globales(p, g);
+        for (int k = 0; k < 2; ++k) {
+            y[i][k] = g[pies[k]][13];
+            z[i][k] = g[pies[k]][14];
+        }
+    }
+    float d[RECORRIDO_N], total = 0;
+    for (int i = 0; i < RECORRIDO_N; ++i) {
+        const int k = y[i][0] <= y[i][1] ? 0 : 1;
+        d[i] = std::max(0.0f, z[i][k] - z[i + 1][k]);
+        total += d[i];
+    }
+    if (total <= 0) return;
+    const float minimo = 0.15f * total / RECORRIDO_N;
+    for (int i = 0; i < RECORRIDO_N; ++i) r[i + 1] = r[i] + std::max(d[i], minimo);
 }
 
 }  // namespace lin

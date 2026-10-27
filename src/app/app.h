@@ -123,6 +123,7 @@ struct ModeloGfx {
     MallaGpu malla;
     float giro = 0, sentido = 1, elevacion = 20, px_unidad = 30;  // registro de cámara y escala
     int clip[5] = {-1, -1, -1, -1, -1};  // quieto, caminar, atacar, daño, morir
+    float recorrido[RECORRIDO_N + 1] = {};  // del clip de caminar (Modelo::recorrido); 0 = no se pudo medir
 };
 struct AnimModelo {
     ObjId id = 0;
@@ -131,6 +132,10 @@ struct AnimModelo {
     bool bucle = true, bucle_ant = true;
     u64 cambio = 0, visto = 0;
     float yaw = 0;
+    float fase = 0;      // del ciclo de caminar
+    double distancia = 0; // recorrida en el ciclo (unidades del modelo): de ella sale la fase
+    double fx = 0, fy = 0; // posición del frame anterior
+    u64 fin_caminar = 0; // último instante en que caminaba
 };
 // Dónde se dibuja la ranura de un modelo (px lógicos) y su rectángulo para el mouse y el nombre.
 struct DibujoModelo {

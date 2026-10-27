@@ -69,6 +69,16 @@ TEST_CASE("Modelo: gólem animado (.glb de prueba_3d)" * doctest::skip(carpeta_m
     for (int n = 0; n < 19; ++n) distinta |= std::abs(pm.local[n].r[0] - p0.local[n].r[0]) > 1e-3f;
     CHECK(distinta);
 
+    // Recorrido de caminar: lo mide el pie apoyado; creciente, y el gólem da pasos cortos (piernas cortas).
+    CHECK(m.nodo("pie.L") >= 0);
+    float r[RECORRIDO_N + 1];
+    m.recorrido(caminar, r);
+    for (int i = 0; i < RECORRIDO_N; ++i) CHECK(r[i + 1] > r[i]);
+    const float z = r[RECORRIDO_N] / 2;
+    MESSAGE("zancada del gólem: " << z);
+    CHECK(z > 0.05f);
+    CHECK(z < 1.0f);
+
     // Muestrear, mezclar y calcular matrices no asigna memoria (va en el bucle del frame).
     const u64 antes = asignaciones_hilo();
     for (int i = 0; i < 100; ++i) {

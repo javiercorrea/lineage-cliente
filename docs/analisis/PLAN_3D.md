@@ -35,8 +35,17 @@ Hecho (fases 2 y 3, y parte de la 4), con el esqueleto (gfx 30) y el gólem (gfx
   con 16 ranuras de 512×512; un pase previo con profundidad dibuja cada modelo con skinning en el
   vertex shader (MSL); la ranura entra a la lista de dibujo como un frame.
 - **Animación** (`app/modelos.cpp`): clip según la acción (morir detenido al final, ataque y daño
-  estirados a la duración del sprite, caminar un ciclo cada dos pasos sin cortes, quieto), transición
-  de 150 ms, giro gradual (90° en 100 ms), posición continua.
+  estirados a la duración del sprite, caminar sin cortes entre pasos, quieto), transición de 150 ms,
+  giro gradual (90° en 100 ms), posición continua.
+- **Pies sin patinar:** la fase de caminar sale de la distancia que avanzó el cuerpo, no del reloj.
+  Al cargar se mide el clip (`Modelo::recorrido`): cuánto retrocede el pie apoyado (el más bajo) en
+  cada instante del ciclo; la fase es la inversa de esa tabla. Así el pie apoyado queda fijo en el
+  piso aunque el clip no lo mueva a velocidad constante. Entre pasos (los monstruos se detienen un
+  momento) el ciclo queda quieto donde está. Medido con `LIN_MODELO_PIES=1` (posición en pantalla
+  del pie apoyado, 30 pasos): el pie se desliza 0,03 px por frame (mediana), contra 0,14 con un
+  ritmo fijo de un ciclo cada dos pasos; el cuerpo avanza 0,17. Lo que queda viene de la diferencia
+  de ±9° entre la dirección del modelo y la del movimiento (la cámara del registro está a 20° y el
+  2:1 isométrico equivale a ~30°).
 - **Encaje:** orden con el mapa, tintes, silueta, ceguera, rectángulo para el mouse y el nombre, y la
   sombra del sprite en el suelo. Shift+F2 alterna modelos y sprites.
 - **Calibración:** el ancla es la del registro de `prueba_3d` (borde de abajo y centro de la caja

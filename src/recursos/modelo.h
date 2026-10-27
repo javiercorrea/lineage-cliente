@@ -19,6 +19,7 @@ namespace lin {
 
 constexpr int MAX_HUESOS = 32;  // por modelo (las matrices van como uniformes del shader)
 constexpr int MAX_NODOS = 64;
+constexpr int RECORRIDO_N = 96;
 
 struct VerticeModelo {
     float pos[3];
@@ -59,6 +60,14 @@ public:
     void mezclar(const Pose& a, const Pose& b, float f, Pose& salida) const;
     // Matrices de los huesos (global × inversa de bind), columna mayor, para el skinning.
     void matrices_huesos(const Pose& p, float (*salida)[16]) const;
+    // Matrices globales de los nodos (la traslación de un hueso, en [12..14], es su articulación).
+    void globales(const Pose& p, float (*salida)[16]) const;
+    // Índice del nodo con ese nombre, o -1.
+    int nodo(std::string_view nombre) const;
+    // Recorrido del clip de caminar (unidades del modelo): r[i] = cuánto avanzó el cuerpo en el instante
+    // i/RECORRIDO_N del ciclo, medido por lo que retrocede el pie apoyado (el más bajo). Es creciente;
+    // r[RECORRIDO_N] es el ciclo entero (dos pasos). Todo 0 si no tiene nodos "pie.L" / "pie.R".
+    void recorrido(int clip, float* r) const;
 
     const std::vector<VerticeModelo>& vertices() const { return vertices_; }
     const std::vector<u32>& indices() const { return indices_; }
@@ -85,6 +94,7 @@ private:
     std::vector<VerticeModelo> vertices_;
     std::vector<u32> indices_;
     ImagenRGBA textura_;
+    std::vector<std::string> nombres_; // por nodo
     std::vector<i16> padre_;          // por nodo (-1 = raíz)
     std::vector<u16> orden_;          // nodos con el padre antes que los hijos
     std::vector<Trs> reposo_;         // por nodo

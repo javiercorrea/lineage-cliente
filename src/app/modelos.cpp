@@ -11,7 +11,10 @@
 //    gradual. La pose se muestrea en tiempo continuo: una distinta en cada frame.
 //  - El modelo se dibuja en su ranura del atlas con una cámara ortográfica y la ranura se ubica con
 //    los pies en la posición continua del objeto (los clips caminan en el lugar; los sprites no).
+#include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include "app/app.h"
 
 namespace lin {
@@ -21,6 +24,7 @@ namespace {
 constexpr float PI = 3.14159265f;
 constexpr u64 MS_TRANSICION = 150;
 constexpr float GRADOS_POR_MS = 0.9f;        // giro: 90° en 100 ms
+constexpr u64 MS_PAUSA_ENTRE_PASOS = 400;    // hasta esto sin caminar, el ciclo se congela (no pasa a quieto)
 constexpr float PIE_EN_RANURA = 0.8f;        // los pies, al 80 % del alto de la ranura
 constexpr float Z_POR_UNIDAD = 0.08f;        // profundidad en la ranura (NDC 0..1)
 enum ClipBase { CLIP_QUIETO, CLIP_CAMINAR, CLIP_ATACAR, CLIP_DANO, CLIP_MORIR, CLIPS_BASE };
@@ -86,9 +90,11 @@ void cargar_modelos(App& a) {
         m.elevacion = elevacion;
         m.px_unidad = px;
         for (int c = 0; c < CLIPS_BASE; ++c) m.clip[c] = m.modelo.clip(NOMBRES_CLIP[c]);
+        m.modelo.recorrido(m.clip[CLIP_CAMINAR], m.recorrido);
         a.indice_modelos.poner(m.gfx, static_cast<u32>(a.modelos.size()));
         a.modelos.push_back(std::move(m));
-        LIN_LOG("Modelo 3D para el gfx %u: %s (%zu clips)", gfx, archivo, a.modelos.back().modelo.cantidad_clips());
+        LIN_LOG("Modelo 3D para el gfx %u: %s (%zu clips, zancada %.2f)", gfx, archivo, a.modelos.back().modelo.cantidad_clips(),
+                a.modelos.back().recorrido[RECORRIDO_N] / 2);
     }
 }
 
@@ -106,6 +112,22 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     if (!mg) return false;
     const Modelo& m = mg->modelo;
     AnimModelo& am = anim_de(a, o.ids()[s], ahora);
+
+    // Giro gradual hacia la dirección del objeto.
+    const u64 dt = am.visto && ahora - am.visto < 1000 ? ahora - am.visto : 0;
+    const float objetivo = mg->giro + mg->sentido * 45.0f * o.col<O_DIR>()[s];
+    if (dt == 0) {
+        am.yaw = objetivo;
+    } else {
+        const float dif = diferencia_angulo(am.yaw, objetivo), paso = GRADOS_POR_MS * static_cast<float>(dt);
+        am.yaw += std::fabs(dif) <= paso ? dif : (dif > 0 ? paso : -paso);
+    }
+    am.visto = ahora;
+    const double fx_ant = am.fx, fy_ant = am.fy;
+    am.fx = fx;
+    am.fy = fy;
+    const float ay = -am.yaw * PI / 180, e = mg->elevacion * PI / 180;
+    const float ca = std::cos(ay), sa = std::sin(ay), ce = std::cos(e), se = std::sin(e);
 
     // Clip y tiempo, con la duración de la acción del sprite.
     int base = CLIP_QUIETO;
@@ -136,9 +158,28 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
         t = std::min(frac, 1.0f);
     } else if (caminando(a.mundo, s, ahora)) {
         base = CLIP_CAMINAR;
-        // Un ciclo de caminar del modelo son dos pasos; la fase sigue sin cortes entre pasos.
-        const float paso = std::max<float>(o.col<O_DURMOV>()[s], 200);
-        t = std::fmod(static_cast<float>(ahora) / (2 * paso), 1.0f);
+        // Sin patinar: la fase sale de lo que avanzó el cuerpo, no del reloj. El pie apoyado retrocede
+        // en el clip exactamente eso (recorrido), así que queda fijo en el piso aunque el clip no lo
+        // mueva a velocidad constante. El avance se mide en pantalla y se pasa a unidades del modelo
+        // con lo que mide en pantalla una unidad hacia adelante del modelo.
+        const float* r = mg->recorrido;
+        const double paso_px = std::hypot((fx - fx_ant + fy - fy_ant) * 24, (fy - fy_ant - fx + fx_ant) * 12);
+        if (r[RECORRIDO_N] > 0 && dt && paso_px < 48) {
+            am.distancia += paso_px / (mg->px_unidad * std::hypot(sa, se * ca));
+            am.distancia = std::fmod(am.distancia, static_cast<double>(r[RECORRIDO_N]));
+            const int i = static_cast<int>(std::upper_bound(r, r + RECORRIDO_N + 1, static_cast<float>(am.distancia)) - r) - 1;
+            const float f = (static_cast<float>(am.distancia) - r[i]) / (r[i + 1] - r[i]);
+            am.fase = (static_cast<float>(i) + f) / RECORRIDO_N;
+        } else if (r[RECORRIDO_N] <= 0) {
+            am.fase = std::fmod(am.fase + static_cast<float>(dt) / (2.0f * std::max<float>(o.col<O_DURMOV>()[s], 200)), 1.0f);  // un ciclo cada dos pasos
+        }
+        am.fin_caminar = ahora;
+        t = static_cast<float>(am.fase);
+    } else if (ahora - am.fin_caminar < MS_PAUSA_ENTRE_PASOS && am.clip == mg->clip[CLIP_CAMINAR] && am.clip >= 0) {
+        // Entre un paso y el siguiente (los monstruos se detienen un momento): el ciclo se detiene
+        // donde está, con el pie apoyado quieto, en vez de pasar a "quieto" y volver.
+        base = CLIP_CAMINAR;
+        t = static_cast<float>(am.fase);
     } else {
         t = std::fmod(static_cast<float>(ahora) / 2000.0f, 1.0f);
     }
@@ -163,21 +204,9 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
         m.mezclar(anterior, pose, static_cast<float>(ahora - am.cambio) / MS_TRANSICION, pose);
     }
 
-    // Giro gradual hacia la dirección del objeto.
-    const float objetivo = mg->giro + mg->sentido * 45.0f * o.col<O_DIR>()[s];
-    if (am.visto == 0 || ahora - am.visto > 1000) {
-        am.yaw = objetivo;
-    } else {
-        const float dif = diferencia_angulo(am.yaw, objetivo), paso = GRADOS_POR_MS * static_cast<float>(ahora - am.visto);
-        am.yaw += std::fabs(dif) <= paso ? dif : (dif > 0 ? paso : -paso);
-    }
-    am.visto = ahora;
-
     // Cámara ortográfica: la dirección se ve desde el azimut yaw, con la elevación del registro. En
     // lugar de mover la cámara se gira el modelo −yaw sobre Y. Filas de la rotación a la cámara:
     // derecha, arriba y hacia la cámara.
-    const float ay = -am.yaw * PI / 180, e = mg->elevacion * PI / 180;
-    const float ca = std::cos(ay), sa = std::sin(ay), ce = std::cos(e), se = std::sin(e);
     const float rot[3][3] = {{ca, 0, sa}, {se * sa, ce, -se * ca}, {-ce * sa, se, ce * ca}};
     const float escala = static_cast<float>(a.gpu.escala());
     const float k = 2 * mg->px_unidad * escala / TAM_RANURA;  // unidades del modelo -> NDC de la ranura
@@ -222,6 +251,23 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     d.x1 = pie_x + ancho * 0.8f * mg->px_unidad;
     d.y0 = pie_y_pant - alto;
     d.y1 = pie_y_pant + 4;
+
+    // Medición (LIN_MODELO_PIES=1): dónde cae en pantalla el pie apoyado (el más bajo en altura, no
+    // en pantalla: con la cámara elevada el pie de adelante se ve más abajo), relativo al ancla del
+    // cuerpo; la posición absoluta se arma afuera en double (en float, a 1.5 M px, se pierde precisión).
+    static const bool medir_pies = std::getenv("LIN_MODELO_PIES") != nullptr;
+    if (medir_pies && m.nodo("pie.L") >= 0) {
+        float g[MAX_NODOS][16];
+        m.globales(pose, g);
+        const float* q = &g[m.nodo("pie.L")][12];
+        const float* r = &g[m.nodo("pie.R")][12];
+        const int cual = r[1] < q[1] ? 1 : 0;
+        if (cual) q = r;
+        const float rx = (rot[0][0] * q[0] + rot[0][2] * q[2] - (xmin + xmax) / 2) * mg->px_unidad;
+        const float ry = -(rot[1][0] * q[0] + rot[1][1] * q[1] + rot[1][2] * q[2] - pie_y) * mg->px_unidad;
+        std::fprintf(stderr, "PIES %u %llu %d %d %.3f %.3f %.4f %.4f\n", o.ids()[s], static_cast<unsigned long long>(ahora), base, cual,
+                     rx, ry, fx, fy);
+    }
     return true;
 }
 
