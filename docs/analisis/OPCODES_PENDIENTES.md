@@ -29,14 +29,15 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Volver a la selección de personaje: `C_ChangeChar` (237).
 
 Detalle y verificación en ENTREGABLES.md, "Puertas, estados alterados, cantidad y mascotas" y
-"Reparar armas, marcadores y cambiar de personaje".
+"Reparar armas, marcadores y cambiar de personaje". También están `C_DeleteInventoryItem` (el
+basurero) y `S_IdentifyDesc` (43; los atributos del ítem identificado van en `S_AddItem`,
+`S_InvList` y `S_ItemStatus`).
 
 ## 1. Más impacto en el juego
 
 | Función | Paquetes |
 |---|---|
 | Invisibilidad, resucitar, salir del modo fantasma | `S_Invis` (57), `S_Resurrection` (227), `C_ExitGhost` (210) |
-| Resultado de identificar | `S_IdentifyDesc` (43) |
 | Volver al login (la selección de personaje ya está: `C_ChangeChar`) | `C_ReturnToLogin` (218) |
 | Entrar a portales como el original (el cliente manda la celda; hace falta la lista de portales del `.s32`) | `C_EnterPortal` (249) |
 

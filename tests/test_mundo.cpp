@@ -327,3 +327,21 @@ TEST_CASE("Mundo: segmentos en el hilo de carga y liberación de los lejanos" * 
     CHECK(segmento_cargado(m, rec, x, y) == &m.segmentos[0]);
     CHECK(segmento_cargado(m, rec, x + 64 * 3, y) == nullptr);  // pedido de nuevo
 }
+
+TEST_CASE("Inventario: atributos de un ítem identificado (getStatusBytes) en texto") {
+    char buf[512];
+    // Arma: daño 6/8, hierro, peso 30, +3, dos manos, caballero, FUE +1.
+    const u8 arma[] = {1, 6, 8, 11, 30, 0, 0, 0, 2, 3, 4, 7, 2, 8, 1};
+    size_t n = describir_atributos({reinterpret_cast<const char*>(arma), sizeof arma}, buf, sizeof buf);
+    CHECK(std::string_view(buf, n) ==
+          "Damage 6 (small) / 8 (large)\nMaterial: iron\nWeight 30\nEnchant +3\nTwo-handed\nUsable by: Knight\nSTR +1");
+    // Armadura: AC 4, cuero, sin grado, peso 15, todas las clases, MR 10, resistencia al sueño 5.
+    const u8 armadura[] = {19, 4, 7, 0xFF, 15, 0, 0, 0, 7, 0x7F, 15, 10, 0, 15, 5, 0, 33, 3};
+    n = describir_atributos({reinterpret_cast<const char*>(armadura), sizeof armadura}, buf, sizeof buf);
+    CHECK(std::string_view(buf, n) ==
+          "AC 4\nMaterial: leather\nWeight 15\nUsable by: all classes\nMR +10\nSleep resistance +5");
+    // Sin identificar (vacío) y buffer chico: sin desbordar.
+    CHECK(describir_atributos({}, buf, sizeof buf) == 0);
+    n = describir_atributos({reinterpret_cast<const char*>(arma), sizeof arma}, buf, 8);
+    CHECK(n < 8);
+}

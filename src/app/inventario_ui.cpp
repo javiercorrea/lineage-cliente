@@ -52,9 +52,16 @@ bool sobre_inventario(const App& a) { return sobre_ventana(a, IdVentana::INVENTA
 
 // Uso 16 (pergamino de polymorph): primero se elige el monstruo (forma_ui.cpp).
 constexpr u8 USO_POLYMORPH = 16, USO_TELEPORT = 6, USO_TELEPORT_BENDITO = 29;  // ItemTable (useType)
+// Se usan sobre otro ítem (C_UseItem lee el objetivo): identificar, encantar arma y armadura...
+bool se_usa_sobre_item(u8 uso) { return uso == 7 || uso == 14 || uso == 26 || uso == 27; }
 
 void usar_item(App& a, ObjId item) {
     Slot s = a.mundo.inventario.items.buscar(item);
+    if (s != SIN_SLOT && se_usa_sobre_item(a.mundo.inventario.items.col<I_USO>()[s])) {
+        a.usar_sobre = item;  // el próximo clic en el inventario elige el objetivo
+        a.ventana_inventario = true;
+        return;
+    }
     if (s != SIN_SLOT && a.mundo.inventario.items.col<I_USO>()[s] == USO_POLYMORPH) {
         abrir_forma(a, item);
         return;
@@ -98,6 +105,10 @@ void acciones_item_automaticas(App& a) {
         }
         if (mejor == SIN_SLOT) LIN_LOG("Prueba automática: no hay un \"%s\" a la vista", ac.a_quien.c_str());
         else dar_item(a, o.ids()[mejor], item);
+    } else if (!ac.sobre.empty()) {
+        const ObjId objetivo = buscar_item(a, ac.sobre);
+        if (objetivo) enviar(a, cmd::usar_item_sobre(a.op, item, objetivo));
+        else LIN_LOG("Prueba automática: no hay un ítem \"%s\" en el inventario", ac.sobre.c_str());
     } else if (ac.borrar) {
         borrar_item(a, item);
     } else if (ac.soltar) {
@@ -109,7 +120,7 @@ void acciones_item_automaticas(App& a) {
 
 void dibujar_inventario(App& a) {
     Graficos& g = *a.g;
-    const EntradaFrame& e = a.entrada;
+    EntradaFrame& e = a.entrada;
     const Inventario& inv = a.mundo.inventario;
     const TablaItems& t = inv.items;
     arrastrar_ventana(a, IdVentana::INVENTARIO);
@@ -149,7 +160,8 @@ void dibujar_inventario(App& a) {
     }
     char pie[48];
     std::snprintf(pie, sizeof pie, "Weight %d%%   %zu items", a.mundo.jugador.peso * 100 / 240, t.tamano());
-    g.texto(pie, x0 + GRILLA_X, y0 + GRILLA_Y + FILAS * CELDA + 6, kt, rgba(214, 190, 140));
+    if (a.usar_sobre) g.texto("Click the target item (Esc cancels)", x0 + GRILLA_X, y0 + GRILLA_Y + FILAS * CELDA + 6, kt, rgba(255, 230, 120));
+    else g.texto(pie, x0 + GRILLA_X, y0 + GRILLA_Y + FILAS * CELDA + 6, kt, rgba(214, 190, 140));
     const bool sobre_basura = ui::sobre(e, x0 + BASURA_X, y0 + BASURA_Y, BASURA_W, BASURA_H);
     dibujar_basurero(g, x0 + BASURA_X, y0 + BASURA_Y, sobre_basura && a.arrastrando);
     if (sobre_basura && !a.arrastrando) {
@@ -160,21 +172,52 @@ void dibujar_inventario(App& a) {
         g.texto(AYUDA, tx, ty, clave_orden(CAPA_UI_TEXTO, 30), rgba(255, 255, 254));
     }
 
-    // Nombre del ítem bajo el puntero (blanco; bendito amarillo, maldito rojo).
+    // Nombre del ítem bajo el puntero (blanco; bendito amarillo, maldito rojo) y, si está
+    // identificado, sus atributos debajo (daño, defensa, encantamiento, bonos...).
     if (bajo >= 0 && !a.arrastrando) {
         Slot s = static_cast<Slot>(bajo);
-        char buf[256];
+        char buf[256], det[1024];
         size_t n = expandir_desc(a.desc, nombre_item(inv, s), buf, sizeof buf);
+        size_t nd = describir_atributos(atributos_item(inv, s), det, sizeof det);
+        if (nd == 0 && !t.col<I_IDENTIFICADO>()[s]) nd = static_cast<size_t>(std::snprintf(det, sizeof det, "Unidentified"));
         u8 b = t.col<I_BENDICION>()[s];
         u32 color = b == 1 ? rgba(255, 230, 120) : (b == 2 ? rgba(255, 110, 100) : rgba(255, 255, 254));
-        int w = ancho_texto(buf, n);
-        int tx = std::min(e.mx + 12, a.gpu.ancho() - w - 8), ty = e.my + 16;
-        g.gpu().rectangulo(tx - 4, ty - 3, w + 8, ALTO_GLIFO + 6, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 220));
+        int w = ancho_texto(buf, n), lineas = 0;
+        for (std::string_view resto(det, nd); !resto.empty(); ++lineas) {
+            const size_t fin = std::min(resto.find('\n'), resto.size());
+            w = std::max(w, ancho_texto(resto.data(), fin));
+            resto.remove_prefix(std::min(fin + 1, resto.size()));
+        }
+        const int alto_linea = ALTO_GLIFO + 3;
+        int tx = std::min(e.mx + 12, a.gpu.ancho() - w - 8);
+        int ty = std::min(e.my + 16, a.gpu.alto() - (lineas + 1) * alto_linea - 8);
+        // El fondo en la capa de textos (debajo de los suyos): si no, los textos de la ventana se ven a través.
+        g.gpu().rectangulo(tx - 4, ty - 3, w + 8, (lineas + 1) * alto_linea + 4, clave_orden(CAPA_UI_TEXTO, 29), rgba(0, 0, 0, 230));
         g.texto({buf, n}, tx, ty, clave_orden(CAPA_UI_TEXTO, 30), color);
+        int y = ty + alto_linea;
+        for (std::string_view resto(det, nd); !resto.empty(); y += alto_linea) {
+            const size_t fin = std::min(resto.find('\n'), resto.size());
+            g.texto(resto.substr(0, fin), tx, y, clave_orden(CAPA_UI_TEXTO, 30), rgba(200, 190, 160));
+            resto.remove_prefix(std::min(fin + 1, resto.size()));
+        }
     }
 
     // Arrastrar: empieza al apretar sobre un ítem; al soltarlo sobre el mundo (fuera de toda
     // ventana) va al suelo.
+    // Pergamino esperando su objetivo: el clic en un ítem lo usa sobre él; Esc o un clic fuera cancela.
+    if (a.usar_sobre) {
+        if (t.buscar(a.usar_sobre) == SIN_SLOT) a.usar_sobre = 0;  // se gastó o desapareció
+        if (e.escape) {
+            a.usar_sobre = 0;
+            e.escape = false;
+        } else if (e.clic) {
+            if (bajo >= 0) enviar(a, cmd::usar_item_sobre(a.op, a.usar_sobre, t.ids()[static_cast<Slot>(bajo)]));
+            a.usar_sobre = 0;
+            a.arrastrando = 0;
+            return;
+        }
+        return;  // mientras tanto no se arrastra ni se usa otra cosa
+    }
     if (e.pulsado && bajo >= 0) a.arrastrando = t.ids()[static_cast<Slot>(bajo)];
     if (a.arrastrando && e.presionado) {
         Slot s = t.buscar(a.arrastrando);

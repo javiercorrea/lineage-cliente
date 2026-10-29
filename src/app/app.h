@@ -51,6 +51,7 @@ struct Automatizacion {
         std::string nombre;         // el primer ítem del inventario cuyo nombre lo contenga
         std::string a_quien;        // --dar=Ítem@Nombre: dárselo al más cercano con ese nombre
         bool borrar = false;        // --borrar: al basurero
+        std::string sobre = {};     // --usar-sobre=Pergamino@Ítem: usarlo sobre ese ítem del inventario
     };
     std::vector<AccionItem> items;  // una cada 2 s después de entrar
     size_t items_hechos = 0;
@@ -332,6 +333,7 @@ struct App {
     bool ventana_inventario = false;
     u32 inventario_desplazamiento = 0;  // filas
     ObjId arrastrando = 0;              // ítem que se arrastra (para soltarlo al suelo)
+    ObjId usar_sobre = 0;               // pergamino (identificar, encantar) esperando el clic en su objetivo
     ObjId ultimo_clic_item = 0;         // para el doble clic
     u64 t_ultimo_clic_item = 0;
     float fps = 0;

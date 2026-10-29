@@ -120,6 +120,7 @@ TEST_CASE("Ítems: S_InvList (varios eventos), S_AddItem, S_ItemAmount y comando
     CHECK(ev[1].id == 0x11);
     CHECK(ev[1].v[IT_GFX] == 34);
     CHECK(ev[1].s[0] == "$1 ($9)");
+    CHECK(ev[1].s[1] == std::string_view("\xAA\xBB", 2));  // los atributos
     CHECK(ev[2].id == 0x22);
     CHECK(ev[2].v[IT_USO] == 59);
     CHECK(ev[2].v[IT_CANTIDAD] == 5);
@@ -137,6 +138,21 @@ TEST_CASE("Ítems: S_InvList (varios eventos), S_AddItem, S_ItemAmount y comando
     REQUIRE(decodificar(c, t, arena, ev));
     CHECK(ev[0].tipo == Ev::ITEM_CANTIDAD);
     CHECK(ev[0].v[IT_CANTIDAD] == 4);
+    CHECK(ev[0].s[1].empty());  // sin identificar
+
+    // S_ItemStatus de un ítem identificado (mismo número que S_ItemAmount): con los atributos.
+    ev.clear();
+    c = {127, 0x22, 0, 0, 0, '$', '2', 0, 1, 0, 0, 0, 3, 19, 2, 11};
+    REQUIRE(decodificar(c, t, arena, ev));
+    CHECK(ev[0].s[1] == std::string_view("\x13\x02\x0b", 3));
+
+    // S_IdentifyDesc: h desc, y como S_ServerMessage (h 135, c 2, nombre, defensa).
+    ev.clear();
+    std::vector<u8> id = {43, 0x10, 0, 135, 0, 2, '$', '3', 0, '2', '+', '1', 0};
+    REQUIRE(decodificar(id, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::MENSAJE_SERVIDOR);
+    CHECK(ev[0].v[MS_ID] == 135);
+    CHECK(ev[0].s[1] == "2+1");
 
     Escritor u = cmd::usar_item(t, 0x22);
     Bytes bu = u.cuerpo();
@@ -360,6 +376,7 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::cantidad(t, 9, 2, "make1"), {109, 9, 0, 0, 0, 2, 0, 0, 0, 0, 'm', 'a', 'k', 'e', '1', 0});
     igual(cmd::inventario_mascota(t, 5), {217, 5, 0, 0, 0});
     igual(cmd::borrar_item(t, 0x33, 2), {209, 0x33, 0, 0, 0, 2, 0, 0, 0});
+    igual(cmd::usar_item_sobre(t, 0x33, 0x44), {44, 0x33, 0, 0, 0, 0x44, 0, 0, 0});
     igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
     igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }

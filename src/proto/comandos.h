@@ -111,6 +111,12 @@ inline Escritor usar_hechizo(const TablaOpcodes& t, u32 id, u32 objetivo, u16 x,
 }
 // C_UseItem de un pergamino de polymorph (uso 16): d ítem, s monstruo (como en PolyTable del
 // servidor; "none" vuelve a la forma normal).
+// C_UseItem de un ítem que se usa sobre otro (identificar, encantar arma o armadura): d ítem, d objetivo.
+inline Escritor usar_item_sobre(const TablaOpcodes& t, u32 item, u32 objetivo) {
+    Escritor e(t, Cli::USEITEM);
+    e.d(item).d(objetivo);
+    return e;
+}
 inline Escritor usar_item_texto(const TablaOpcodes& t, u32 item, std::string_view texto) {
     Escritor e(t, Cli::USEITEM);
     e.d(item).s(texto);

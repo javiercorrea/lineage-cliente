@@ -497,6 +497,11 @@ bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v
 // Ítem de S_InvList y S_AddItem: d id, h catalizador, c uso, c cargas, h gfx de inventario,
 // c bendición (0 normal, 1 bendito, 2 maldito...), d cantidad, c identificado, s nombre visible,
 // c n + n bytes de atributos, c 10, d 0, d 0, h 0.
+// c n + n bytes de atributos (L1ItemInstance.getStatusBytes; 0 si no está identificado), a la arena.
+std::string_view atributos_item(Lector& l) {
+    const Bytes b = l.tomar(l.c());
+    return l.arena->copiar({reinterpret_cast<const char*>(b.data()), b.size()});
+}
 bool leer_item(Lector& l, Evento& e) {
     e.tipo = Ev::ITEM;
     e.id = l.d();
@@ -508,7 +513,7 @@ bool leer_item(Lector& l, Evento& e) {
     e.v[IT_CANTIDAD] = static_cast<i32>(l.d());
     e.v[IT_IDENTIFICADO] = l.c();
     e.s[0] = l.s();
-    l.saltar(l.c());
+    e.s[1] = atributos_item(l);
     l.saltar(1 + 4 + 4 + 2);
     return true;
 }
@@ -519,7 +524,14 @@ bool item_cantidad(Lector& l, Evento& e) {
     e.id = l.d();
     e.s[0] = l.s();
     e.v[IT_CANTIDAD] = static_cast<i32>(l.d());
+    e.s[1] = atributos_item(l);
     return true;
+}
+// S_IdentifyDesc (al usar un pergamino de identificación): h desc del ítem y después lo mismo que
+// S_ServerMessage (h mensaje 134–138, c n, n textos: nombre, daño o defensa, peso...).
+bool identificado(Lector& l, Evento& e) {
+    l.h();
+    return mensaje(l, e);
 }
 bool item_quitar(Lector& l, Evento& e) { e.tipo = Ev::ITEM_QUITAR; e.id = l.d(); return true; }
 bool item_bendicion(Lector& l, Evento& e) { e.tipo = Ev::ITEM_BENDICION; e.id = l.d(); e.v[IT_BENDICION] = l.c(); return true; }
@@ -581,6 +593,7 @@ constexpr Decodificador TABLA[] = {
     marca_objetivo, // TRUETARGET
     marcador,       // BOOKMARKS
     ignorar,        // SELECTLIST: varios eventos (decodificar)
+    identificado,   // IDENTIFYDESC
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

@@ -343,6 +343,11 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
         else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
         else if (s.rfind("--borrar=", 0) == 0) a.aut.items.push_back({false, valor("--borrar="), "", true});
+        else if (s.rfind("--usar-sobre=", 0) == 0) {
+            std::string v = valor("--usar-sobre=");
+            const size_t arroba = v.find('@');
+            a.aut.items.push_back({false, v.substr(0, arroba), "", false, arroba == std::string::npos ? "" : v.substr(arroba + 1)});
+        }
         else if (s.rfind("--dar=", 0) == 0) {
             std::string v = valor("--dar=");
             const size_t arroba = v.find('@');

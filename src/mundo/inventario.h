@@ -40,14 +40,15 @@ enum ColItem : size_t {
     I_CANTIDAD,
     I_IDENTIFICADO,
     I_NOMBRE,
+    I_ATRIBUTOS,    // bytes de getStatusBytes (en `textos`); vacío si no está identificado
 };
-using TablaItems = TablaSoa<u16, u8, u8, u32, u8, TextoRef>;
+using TablaItems = TablaSoa<u16, u8, u8, u32, u8, TextoRef, TextoRef>;
 
 constexpr u8 USO_ARMA = 1, USO_ARMADURA = 2;
 
 struct Inventario {
     TablaItems items;
-    std::vector<char> textos;  // nombres; se vacía con cada S_InvList
+    std::vector<char> textos;  // nombres y atributos; se vacía con cada S_InvList
     void limpiar() {
         items.limpiar();
         textos.clear();
@@ -55,6 +56,10 @@ struct Inventario {
 };
 
 std::string_view nombre_item(const Inventario& inv, Slot s);
+std::string_view atributos_item(const Inventario& inv, Slot s);
+// Los atributos de un ítem identificado en texto, una línea por atributo ("Damage 6/8", "AC 3",
+// "STR +1", "Usable by: Knight, Elf"...), separadas por '\n'. Devuelve el largo escrito.
+size_t describir_atributos(std::string_view bytes, char* salida, size_t capacidad);
 // Equipado según el sufijo que agrega el servidor al nombre.
 bool item_equipado(std::string_view nombre);
 // Aplica los eventos de ítems (los demás se ignoran).

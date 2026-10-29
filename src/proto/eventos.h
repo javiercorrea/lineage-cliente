@@ -50,6 +50,7 @@ enum : int { DF_CA, DF_FUEGO, DF_AGUA, DF_VIENTO, DF_TIERRA };
 enum : int { MS_ID, MS_NARGS, MS_AZUL };
 // Campos de ITEM (id = id del ítem, s[0] = nombre visible, con "$N" y sufijos como " ($9)").
 // ITEM_CANTIDAD usa IT_CANTIDAD y s[0]; ITEM_BENDICION, IT_BENDICION.
+// ITEM e ITEM_CANTIDAD: s[0] el nombre, s[1] los bytes de atributos (vacío si no está identificado).
 enum : int { IT_USO, IT_CARGAS, IT_GFX, IT_BENDICION, IT_CANTIDAD, IT_IDENTIFICADO };
 // Campos de ATAQUE (id = atacante): objetivo, acción del atacante, si acertó y su dirección. Los
 // hechizos de ataque (S_UseAttackSkill) y las flechas (S_UseArrowSkill) traen además el gráfico
