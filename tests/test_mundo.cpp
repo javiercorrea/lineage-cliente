@@ -205,10 +205,35 @@ TEST_CASE("Mundo: ataque, daño en el frame de impacto, muerte, cadáver y reini
     aplicar_eventos(m, l5, 6000);
     CHECK(m.objetos.col<O_ACCION>()[m.objetos.buscar(3)] == ACC_MORIR);
 
-    // Muere el jugador y reinicia: se descarta todo salvo él.
+    // Muere el jugador y lo resucitan (S_Resurrection): vuelve a estar vivo, sin reiniciar.
     muere.id = 1;
     Evento l6[] = {muere};
     aplicar_eventos(m, l6, 7000);
+    CHECK(m.jugador.muerto);
+    Evento revive{};
+    revive.tipo = Ev::RESUCITAR;
+    revive.id = 1;
+    Evento l7[] = {revive};
+    aplicar_eventos(m, l7, 7500);
+    CHECK_FALSE(m.jugador.muerto);
+    CHECK(m.objetos.col<O_ESTADO>()[yo] == 0);
+
+    // Invisible (S_Invis) y de vuelta visible.
+    Evento invis{};
+    invis.tipo = Ev::INVISIBLE;
+    invis.id = 1;
+    invis.v[0] = 1;
+    Evento l8[] = {invis};
+    aplicar_eventos(m, l8, 7600);
+    CHECK((m.objetos.col<O_FLAGS>()[yo] & FLAG_INVISIBLE) != 0);
+    invis.v[0] = 0;
+    Evento l9[] = {invis};
+    aplicar_eventos(m, l9, 7700);
+    CHECK((m.objetos.col<O_FLAGS>()[yo] & FLAG_INVISIBLE) == 0);
+
+    // Muere otra vez y reinicia: se descarta todo salvo él.
+    Evento l10[] = {muere};
+    aplicar_eventos(m, l10, 8000);
     CHECK(m.jugador.muerto);
     reiniciar_jugador(m);
     CHECK_FALSE(m.jugador.muerto);

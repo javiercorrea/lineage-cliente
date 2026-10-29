@@ -377,6 +377,21 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::inventario_mascota(t, 5), {217, 5, 0, 0, 0});
     igual(cmd::borrar_item(t, 0x33, 2), {209, 0x33, 0, 0, 0, 2, 0, 0, 0});
     igual(cmd::usar_item_sobre(t, 0x33, 0x44), {44, 0x33, 0, 0, 0, 0x44, 0, 0, 0});
+    igual(Escritor(t, Cli::EXITGHOST), {210});
+    igual(Escritor(t, Cli::RETURNTOLOGIN), {218});
+
+    // S_Invis (d id, c tipo) y S_Resurrection (d quién, c tipo, d quién lo revivió, d clase).
+    std::vector<u8> inv = {57, 5, 0, 0, 0, 1};
+    ev.clear();
+    REQUIRE(decodificar(inv, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::INVISIBLE);
+    CHECK(ev[0].id == 5);
+    CHECK(ev[0].v[0] == 1);
+    std::vector<u8> res = {227, 5, 0, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0, 0};
+    ev.clear();
+    REQUIRE(decodificar(res, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::RESUCITAR);
+    CHECK(ev[0].id == 5);
     igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
     igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }

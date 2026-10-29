@@ -12,12 +12,12 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 24 (23 números, más
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 22 (21 números, más
   `S_CharReset`, que comparte el 33 con `S_PetCtrlMenu`), además de subtipos de `S_PacketBox` (40)
   y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 54. De los 37 restantes,
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 56. De los 35 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 35.
+  `C_Chat`, que el cliente ya usa. Faltan 33.
 
 ## Hecho
 
@@ -34,16 +34,17 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Identificar: `S_IdentifyDesc` (43), y `C_UseItem` con el ítem objetivo (también encantar). Los
   atributos del ítem identificado no son un paquete aparte: van en `S_AddItem`, `S_InvList` y
   `S_ItemStatus`, y antes se descartaban.
+- Invisibilidad, resucitar y modo espectador: `S_Invis` (57), `S_Resurrection` (227),
+  `C_ExitGhost` (210). Volver al login: `C_ReturnToLogin` (218).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
-"Reparar armas, marcadores y cambiar de personaje" y "Basurero, detalle de los ítems e identificar".
+"Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
+"Invisibilidad, resucitar, modo espectador y volver al login".
 
 ## 1. Más impacto en el juego
 
 | Función | Paquetes |
 |---|---|
-| Invisibilidad, resucitar, salir del modo fantasma | `S_Invis` (57), `S_Resurrection` (227), `C_ExitGhost` (210) |
-| Volver al login (la selección de personaje ya está: `C_ChangeChar`) | `C_ReturnToLogin` (218) |
 | Entrar a portales como el original (el cliente manda la celda; hace falta la lista de portales del `.s32`) | `C_EnterPortal` (249) |
 
 ## 2. Avisos y efectos visuales

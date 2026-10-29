@@ -253,6 +253,9 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama.
 - **Espera de hechizos y línea de vista:** ver §2; los dos descartan en silencio.
 - **Zonas seguras:** atacar a otro jugador en un pueblo se acepta pero no hace daño.
+- **Morir se anima con retraso:** `death()` manda la acción de morir (8) un momento después de dejar
+  la vida en 0. Si en ese intervalo alguien lo resucita (solo pasa con `.death` y `.ress` de GM
+  seguidos), `S_Resurrection` llega antes que la acción de morir.
 - **Borrar un ítem** (`C_DeleteInventoryItem`): con cantidad 0 el servidor borra toda la pila, pero
   lee la cantidad del ítem antes de revisar que exista, así que un id inexistente con cantidad 0 le
   tira una excepción. El cliente siempre manda una cantidad > 0 de un ítem que tiene.

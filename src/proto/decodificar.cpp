@@ -533,6 +533,10 @@ bool identificado(Lector& l, Evento& e) {
     l.h();
     return mensaje(l, e);
 }
+// S_Invis: d id (el propio personaje), c 1 invisible / 0 visible. A los demás les llega un S_RemoveObject.
+bool invisible(Lector& l, Evento& e) { e.tipo = Ev::INVISIBLE; e.id = l.d(); e.v[0] = l.c(); return true; }
+// S_Resurrection: d quién revive, c tipo, d quién lo revivió, d clase. Va a él y a quienes lo ven.
+bool resucitar(Lector& l, Evento& e) { e.tipo = Ev::RESUCITAR; e.id = l.d(); return true; }
 bool item_quitar(Lector& l, Evento& e) { e.tipo = Ev::ITEM_QUITAR; e.id = l.d(); return true; }
 bool item_bendicion(Lector& l, Evento& e) { e.tipo = Ev::ITEM_BENDICION; e.id = l.d(); e.v[IT_BENDICION] = l.c(); return true; }
 
@@ -594,6 +598,8 @@ constexpr Decodificador TABLA[] = {
     marcador,       // BOOKMARKS
     ignorar,        // SELECTLIST: varios eventos (decodificar)
     identificado,   // IDENTIFYDESC
+    invisible,      // INVIS
+    resucitar,      // RESURRECTION
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

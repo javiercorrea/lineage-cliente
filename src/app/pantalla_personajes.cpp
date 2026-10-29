@@ -40,6 +40,12 @@ void entrar_juego(App& a) {
 }
 
 void volver_login(App& a) {
+    // Como el original, avisar (C_ReturnToLogin: el servidor cierra la sesión de la cuenta) y no solo
+    // cortar; el cliente igual reconecta al volver a entrar.
+    if (a.red.estado() == EstadoRed::CONECTADA) {
+        enviar(a, Escritor(a.op, Cli::RETURNTOLOGIN));
+        SDL_Delay(100);  // tiempo para que el hilo escritor lo envíe
+    }
     a.red.cerrar();
     a.estado_red_previo = EstadoRed::CERRADA;
     a.esperando = false;

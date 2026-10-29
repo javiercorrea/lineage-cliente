@@ -358,6 +358,8 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             // Envenenado: verdoso; congelado: gris azulado (S_Poison y los flags de S_CharPack).
             if (o.col<O_FLAGS>()[s] & FLAG_CONGELADO) color = rgba(150, 160, 185);
             else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
+            // Invisible (S_Invis; un GM también ve así a los demás): translúcido.
+            if (o.col<O_FLAGS>()[s] & FLAG_INVISIBLE) color = (color & 0x00FFFFFFu) | (110u << 24);
             g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
             // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
             // translúcidas superpuestas casi lo esconden).
@@ -1059,7 +1061,10 @@ void dibujar_estados_alterados(App& a, int w, int h) {
 }
 
 void dibujar_muerte(App& a) {
-    if (!a.mundo.jugador.muerto) return;
+    if (!a.mundo.jugador.muerto) {
+        a.t_muerte = 0;  // también si lo resucitaron (S_Resurrection)
+        return;
+    }
     Graficos& g = *a.g;
     const Vista vi = vista(a);
     const int w = 200, h = 64, x = vi.w / 2 - w / 2, y = vi.panel_y / 2 - h / 2;
@@ -1072,6 +1077,14 @@ void dibujar_muerte(App& a) {
     if (a.t_muerte == 0) a.t_muerte = a.entrada.ahora_ms;
     if (a.aut.reiniciar && a.entrada.ahora_ms - a.t_muerte > 5000) pedir = true;  // prueba automática
     if (pedir) reiniciar(a);
+}
+
+// Modo espectador (flag fantasma del propio personaje): botón para volver (C_ExitGhost), arriba al centro.
+void dibujar_espectador(App& a) {
+    const Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
+    if (s == SIN_SLOT || !(a.mundo.objetos.col<O_FLAGS>()[s] & FLAG_FANTASMA)) return;
+    const Vista vi = vista(a);
+    if (ui::boton_texto(*a.g, a.entrada, "Leave spectator mode", vi.w / 2 - 80, 70, 160, 20)) enviar(a, Escritor(a.op, Cli::EXITGHOST));
 }
 
 void dibujar_depuracion(App& a) {
@@ -1212,6 +1225,7 @@ void frame_juego(App& a) {
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_ayuda_teclas(a);
     dibujar_muerte(a);
+    dibujar_espectador(a);
     a.gpu.nivel_ventana(0);
     if (a.depuracion) dibujar_depuracion(a);
 }

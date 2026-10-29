@@ -761,6 +761,16 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Verificado:** un "Helmet of Magic Resistance" +2 sin identificar ("Unidentified"); `--usar="Scroll of Identify"` y un clic sobre el casco: `S_ItemStatus` con los atributos y `S_IdentifyDesc`; el detalle muestra AC 2, hierro, peso 35, Enchant +2, todas las clases y MR +6. Tests del formato (un arma y una armadura), de los paquetes y de los comandos.
 - **Pendiente o conocido:** los pergaminos de encantar no se probaron (mismo camino que identificar); el grado de los accesorios llega pero no se muestra; los textos del detalle están en inglés como el resto de la interfaz.
 
+## Invisibilidad, resucitar, modo espectador y volver al login
+
+![Resucitado](docs/capturas/resucitar.png)
+
+- **Invisible** (`S_Invis`: d id, c 1/0): el servidor se lo manda al propio personaje (capa de invisibilidad, hechizo, `.invisible` de GM); a los demás les llega `S_RemoveObject`. El personaje se dibuja translúcido (`FLAG_INVISIBLE`, el mismo flag de `S_CharPack`, así que un GM ve igual a los invisibles). **Verificado:** `.invisible` con Charla: `S_Invis` 1 y el personaje translúcido.
+- **Resucitar** (`S_Resurrection`: d quién, c tipo, d quién lo revivió, d clase): va al resucitado y a quienes lo ven. El cadáver vuelve a estar vivo (sin la acción de morir) y, si es el jugador, desaparece el cuadro "You have died". **Verificado** con dos clientes: Prueba (no GM) con `--aceptar` y Charla con `.recall Prueba`, `.death Prueba` y, unos segundos después, `.ress`: la pregunta 322, el sí (`C_Attr`), `S_Resurrection` y Prueba de pie con 89/89.
+  - Si `.ress` llega en el mismo instante que `.death`, el servidor manda la acción de morir después de `S_Resurrection` (la muerte se anima con retraso) y el cliente queda mostrando el cadáver de alguien vivo. Solo pasa con los comandos de GM seguidos.
+- **Modo espectador** (fantasma: mirar el Ultimate Battle por 100 adena, o después de perder ahí): con el flag 128 del propio personaje aparece arriba el botón "Leave spectator mode", que manda `C_ExitGhost` y el servidor lo devuelve a donde estaba. **No probado en vivo** (hace falta un Ultimate Battle); el comando, con test.
+- **Volver al login** ("Back" en la selección de personaje): avisa con `C_ReturnToLogin` antes de cortar, como el original. **Verificado:** el paquete sale y el login siguiente entra sin "ya conectado". `--pulsar` ahora también funciona en la selección de personaje.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)
@@ -875,7 +885,7 @@ LINEAGE_DIR=... ./build/debug/lin_tests
 [doctest] test cases: 62 | 62 passed | 0 failed
 ```
 
-El último, en `tests/test_mundo.cpp`: los atributos de un ítem identificado en texto (un arma y una armadura).
+El último, en `tests/test_mundo.cpp`: los atributos de un ítem identificado en texto (un arma y una armadura). Resucitar e invisible están en el caso de muerte y reinicio de `tests/test_mundo.cpp`; sus paquetes y comandos, en `tests/test_proto.cpp`.
 
 Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).
 

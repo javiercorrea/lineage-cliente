@@ -77,7 +77,9 @@ enum Paralisis : u8 {
     PARALISIS = 2, PARALISIS_2 = 4, SUENO = 10, CONGELADO = 12, ATURDIDO = 22, ATADO = 24,
 };
 // Flags de S_CharPack (y S_Poison): veneno (verde), invisible, congelado (gris).
-constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8;
+// Flags de S_CharPack / S_OwnCharPack. Fantasma: modo espectador (mirar el Ultimate Battle o después
+// de perder ahí); se sale con C_ExitGhost.
+constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8, FLAG_FANTASMA = 128;
 // Tipo de gfx de las puertas (atributo 102): sus acciones son abrir (28) y cerrar (29).
 constexpr u8 TIPO_PUERTA = 8, ACC_ABRIR = 28, ACC_CERRAR = 29;
 

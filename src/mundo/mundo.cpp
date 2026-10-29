@@ -360,6 +360,22 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             else m.puertas_cerradas.quitar(k);
             break;
         }
+        case Ev::INVISIBLE: {
+            Slot s = o.buscar(e.id);
+            if (s == SIN_SLOT) break;
+            u8& f = o.col<O_FLAGS>()[s];
+            f = static_cast<u8>(e.v[0] ? f | FLAG_INVISIBLE : f & ~FLAG_INVISIBLE);
+            break;
+        }
+        case Ev::RESUCITAR: {
+            Slot s = o.buscar(e.id);
+            if (s != SIN_SLOT && o.col<O_ESTADO>()[s] == ESTADO_MUERTO) {
+                o.col<O_ESTADO>()[s] = 0;  // el S_CharVisualUpdate que sigue pone el arma
+                o.col<O_ACCION>()[s] = 0xFF;
+            }
+            if (e.id == m.jugador.id) m.jugador.muerto = false;
+            break;
+        }
         case Ev::VENENO: {
             Slot s = o.buscar(e.id);
             if (s == SIN_SLOT) break;

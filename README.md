@@ -160,7 +160,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--mudo` | El audio corre sin volumen (pruebas automáticas); `--perf` muestra efectos tocados y música |
 | `--teclas` | Abre la ayuda de teclas (F1) al entrar |
 | `--medio=x,y,N` | Mantiene el botón del medio en (x, y) desde el frame 300 del juego durante N frames (usar el casillero elegido de la barra) |
-| `--pulsar=1#hola#` | Desde el frame 300 del juego (o del login), inyecta esas teclas una cada 10 frames como eventos de teclado (`#` Enter, `~` Esc) |
+| `--pulsar=1#hola#` | Desde el frame 300 del juego (o del login o la selección de personaje), inyecta esas teclas una cada 10 frames como eventos de teclado (`#` Enter, `~` Esc) |
 | `--cantidad=N` | En el próximo diálogo de cantidad (del servidor, o al dar una pila a un NPC o mascota), elige N y acepta |
 | `--dar="Ítem@Nombre"` | Da ese ítem al más cercano con ese nombre (con `--cantidad` si es una pila); se puede repetir, uno cada 2 s, en la misma cola que `--usar` |
 | `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |

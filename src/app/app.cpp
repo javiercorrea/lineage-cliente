@@ -69,7 +69,7 @@ void leer_entrada(App& a) {
     // login, para probarlo sin --auto), como
     // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
     Automatizacion& au = a.aut;
-    if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN) &&
+    if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN || a.pantalla == Pantalla::PERSONAJES) &&
         a.frames_en_pantalla >= 300 &&
         (a.frames_en_pantalla - 300) % 10 == 0) {
         const char c = au.pulsar[au.pulsadas++];
