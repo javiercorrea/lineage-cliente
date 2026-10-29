@@ -128,6 +128,20 @@ TEST_CASE("Hechizos: efectos, haste, brave e íconos") {
     REQUIRE(m.jugador.n_efectos == 2);
     CHECK(m.jugador.efectos[1].clase == EA_AURA);
     CHECK(m.jugador.efectos[1].tipo == 113);
+    // S_Strup (Enchant Mighty: 1200 s, FUE 21, peso 30, tipo 5) y S_Dexup (fin del de elfo, tipo 2).
+    auto& e7 = d({120, 0xb0, 0x04, 21, 30, 5, 0, 0, 0, 0});
+    aplicar_eventos(m, e7, 4500);
+    REQUIRE(m.jugador.n_efectos == 3);
+    CHECK(m.jugador.efectos[2].clase == EA_FUERZA);
+    CHECK(m.jugador.efectos[2].tipo == 5);
+    CHECK(m.jugador.efectos[2].fin == 4500 + 1200 * 1000);
+    auto& e8 = d({28, 0, 0, 18, 2, 0, 0, 0, 0});
+    REQUIRE(e8[0].tipo == Ev::ICONO_EFECTO);
+    CHECK(e8[0].v[IE_CLASE] == IE_DESTREZA);
+    CHECK(e8[0].v[IE_TIPO] == 2);
+    auto& e9 = d({120, 0, 0, 18, 30, 5, 0, 0, 0, 0});  // fin de Enchant Mighty
+    aplicar_eventos(m, e9, 4600);
+    CHECK(m.jugador.n_efectos == 2);
     vencer_efectos(m.jugador, 1000 + 1800 * 1000);
     CHECK(m.jugador.n_efectos == 1);
     // S_RangeSkill: el lanzador hace la acción y cada objetivo recibe el gráfico.
@@ -188,6 +202,13 @@ TEST_CASE("Hechizos: datos del cliente original" * doctest::skip(carpeta_juego()
     CHECK(h[4].gfx == 167);
     CHECK(h[17].demora_ms == 500);  // Lightning
     CHECK(h[43].nombre == "Haste");
+    // Encantar arma o armadura: el ítem va en C_UseSkill; los buffs traen su duración.
+    CHECK(h[12].sobre_item == Hechizo::SOBRE_ARMA);      // Enchant Weapon
+    CHECK(h[12].duracion_s == 1800);
+    CHECK(h[21].sobre_item == Hechizo::SOBRE_ARMADURA);  // Blessed Armor
+    CHECK(h[48].sobre_arma_actual);                      // Bless Weapon: la equipada
+    CHECK(h[48].sobre_item == Hechizo::SIN_ITEM);
+    CHECK(h[42].icono != 0);                             // Enchant Mighty
     CHECK_FALSE(h[24].existe());    // el índice 23 no está en spelldesc-e.tbl
 }
 

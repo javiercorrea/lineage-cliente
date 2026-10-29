@@ -213,3 +213,21 @@ TEST_CASE("PNG: el fondo negro se va y el resplandor unido a él queda translúc
     CHECK(img.px[2] == claro);
     CHECK(img.px[3] == oscuro);  // no toca el fondo: parte de la figura
 }
+
+TEST_CASE("Mapa 4: portales al final del .s32 (los de DungeonTable del servidor)" * doctest::skip(carpeta_juego().empty())) {
+    // Segmento 7ffe8009: "WWin" en (32686, 33376) y "entWWinB" en (32678, 33392), al castillo de
+    // Windawood (mapa 29), como en la tabla dungeons del servidor; "crossWWa" es un cruce del mismo mapa.
+    std::vector<u8> d;
+    REQUIRE(leer_archivo(carpeta_juego() + nombre_segmento(4, 32686, 33376), d));
+    SegmentoMapa s;
+    REQUIRE(decodificar_s32(d, 32686 & ~63, 33376 & ~63, s));
+    REQUIRE(s.portales.size() == 4);
+    auto hay = [&](int x, int y, u16 mapa) {
+        for (const PortalMapa& p : s.portales)
+            if (s.base_x + p.x == x && s.base_y + p.y == y && p.mapa == mapa) return true;
+        return false;
+    };
+    CHECK(hay(32686, 33376, 29));
+    CHECK(hay(32678, 33392, 29));
+    CHECK(hay(32682, 33387, 4));
+}

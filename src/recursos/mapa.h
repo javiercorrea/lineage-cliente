@@ -6,7 +6,10 @@
 //   64×64 × {u16 atributo izquierdo, u16 atributo derecho}
 //   u32 nobjetos, nobjetos × {u16 índice, u16 ntiles, ntiles × {u8 x, u8 y, u8 capa, u32 tile}}
 //     (un par x=0xCD,y=0xCD es relleno de 7 bytes que no cuenta)
-//   ... (más bloques sin usar y portales)
+//   u32 n, n × 5 bytes ("HideSwitches" de l1j-client; sin usar)
+//   u32 n, n × u32 (juegos de tiles del segmento; sin usar)
+//   u16 n, n portales × {u8 largo, nombre, u8 x en medias celdas, u8 y, u16 mapa destino, i16, i16}
+//     (los dos i16 no se sabe qué son; l1j-client leía los portales con otro formato, mal)
 // El orden de las celdas en el archivo es fila por fila: y exterior, x interior. Esto está
 // verificado contra los mapas del servidor en tests/test_recursos.cpp.
 #pragma once
@@ -48,12 +51,20 @@ constexpr int COLUMNAS_BASE = 6;
 constexpr u8 CAPA_MAX_SUELO = 15;
 inline bool pieza_de_suelo(const TileObjetoMapa& t) { return t.capa <= CAPA_MAX_SUELO; }
 
+// Portal del mapa (entrada a una mazmorra, escalera, cruce): el original manda C_EnterPortal con
+// su celda al intentar entrar. Coincide con DungeonTable del servidor en la mayoría (ver DESCUBRIMIENTOS).
+struct PortalMapa {
+    u8 x, y;    // celda relativa al segmento
+    u16 mapa;   // destino
+};
+
 struct SegmentoMapa {
     u16 base_x = 0, base_y = 0;                    // coordenadas de la celda (0,0) del segmento
     std::vector<u32> suelo;                        // [y][x][2]
     std::vector<u16> atributos;                    // [y][x][2]
     std::vector<TileObjetoMapa> tiles_objetos;     // aplanado, en orden de archivo
     std::vector<ObjetoMapa> objetos;
+    std::vector<PortalMapa> portales;
     // Celdas con una pieza de sombra (tile translúcido; ver tiles.h), un u64 por fila. Hace falta
     // leer los .til para saberlo: lo calcula el render la primera vez que lo necesita.
     mutable std::vector<u64> sombra;

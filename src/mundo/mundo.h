@@ -40,7 +40,10 @@ using TablaObjetos =
 
 // Efecto con duración sobre el propio personaje (módulo "Buffs" del plan): haste, brave, escudos...
 // Clase EA_* y tipo según el paquete que lo informó (ver ICONO_EFECTO y VELOCIDAD en eventos.h).
-enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO };
+// EA_FUERZA / EA_DESTREZA: S_Strup / S_Dexup (tipo 5 Enchant Mighty/Dexterity, 2 Dress, otro: poción).
+// EA_HECHIZO: lo registra el cliente (tipo = id del hechizo), para los buffs sobre el arma o la
+// armadura, de los que el servidor no manda ícono.
+enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_HECHIZO };
 struct EfectoActivo {
     u8 clase, tipo;
     u64 fin;  // ms
@@ -172,6 +175,8 @@ constexpr u8 ESTADO_MUERTO = ACC_MORIR;
 
 void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora_ms);
 void agregar_efecto(Mundo& m, const EfectoVisual& e);
+// Pone (o quita, con 0 segundos) un efecto activo del propio personaje.
+void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora);
 // Quita los efectos activos que ya terminaron.
 void vencer_efectos(EstadoJugador& j, u64 ahora);
 // Al pedir el reinicio (C_Restart) el servidor reubica al personaje y vuelve a mandar lo que ve:
@@ -188,6 +193,8 @@ const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y
 // llamada.
 void actualizar_segmentos(Mundo& m, int x, int y, int radio);
 bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y);
+// ¿Hay un portal del mapa del cliente en la celda? (ver PortalMapa)
+bool es_portal(Mundo& m, const Recursos& rec, int x, int y);
 
 // Proyección isométrica (map_coord.cpp de l1j-client): celda -> píxel del mundo. En double:
 // las coordenadas rondan 32 000 (≈1,5 millones de píxeles) y en float la resta de la cámara

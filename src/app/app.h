@@ -265,6 +265,7 @@ struct App {
     // Espera hasta el próximo hechizo (la animación del lanzado o su useDelay, la mayor): se
     // muestra sobre los casilleros de hechizos.
     u64 hechizo_lanzado_ms = 0, hechizo_listo_ms = 0;
+    u32 buff_de_item = 0;  // buff sobre el arma o la armadura recién lanzado: su ícono llega con el mensaje 161
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12
@@ -480,6 +481,8 @@ bool sobre_mascotas(const App& a);
 
 // Marcadores de teleport (marcadores_ui.cpp).
 void eventos_marcadores(App& a, const Evento& e);
+// Confirmación de un buff sobre el arma o la armadura (hechizos_ui.cpp).
+void eventos_hechizos(App& a, const Evento& e);
 // "/bookmark nombre" y "/delbookmark nombre"; true si era uno de esos.
 bool comando_marcador(App& a, std::string_view orden, std::string_view nombre);
 bool es_hechizo_teleport(u32 id);

@@ -71,7 +71,7 @@ enum : int { VE_HASTE, VE_BRAVE };
 // ICONO_EFECTO (S_SkillIconShield, S_SkillIconAura, S_SkillIconGFX): clase, tipo y segundos
 // (0 = se terminó).
 enum : int { IE_CLASE, IE_TIPO, IE_SEG };
-enum : int { IE_ESCUDO, IE_AURA, IE_ICONO };
+enum : int { IE_ESCUDO, IE_AURA, IE_ICONO, IE_FUERZA, IE_DESTREZA };
 // CAMBIO_FORMA (S_ChangeShape; id = objeto): gfx nuevo y si conserva el arma (0 = se la sacó).
 enum : int { CF_GFX, CF_ARMA };
 // HTML (S_NPCTalkReturn / S_ShowHTML; id = objeto que la muestra): s[0] = id de la página

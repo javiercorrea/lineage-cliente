@@ -234,6 +234,12 @@ inline Escritor borrar_item(const TablaOpcodes& t, u32 item, u32 cantidad) {
     e.d(item).d(cantidad);
     return e;
 }
+// C_EnterPortal: h x, h y de la celda del portal (el servidor la busca en DungeonTable de su mapa).
+inline Escritor entrar_portal(const TablaOpcodes& t, u16 x, u16 y) {
+    Escritor e(t, Cli::ENTERPORTAL);
+    e.h(x).h(y);
+    return e;
+}
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.
 inline Escritor dar_item(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y, u32 item, u32 cantidad) {
     Escritor e(t, Cli::GIVEITEM);

@@ -490,6 +490,17 @@ bool icono_escudo(Lector& l, Evento& e) {
     e.v[IE_TIPO] = l.c();
     return true;
 }
+// S_Strup: h segundos (0 = terminó), c FUE, c peso (/240), c tipo, d 0. S_Dexup: lo mismo sin el
+// peso. Tipo 5 Enchant Mighty/Dexterity, 2 Dress Mighty/Dexterity, y las pociones (otros).
+bool fuerza_destreza(Lector& l, Evento& e) {
+    e.tipo = Ev::ICONO_EFECTO;
+    e.v[IE_CLASE] = e.origen == Srv::STRUP ? IE_FUERZA : IE_DESTREZA;
+    e.v[IE_SEG] = l.h();
+    l.c();
+    if (e.origen == Srv::STRUP) l.c();
+    e.v[IE_TIPO] = l.c();
+    return true;
+}
 // S_HpMeter: d id, c HP en % (0xFF = ocultar la barra). En L1J-JP solo se manda para el grupo y
 // las mascotas; el % de los demás llega en S_CharPack.
 bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
@@ -600,6 +611,8 @@ constexpr Decodificador TABLA[] = {
     identificado,   // IDENTIFYDESC
     invisible,      // INVIS
     resucitar,      // RESURRECTION
+    fuerza_destreza,  // STRUP
+    fuerza_destreza,  // DEXUP
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

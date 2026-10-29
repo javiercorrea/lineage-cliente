@@ -82,10 +82,10 @@ void vencer_efectos(EstadoJugador& j, u64 ahora) {
     }
 }
 
-// Pone (o quita, con 0 segundos) un efecto activo del propio personaje.
-static void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora) {
-    // Haste y brave son uno de cada clase, sea cual sea el tipo; los demás, uno por tipo.
-    bool unico = clase == EA_HASTE || clase == EA_BRAVE;
+void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora) {
+    // Haste, brave, fuerza y destreza son uno de cada clase, sea cual sea el tipo (la poción de
+    // fuerza termina con otro tipo que el que empezó); los demás, uno por tipo.
+    bool unico = clase == EA_HASTE || clase == EA_BRAVE || clase == EA_FUERZA || clase == EA_DESTREZA;
     u32 i = 0;
     while (i < j.n_efectos && !(j.efectos[i].clase == clase && (unico || j.efectos[i].tipo == tipo))) ++i;
     if (segundos <= 0) {
@@ -299,7 +299,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             break;
         }
         case Ev::ICONO_EFECTO: {
-            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO};
+            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA};
             poner_efecto_activo(m.jugador, CLASES[e.v[IE_CLASE]], static_cast<u8>(e.v[IE_TIPO]), e.v[IE_SEG], ahora);
             break;
         }
@@ -477,6 +477,14 @@ bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y) {
     int lx = x - s->base_x, ly = y - s->base_y;
     // Bit 0 del atributo = media celda bloqueada (verificado contra los mapas del servidor).
     return !((s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1));
+}
+
+bool es_portal(Mundo& m, const Recursos& rec, int x, int y) {
+    const SegmentoMapa* s = segmento(m, rec, x, y);
+    if (!s) return false;
+    for (const PortalMapa& p : s->portales)
+        if (s->base_x + p.x == x && s->base_y + p.y == y) return true;
+    return false;
 }
 
 void reiniciar_jugador(Mundo& m) {

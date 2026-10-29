@@ -29,6 +29,11 @@ struct Hechizo {
     u16 gfx = 0;
     u16 icono = 0;            // N.tbt; 0 si no tiene
     u8 alcance = 0;           // en celdas; 0 = sin límite propio
+    u16 duracion_s = 0;       // duration= de spells (los buffs)
+    // Encanta un ítem que el cliente indica en C_UseSkill (SpellEnchantWeapon: un arma;
+    // SpellBlessedArmor: una armadura); SpellEnchantCurrentWeapon usa la equipada sin indicarla.
+    enum : u8 { SIN_ITEM, SOBRE_ARMA, SOBRE_ARMADURA } sobre_item = SIN_ITEM;
+    bool sobre_arma_actual = false;  // SpellEnchantCurrentWeapon (Bless Weapon, Holy Weapon)
     bool con_objetivo = false;  // se elige un personaje o monstruo; si no, se lanza al instante
     bool de_ataque = false;     // se lanza con la acción 18; si no, con la 19
     bool existe() const { return !nombre.empty(); }

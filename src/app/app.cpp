@@ -278,6 +278,7 @@ void procesar_red(App& a) {
         eventos_cantidad(a, e);
         eventos_mascotas(a, e);
         eventos_marcadores(a, e);
+        eventos_hechizos(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
     }
     aplicar_eventos(a.mundo, a.eventos, a.entrada.ahora_ms);

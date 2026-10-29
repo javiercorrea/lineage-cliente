@@ -771,6 +771,23 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Modo espectador** (fantasma: mirar el Ultimate Battle por 100 adena, o después de perder ahí): con el flag 128 del propio personaje aparece arriba el botón "Leave spectator mode", que manda `C_ExitGhost` y el servidor lo devuelve a donde estaba. **No probado en vivo** (hace falta un Ultimate Battle); el comando, con test.
 - **Volver al login** ("Back" en la selección de personaje): avisa con `C_ReturnToLogin` antes de cortar, como el original. **Verificado:** el paquete sale y el login siguiente entra sin "ya conectado". `--pulsar` ahora también funciona en la selección de personaje.
 
+## Portales
+
+- **Formato** (`recursos/mapa.*`): el final del `.s32`, después de los objetos, tiene tres bloques: `u32 n` × 5 bytes (los "HideSwitches" de l1j-client), `u32 n` × u32 (juegos de tiles) y `u16 n` portales × {u8 largo, nombre, u8 x en medias celdas, u8 y, u16 mapa destino, i16, i16}. l1j-client los leía con otro formato (registros fijos de 9 bytes) y salía basura.
+- **Contra el servidor** (mapa 4): el cliente tiene 120 portales (67 son cruces dentro del mismo mapa); de los 74 de la tabla `dungeons`, 42 están en la misma celda (38 con el mismo mapa destino), 6 en una vecina y 26 solo los tiene el servidor.
+- **Uso** (`mover_jugador`): al intentar entrar a una celda bloqueada que es un portal del mapa, `C_EnterPortal` con su celda, como el original. Los que solo tiene el servidor siguen con el paso hacia la celda bloqueada (`C_MoveChar`, que también mira la tabla). En una celda pasable alcanza el paso normal: así un portal que el servidor no tiene no impide pisarla.
+- **Verificado:** Charla en (32686, 33377) y un paso al norte: `C_EnterPortal` (32686, 33376) y el teletransporte al castillo de Windawood (mapa 29). Test del formato con el segmento real (`tests/test_recursos.cpp`).
+
+## Buffs: íconos y encantar arma o armadura
+
+![Íconos de buffs](docs/capturas/buffs_iconos.png)
+
+- **Íconos que faltaban:** Enchant Strength (Mighty) y Enchant Dexterity, y los de elfo (Dress Mighty/Dexterity), llegan en `S_Strup` (120) y `S_Dexup` (28), que no se decodificaban. Ahora son efectos activos con el ícono del hechizo (tipo 5 mago, 2 elfo; las pociones, "STR"/"DEX").
+- **Bless Weapon, Holy Weapon, Enchant Weapon, Blessed Armor, Shadow Fang:** el servidor no manda ícono, solo el mensaje 161 ("... brilla"). El cliente registra el efecto al recibirlo después de lanzarlo, con la duración de `spells` (`duration=`).
+- **Enchant Weapon y Blessed Armor no funcionaban:** el servidor lee en `C_UseSkill`, en el lugar del objetivo, el ítem a encantar (`_itemobjid`), y el cliente no lo mandaba (respondía 79, "no pasó nada"). Ahora manda el arma o la armadura (cuerpo) equipada; la clase de `spells` dice cuál (`SpellEnchantWeapon`, `SpellBlessedArmor`; `SpellEnchantCurrentWeapon` usa la equipada sin indicarla).
+- **Verificado** con Aprendiz (maga) y la daga equipada: Enchant Strength (`S_Strup` 1200 s), Bless Weapon (161), Enchant Dexterity (`S_Dexup`) y Enchant Weapon (con el id de la daga: 161) muestran sus cuatro íconos (20m, 20m, 20m, 30m). Blessed Armor sin armadura equipada: 79, como corresponde.
+- **Pendiente:** otros buffs sin paquete de ícono del servidor (Light, Counter Magic, Decrease Weight...) siguen sin ícono; se podrían registrar al lanzarlos de la misma forma, pero sin una confirmación del servidor.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

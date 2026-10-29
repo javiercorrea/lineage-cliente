@@ -569,10 +569,10 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
 // Movimiento propio con predicción: se avanza localmente y se avisa al servidor (C_MoveChar
 // lleva la celda de origen). Si la celda está bloqueada solo se gira.
 
-// Portales (entradas de mazmorras, escaleras): el servidor teletransporta cuando el destino de un
-// paso es un portal de su tabla (C_MoveChar mira DungeonTable antes que nada), pero el mapa del
-// cliente marca casi todas esas celdas como bloqueadas y no dice cuáles son portales (en el mapa
-// 4, 39 de 74 tienen el atributo 0x08, que también tienen 3857 celdas que no lo son). Así que, al
+// Portales (entradas de mazmorras, escaleras): los que trae el mapa del cliente (el final del .s32)
+// se piden con C_EnterPortal, como el original (mover_jugador). Pero el servidor tiene algunos que
+// el cliente no (en el mapa 4, 26 de 74), y también teletransporta cuando el destino de un paso es
+// un portal de su tabla (C_MoveChar mira DungeonTable antes que nada). Para esos, al
 // intentar entrar a una celda bloqueada vecina con el teclado o con un clic justo sobre ella, se
 // manda el paso sin moverse aquí: si es un portal llega el teletransporte; si no, no pasa nada
 // visible (el servidor toma el origen del próximo paso del paquete). Una vez por segundo por celda.
@@ -730,7 +730,17 @@ void mover_jugador(App& a, u64 ahora) {
     if (dir < 0) return;
     u16 x = o.col<O_X>()[s], y = o.col<O_Y>()[s];
     int nx = x + DIR_DX[dir], ny = y + DIR_DY[dir];
-    if (celda_pasable(a.mundo, a.rec, nx, ny)) {
+    const u32 celda = static_cast<u32>(nx & 0xFFFF) << 16 | static_cast<u32>(ny & 0xFFFF);
+    const bool pasable = celda_pasable(a.mundo, a.rec, nx, ny);
+    if (!pasable && es_portal(a.mundo, a.rec, nx, ny) && !(celda == a.celda_intento_portal && ahora < a.t_intento_portal + 1000)) {
+        // Portal conocido por el mapa del cliente, en una celda bloqueada: como el original,
+        // C_EnterPortal con su celda. (En una pasable alcanza el paso: C_MoveChar también la revisa,
+        // y así un portal que el servidor no tiene no impide pisarla.)
+        enviar(a, cmd::entrar_portal(a.op, static_cast<u16>(nx), static_cast<u16>(ny)));
+        a.celda_intento_portal = celda;
+        a.t_intento_portal = ahora;
+        o.col<O_DIR>()[s] = static_cast<u8>(dir);
+    } else if (pasable) {
         enviar(a, cmd::mover(a.op, x, y, static_cast<u8>(dir)));
         o.col<O_XANT>()[s] = x;
         o.col<O_YANT>()[s] = y;

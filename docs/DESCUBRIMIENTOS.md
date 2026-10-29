@@ -60,7 +60,8 @@ los px, lógicos (640×480 en el original).
   tronco y una pared larga con su propio tramo (§3).
 - **Portales:** el mapa del cliente marca casi todas las celdas de entrada a mazmorras como
   bloqueadas y ningún bit las distingue (se probó 0x08). El `.s32` tiene al final una lista de
-  portales que todavía no se lee (ver "Portales" en §5).
+  portales con nombre, celda y mapa destino (formato en `recursos/mapa.h`); coincide con la tabla
+  `dungeons` del servidor en la mayoría (ver "Portales" en ENTREGABLES.md).
 - **Mapa 2005** (el valle escondido de esta versión) es una copia del 69: los sonidos y la música lo
   tratan como 69.
 
@@ -239,6 +240,10 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   22 (luz) y 23 llevan detrás, sin etiqueta propia, el material (c) y el peso (d). Un 15 seguido de
   33 y un tipo es una resistencia a un estado, no MR. Una etiqueta desconocida corta la lectura,
   porque no se sabe cuánto ocupa.
+- **Hechizos sobre un ítem:** Enchant Weapon, Blessed Armor y Shadow Fang leen en `C_UseSkill` el
+  id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
+  manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
+  segundos, la estadística, en FUE el peso, c tipo).
 - **Usar un ítem sobre otro:** con los usos 7 (identificar), 14, 26 y 27 (encantar) `C_UseItem` lleva
   el id del objetivo después del del pergamino. `S_IdentifyDesc` es un `S_ServerMessage` (mensajes
   134–138) con un h (la descripción del ítem) adelante.

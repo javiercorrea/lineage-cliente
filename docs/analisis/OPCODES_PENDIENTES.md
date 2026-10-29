@@ -12,12 +12,12 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 22 (21 números, más
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 20 (19 números, más
   `S_CharReset`, que comparte el 33 con `S_PetCtrlMenu`), además de subtipos de `S_PacketBox` (40)
   y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 56. De los 35 restantes,
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 57. De los 34 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 33.
+  `C_Chat`, que el cliente ya usa. Faltan 32.
 
 ## Hecho
 
@@ -36,23 +36,24 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
   `S_ItemStatus`, y antes se descartaban.
 - Invisibilidad, resucitar y modo espectador: `S_Invis` (57), `S_Resurrection` (227),
   `C_ExitGhost` (210). Volver al login: `C_ReturnToLogin` (218).
+- Portales del mapa del cliente: `C_EnterPortal` (249), con la lista del final del `.s32`.
+- Íconos de Enchant Mighty/Dexterity y Dress Mighty/Dexterity: `S_Strup` (120), `S_Dexup` (28).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
-"Invisibilidad, resucitar, modo espectador y volver al login".
+"Invisibilidad, resucitar, modo espectador y volver al login", "Portales" y "Buffs: íconos y
+encantar arma o armadura".
 
 ## 1. Más impacto en el juego
 
 | Función | Paquetes |
 |---|---|
-| Entrar a portales como el original (el cliente manda la celda; hace falta la lista de portales del `.s32`) | `C_EnterPortal` (249) |
 
 ## 2. Avisos y efectos visuales
 
 - `S_PinkName` (252): nombre rosa del PK.
 - `S_Liquor` (31): efecto de borracho.
 - `S_Sound` (84): sonidos que dispara el servidor.
-- `S_Strup` (120), `S_Dexup` (28): pociones de STR/DEX.
 - `S_BlessOfEva` (12): respirar bajo el agua. `S_Ability` (116): anillos.
 - `S_ChangeName` (81), `S_UseMap` (100): cambio de nombre, mapas del tesoro.
 - `S_SkillIconGFX`: el cliente dibuja 34 (poción azul) y 40 (Immune to Harm); faltan 15, 35, 36, 56 y 75.

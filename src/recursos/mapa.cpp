@@ -77,6 +77,18 @@ bool decodificar_s32(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
         }
         s.objetos.push_back(o);
     }
+    // Lo que sigue también es opcional: un segmento sin portales o cortado no invalida el resto.
+    s.portales.clear();
+    l.saltar(static_cast<size_t>(l.u32_()) * 5);
+    l.saltar(static_cast<size_t>(l.u32_()) * 4);
+    const u16 nportales = l.quedan(2) ? l.u16_() : 0;
+    for (u16 i = 0; i < nportales && !l.error; ++i) {
+        l.saltar(l.u8_());  // nombre
+        const u8 x = l.u8_(), y = l.u8_();
+        const u16 mapa = l.u16_();
+        l.saltar(4);
+        if (!l.error) s.portales.push_back({static_cast<u8>(x / 2), y, mapa});
+    }
     return true;  // los objetos son opcionales: un error ahí no invalida el suelo
 }
 

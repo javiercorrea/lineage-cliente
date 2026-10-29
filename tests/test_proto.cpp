@@ -379,6 +379,7 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::usar_item_sobre(t, 0x33, 0x44), {44, 0x33, 0, 0, 0, 0x44, 0, 0, 0});
     igual(Escritor(t, Cli::EXITGHOST), {210});
     igual(Escritor(t, Cli::RETURNTOLOGIN), {218});
+    igual(cmd::entrar_portal(t, 32686, 33376), {249, 0xAE, 0x7F, 0x60, 0x82});
 
     // S_Invis (d id, c tipo) y S_Resurrection (d quién, c tipo, d quién lo revivió, d clase).
     std::vector<u8> inv = {57, 5, 0, 0, 0, 1};

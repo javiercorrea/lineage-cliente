@@ -74,7 +74,8 @@ bool hechizo_con_objetivo(std::string_view objetivos, bool tiene_alcance) {
     if (t == "caster" || empieza(t, "every") || empieza(t, "all ") || empieza(t, "hidden") || empieza(t, "invisible") ||
         empieza(t, "pledge members within") || (empieza(t, "area") && t.find("caster") != std::string_view::npos))
         return false;
-    // Ítems del inventario (encantar un arma o una armadura): el servidor usa los equipados.
+    // Ítems del inventario (encantar un arma o una armadura): no se elige en el mundo; el cliente
+    // manda el arma o la armadura equipada (Hechizo::sobre_item).
     if (t.find("weapon") != std::string_view::npos || t.find("armor") != std::string_view::npos ||
         t.find("item") != std::string_view::npos)
         return false;
@@ -130,6 +131,10 @@ bool TablaHechizos::cargar(const Recursos& r) {
         bool tiene_alcance = esta;
         h.gfx = static_cast<u16>(atributo(tras, "graphic", esta));
         h.demora_ms = static_cast<u16>(std::min<u32>(atributo(tras, "useDelay", esta), 0xFFFF));
+        h.duracion_s = static_cast<u16>(std::min<u32>(atributo(tras, "duration", esta), 0xFFFF));
+        if (clase == "SpellEnchantWeapon") h.sobre_item = Hechizo::SOBRE_ARMA;
+        if (clase == "SpellBlessedArmor") h.sobre_item = Hechizo::SOBRE_ARMADURA;
+        h.sobre_arma_actual = clase == "SpellEnchantCurrentWeapon";
         if (h.mp == 0) h.mp = static_cast<u16>(atributo(tras, "mpCost", esta));
         h.con_objetivo = tiene_alcance;  // se corrige con la ficha, abajo
     });

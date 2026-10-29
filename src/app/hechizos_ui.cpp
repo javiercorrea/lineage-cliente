@@ -137,6 +137,29 @@ void cuadro_texto(App& a, std::string_view t, int x, int y) {
 
 bool sobre_hechizos(const App& a) { return sobre_ventana(a, IdVentana::HECHIZOS); }
 
+namespace {
+
+// El arma o la armadura (cuerpo) equipada; 0 si no hay (el servidor contesta "no pasó nada").
+ObjId item_equipado_de(const App& a, u8 uso) {
+    const TablaItems& t = a.mundo.inventario.items;
+    for (Slot s = 0; s < t.tamano(); ++s)
+        if (t.col<I_USO>()[s] == uso && item_equipado(nombre_item(a.mundo.inventario, s))) return t.ids()[s];
+    return 0;
+}
+
+}  // namespace
+
+void eventos_hechizos(App& a, const Evento& e) {
+    // El servidor no manda ícono de los buffs sobre el arma o la armadura (Enchant Weapon, Blessed
+    // Armor, Bless Weapon...), solo el mensaje 161 ("%0 brilla..."): se registra el efecto con la
+    // duración de spells.
+    if (e.tipo != Ev::MENSAJE_SERVIDOR || e.v[MS_ID] != 161 || !a.buff_de_item) return;
+    if (a.entrada.ahora_ms - a.hechizo_lanzado_ms < 3000)
+        poner_efecto_activo(a.mundo.jugador, EA_HECHIZO, static_cast<u8>(a.buff_de_item), a.hechizos[a.buff_de_item].duracion_s,
+                            a.entrada.ahora_ms);
+    a.buff_de_item = 0;
+}
+
 void pedir_hechizo(App& a, u32 id, ObjId objetivo) {
     const Hechizo& h = a.hechizos[id];
     if (!a.mundo.jugador.sabe(id) || !h.existe() || a.mundo.jugador.muerto) return;
@@ -176,10 +199,14 @@ int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora) {
         a.destino_elegido = false;
         a.destino_mapa = 0;
         a.destino_marcador = 0;
+    } else if (h.sobre_item != Hechizo::SIN_ITEM) {
+        // Encantar arma o armadura: el servidor lee el ítem en el lugar del objetivo (_itemobjid).
+        enviar(a, cmd::usar_hechizo(a.op, id, item_equipado_de(a, h.sobre_item == Hechizo::SOBRE_ARMA ? USO_ARMA : USO_ARMADURA), 0, 0));
     } else {
         enviar(a, cmd::usar_hechizo(a.op, id, obj != SIN_SLOT ? o.ids()[obj] : 0, obj != SIN_SLOT ? o.col<O_X>()[obj] : 0,
                                     obj != SIN_SLOT ? o.col<O_Y>()[obj] : 0));
     }
+    a.buff_de_item = h.sobre_item != Hechizo::SIN_ITEM || h.sobre_arma_actual ? id : 0;
     // Animación propia ya (el eco del servidor no la reinicia) y sin otra acción hasta que termine:
     // el servidor mide el intervalo entre hechizos con la duración de esa animación.
     const u8 accion = h.de_ataque ? ACC_HECHIZO_ATAQUE : ACC_HECHIZO;
@@ -462,6 +489,9 @@ static u32 hechizo_de_efecto(const EfectoActivo& ef) {
         return ef.tipo == 5 ? 3 : ef.tipo == 3 ? 99 : ef.tipo == 7 ? 159 : ef.tipo == 10 ? 168 : ef.tipo == 6 ? 151 : 0;
     case EA_AURA: return ef.tipo + 1u;  // el índice del hechizo
     case EA_ICONO: return ef.tipo == 40 ? 68 : 0;  // Immune to Harm
+    case EA_FUERZA: return ef.tipo == 5 ? 42 : ef.tipo == 2 ? 109 : 0;  // Enchant Mighty; Dress Mighty
+    case EA_DESTREZA: return ef.tipo == 5 ? 26 : ef.tipo == 2 ? 110 : 0;  // Enchant Dexterity; Dress Dexterity
+    case EA_HECHIZO: return ef.tipo;
     default: return 0;
     }
 }
@@ -476,6 +506,8 @@ static EfectoDeItem item_de_efecto(const EfectoActivo& ef) {
     if (ef.clase == EA_BRAVE && ef.tipo == 1) return {79, "Brave Potion"};
     if (ef.clase == EA_BRAVE && ef.tipo == 3) return {130, "Elven Waffle"};
     if (ef.clase == EA_ICONO && ef.tipo == 34) return {75, "Blue Potion"};
+    if (ef.clase == EA_FUERZA && ef.tipo != 5 && ef.tipo != 2) return {0, "STR"};  // pociones
+    if (ef.clase == EA_DESTREZA && ef.tipo != 5 && ef.tipo != 2) return {0, "DEX"};
     return {0, {}};
 }
 
