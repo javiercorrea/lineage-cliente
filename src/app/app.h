@@ -123,6 +123,7 @@ struct ModeloGfx {
     MallaGpu malla;
     float giro = 0, sentido = 1, elevacion = 20, px_unidad = 30;  // registro de cámara y escala
     int clip[5] = {-1, -1, -1, -1, -1};  // quieto, caminar, atacar, daño, morir
+    int clip_accion[32];                 // por código de acción de L1 (con el arma), -1 si no tiene
     float recorrido[RECORRIDO_N + 1] = {};  // del clip de caminar (Modelo::recorrido); 0 = no se pudo medir
 };
 struct AnimModelo {

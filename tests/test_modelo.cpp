@@ -43,7 +43,8 @@ TEST_CASE("Modelo: gólem animado (.glb de prueba_3d)" * doctest::skip(carpeta_m
     Modelo m;
     REQUIRE(m.cargar(glb));
     CHECK(m.cantidad_huesos() == 17);
-    CHECK(m.cantidad_clips() == 5);
+    CHECK(m.cantidad_clips() >= 5);  // los básicos y los extra que tenga el sprite (habilidad, varita...)
+    CHECK(m.sin_luz());              // KHR_materials_unlit: la textura trae la luz del sprite
     for (const char* n : {"quieto", "caminar", "atacar", "dano", "morir"}) CHECK(m.clip(n) >= 0);
     CHECK(m.textura().ancho > 0);
     CHECK(m.minimo()[1] == doctest::Approx(-0.99).epsilon(0.02));

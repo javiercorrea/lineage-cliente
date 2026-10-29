@@ -65,6 +65,21 @@ Hecho (fases 2 y 3, y parte de la 4), con el esqueleto (gfx 30) y el gólem (gfx
   gólem coincide en pies y tamaño.
 - **Medido** (Release, 1600×900): con 3 modelos en pantalla, 0,7–0,9 ms de CPU por frame (igual que
   sin modelos), 120 fps, sin asignaciones nuevas; atacando al gólem, 3 ataques sin "Overspeed".
+- **Modelos del pipeline automático** (`prueba_3d/scripts/generar_modelo.py`, `salida/auto/`): 13 gfx
+  (golem 49, esqueleto 30, bugbear 152, slime 31, lobo 96, hombre lobo 1110, elder 32, escorpión 1047,
+  súcubo 1112, baltazar 185, drake 2362, dragón menor 2379, Valakas 2001), con las animaciones
+  recuperadas de los sprites. Se copian `<n>_animado.glb` como `<n>.glb` y se juntan las líneas de
+  `<n>_modelos.txt` en `modelos.txt`. Lo que el cliente hace con ellos:
+  - **Sin luz:** traen `KHR_materials_unlit` (la textura es el sprite, con su luz y sus sombras
+    pintadas); el shader no los ilumina encima, porque eso los oscurecía un 13–15 %.
+  - **Un clip por acción:** cada código de acción de L1 busca su clip por nombre (`NOMBRES_L1` del
+    pipeline: `atacar_alt`, `habilidad`, `hechizo`, `varita`, las variantes con arma...) y, si el
+    modelo no lo tiene, usa el básico (atacar, daño o morir).
+  - **Modelos grandes:** si no caben en la ranura de 512 px (Valakas mide ~360 px), se dibujan más
+    chicos en ella y se amplían en pantalla. Pierden resolución, pero no se cortan.
+  - Los que no tienen `pie.L`/`pie.R` (slime, escorpión) caminan con un ciclo cada dos pasos.
+  - Los anteriores (el gólem con `caminar_largo` y el esqueleto hechos a mano) quedan en
+    `modelos/anteriores/`.
 
 Pendiente: sonidos de las animaciones en el modelo, armas enganchadas, polymorph, refresco de los
 lejanos a menor ritmo, la elección "pixel-art / alta definición", más modelos y la prueba a ojo de la

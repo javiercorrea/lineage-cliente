@@ -9,14 +9,15 @@ namespace {
 
 // Skinning en el vertex shader: los vértices se leen del storage buffer por su índice (en un dibujo
 // indexado, vertex_id es el valor del índice), con las matrices de hasta 4 huesos. Luz plana con
-// un poco de sombreado para que no desentone con los sprites. MULTIPLATAFORMA: HLSL + shadercross.
+// un poco de sombreado para que no desentone con los sprites, salvo en los materiales sin luz
+// (KHR_materials_unlit: la textura ya trae la luz del sprite). MULTIPLATAFORMA: HLSL + shadercross.
 const char* SHADER_MODELOS_MSL = R"(
 #include <metal_stdlib>
 using namespace metal;
 
 struct Vertice { packed_float3 pos; packed_float3 normal; packed_float2 uv; uchar4 huesos; packed_float4 pesos; };
-struct Uniformes { float4x4 mvp; float4x4 rotacion; float4x4 huesos[32]; };
-struct Salida { float4 pos [[position]]; float2 uv; float3 normal; };
+struct Uniformes { float4x4 mvp; float4x4 rotacion; float4x4 huesos[32]; float4 opciones; };
+struct Salida { float4 pos [[position]]; float2 uv; float3 normal; float sin_luz; };
 
 vertex Salida vs_modelo(uint vid [[vertex_id]], constant Uniformes& u [[buffer(0)]],
                         const device Vertice* v [[buffer(1)]]) {
@@ -28,6 +29,7 @@ vertex Salida vs_modelo(uint vid [[vertex_id]], constant Uniformes& u [[buffer(0
     o.pos = u.mvp * (piel * float4(float3(x.pos), 1.0));
     o.uv = float2(x.uv);
     o.normal = (u.rotacion * (piel * float4(float3(x.normal), 0.0))).xyz;
+    o.sin_luz = u.opciones.x;
     return o;
 }
 
@@ -35,7 +37,7 @@ fragment float4 fs_modelo(Salida in [[stage_in]], texture2d<float> tex [[texture
     float4 c = tex.sample(s, in.uv);
     float3 n = normalize(in.normal);
     float luz = 0.62 + 0.38 * max(dot(n, normalize(float3(-0.45, 0.75, 0.5))), 0.0);
-    return float4(c.rgb * luz, 1.0);
+    return float4(c.rgb * mix(luz, 1.0, in.sin_luz), 1.0);
 }
 )";
 
@@ -120,6 +122,7 @@ bool Gpu::subir_malla(const Modelo& m, MallaGpu& salida) {
     ti.num_levels = 1;
     salida.textura = SDL_CreateGPUTexture(dev_, &ti);
     salida.n_indices = static_cast<u32>(m.indices().size());
+    salida.sin_luz = m.sin_luz();
     SDL_GPUTransferBufferCreateInfo tb{};
     tb.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
     tb.size = bv + bi + bt;
@@ -176,7 +179,10 @@ RegionAtlas Gpu::dibujar_modelo(const MallaGpu& m, const float* mvp, const float
     std::memcpy(e.uniformes, mvp, 16 * sizeof(float));
     std::memcpy(e.uniformes + 16, rotacion, 16 * sizeof(float));
     std::memcpy(e.uniformes + 32, huesos, static_cast<size_t>(n_huesos) * 16 * sizeof(float));
-    e.bytes_uniformes = static_cast<u32>((2 + MAX_HUESOS) * 16 * sizeof(float));  // el struct del shader entero
+    float* opciones = e.uniformes + (2 + MAX_HUESOS) * 16;
+    opciones[0] = m.sin_luz ? 1.0f : 0.0f;
+    opciones[1] = opciones[2] = opciones[3] = 0;
+    e.bytes_uniformes = static_cast<u32>(sizeof e.uniformes);  // el struct del shader entero
     const int por_fila = TAM_PAGINA / TAM_RANURA;
     RegionAtlas r;
     r.pagina = PAGINA_MODELOS;

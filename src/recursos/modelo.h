@@ -72,6 +72,8 @@ public:
     const std::vector<VerticeModelo>& vertices() const { return vertices_; }
     const std::vector<u32>& indices() const { return indices_; }
     const ImagenRGBA& textura() const { return textura_; }
+    // KHR_materials_unlit: la textura ya trae la luz (la del sprite, pintada); no se ilumina encima.
+    bool sin_luz() const { return sin_luz_; }
     int cantidad_huesos() const { return static_cast<int>(huesos_.size()); }
     // Caja de la malla en reposo.
     const float* minimo() const { return min_; }
@@ -94,6 +96,7 @@ private:
     std::vector<VerticeModelo> vertices_;
     std::vector<u32> indices_;
     ImagenRGBA textura_;
+    bool sin_luz_ = false;
     std::vector<std::string> nombres_; // por nodo
     std::vector<i16> padre_;          // por nodo (-1 = raíz)
     std::vector<u16> orden_;          // nodos con el padre antes que los hijos

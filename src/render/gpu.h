@@ -65,6 +65,7 @@ struct MallaGpu {
     SDL_GPUBuffer* indices = nullptr;   // u32
     SDL_GPUTexture* textura = nullptr;
     u32 n_indices = 0;
+    bool sin_luz = false;  // Modelo::sin_luz
     bool valida() const { return vertices && indices && textura; }
 };
 
@@ -144,7 +145,7 @@ private:
     // mvp, rotación (para la luz) y las matrices de los huesos.
     struct ModeloEncolado {
         const MallaGpu* malla;
-        float uniformes[(2 + MAX_HUESOS) * 16];
+        float uniformes[(2 + MAX_HUESOS) * 16 + 4];  // + opciones (x: sin luz)
         u32 bytes_uniformes;
     };
     ModeloEncolado modelos_[RANURAS_MODELOS];

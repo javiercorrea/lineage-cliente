@@ -165,6 +165,7 @@ bool Modelo::cargar(Bytes glb) {
 
     // Textura base (PNG dentro del .glb).
     textura_ = {};
+    sin_luz_ = p.material && p.material->unlit;
     if (p.material && p.material->has_pbr_metallic_roughness) {
         const cgltf_texture* tx = p.material->pbr_metallic_roughness.base_color_texture.texture;
         if (tx && tx->image && tx->image->buffer_view) {

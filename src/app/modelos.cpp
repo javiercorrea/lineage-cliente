@@ -35,6 +35,12 @@ constexpr float PIE_EN_RANURA = 0.8f;        // los pies, al 80 % del alto de la
 constexpr float Z_POR_UNIDAD = 0.08f;        // profundidad en la ranura (NDC 0..1)
 enum ClipBase { CLIP_QUIETO, CLIP_CAMINAR, CLIP_ATACAR, CLIP_DANO, CLIP_MORIR, CLIPS_BASE };
 constexpr const char* NOMBRES_CLIP[CLIPS_BASE] = {"quieto", "caminar", "atacar", "dano", "morir"};
+// Nombre del clip de cada código de acción de L1 (NOMBRES_L1 de prueba_3d/scripts/acciones_l1.py).
+constexpr const char* NOMBRES_ACCION[32] = {
+    "caminar", "atacar", "dano", "quieto", "caminar_espada", "atacar_espada", "dano_espada", "quieto_espada",
+    "morir", nullptr, nullptr, "caminar_hacha", "atacar_hacha", "dano_hacha", "quieto_hacha", "recoger",
+    "lanzar", "varita", "habilidad", "hechizo", "caminar_arco", "atacar_arco", "dano_arco", "quieto_arco",
+    "caminar_lanza", "atacar_lanza", "dano_lanza", "quieto_lanza", nullptr, nullptr, "atacar_alt", "hechizo_dir"};
 
 ModeloGfx* modelo_de(App& a, GfxId gfx) {
     const u32* i = a.indice_modelos.buscar(gfx);
@@ -104,6 +110,7 @@ void cargar_modelos(App& a) {
         m.elevacion = elevacion;
         m.px_unidad = px;
         for (int c = 0; c < CLIPS_BASE; ++c) m.clip[c] = m.modelo.clip(NOMBRES_CLIP[c]);
+        for (int c = 0; c < 32; ++c) m.clip_accion[c] = NOMBRES_ACCION[c] ? m.modelo.clip(NOMBRES_ACCION[c]) : -1;
         m.modelo.recorrido(m.clip[CLIP_CAMINAR], m.recorrido);
         a.indice_modelos.poner(m.gfx, static_cast<u32>(a.modelos.size()));
         a.modelos.push_back(std::move(m));
@@ -142,6 +149,7 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
 
     // Clip y tiempo, con la duración de la acción del sprite.
     int base = CLIP_QUIETO;
+    int propio = -1;  // el clip de la acción misma (atacar_alt, hechizo, varita...), si el modelo lo tiene
     float frac = 0;   // 0..1 de la acción (puntual o morir)
     bool bucle = true;
     const u8 estado = o.col<O_ESTADO>()[s];
@@ -155,7 +163,10 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
         frac = static_cast<float>(ahora - o.col<O_TACCION>()[s]) / static_cast<float>(duracion(ACC_MORIR));
         bucle = false;
     } else if (accion != 0xFF && ahora >= o.col<O_TACCION>()[s]) {
-        const u32 dur = a.sprites.accion(gfx, static_cast<u8>(accion + estado)) ? duracion(static_cast<u8>(accion + estado)) : duracion(accion);
+        const bool con_arma = a.sprites.accion(gfx, static_cast<u8>(accion + estado)) != nullptr;
+        const u32 dur = con_arma ? duracion(static_cast<u8>(accion + estado)) : duracion(accion);
+        const int codigo = con_arma ? accion + estado : accion;
+        if (codigo < 32) propio = mg->clip_accion[codigo];
         frac = static_cast<float>(ahora - o.col<O_TACCION>()[s]) / static_cast<float>(dur);
         if (frac >= 1) {
             o.col<O_ACCION>()[s] = 0xFF;  // terminó (lo mismo que hace el sprite)
@@ -210,7 +221,7 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     } else {
         t = std::fmod(static_cast<float>(ahora) / 2000.0f, 1.0f);
     }
-    int clip = mg->clip[base];
+    int clip = !bucle && propio >= 0 ? propio : mg->clip[base];
     if (clip < 0) clip = mg->clip[CLIP_QUIETO];
     const float t_clip = clip >= 0 ? t * m.duracion(clip) : 0;
 
@@ -236,7 +247,14 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     // (oblicua: el suelo con SUELO) y hacia la cámara.
     const float rot[3][3] = {{ca, 0, sa}, {SUELO * sa, ce, -SUELO * ca}, {-ce * sa, se, ce * ca}};
     const float escala = static_cast<float>(a.gpu.escala());
-    const float k = 2 * mg->px_unidad * escala / TAM_RANURA;  // unidades del modelo -> NDC de la ranura
+    // Un modelo que no cabe en la ranura (Valakas: ~360 px de alto) se dibuja más chico en ella y
+    // se amplía al ponerlo en pantalla: pierde resolución pero no se corta.
+    float radio = 0;
+    for (int i : {0, 2}) radio = std::max({radio, std::fabs(m.minimo()[i]), std::fabs(m.maximo()[i])});
+    const float alto_px = ((m.maximo()[1] - m.minimo()[1]) * ce + 2 * SUELO * radio) * mg->px_unidad * escala;
+    const float reduccion = std::min({1.0f, 0.95f * PIE_EN_RANURA * TAM_RANURA / alto_px,
+                                      0.95f * 0.5f * TAM_RANURA / (radio * mg->px_unidad * escala)});
+    const float k = 2 * mg->px_unidad * escala * reduccion / TAM_RANURA;  // unidades del modelo -> NDC de la ranura
     // Ancla como en el registro de prueba_3d: el borde de abajo y el centro horizontal de la caja del
     // modelo proyectada en esta dirección (con la cámara elevada, la punta de los pies queda más abajo
     // que el punto (0, y mínima, 0)).
@@ -269,7 +287,7 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     const float pie_x = static_cast<float>(mundo_px(fx, fy) + ox) + 24, pie_y_pant = static_cast<float>(mundo_py(fx, fy) + oy) + 12;
     d.sx = static_cast<float>(mundo_px(fx, fy) + ox);
     d.sy = static_cast<float>(mundo_py(fx, fy) + oy);
-    d.lado = TAM_RANURA / escala;
+    d.lado = TAM_RANURA / escala / reduccion;
     d.x = pie_x - d.lado / 2;
     d.y = pie_y_pant - d.lado * PIE_EN_RANURA;
     // Rectángulo para el mouse y el nombre: la caja del modelo en reposo.
