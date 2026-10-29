@@ -12,7 +12,7 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 20 (19 números, más
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 19 (18 números, más
   `S_CharReset`, que comparte el 33 con `S_PetCtrlMenu`), además de subtipos de `S_PacketBox` (40)
   y de `S_SkillIconGFX`.
 - **Del cliente al servidor:** el servidor atiende 91; el cliente envía 57. De los 34 restantes,
@@ -38,6 +38,7 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
   `C_ExitGhost` (210). Volver al login: `C_ReturnToLogin` (218).
 - Portales del mapa del cliente: `C_EnterPortal` (249), con la lista del final del `.s32`.
 - Íconos de Enchant Mighty/Dexterity y Dress Mighty/Dexterity: `S_Strup` (120), `S_Dexup` (28).
+- Nombre rosa del PK: `S_PinkName` (252).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
@@ -51,7 +52,6 @@ encantar arma o armadura".
 
 ## 2. Avisos y efectos visuales
 
-- `S_PinkName` (252): nombre rosa del PK.
 - `S_Liquor` (31): efecto de borracho.
 - `S_Sound` (84): sonidos que dispara el servidor.
 - `S_BlessOfEva` (12): respirar bajo el agua. `S_Ability` (116): anillos.

@@ -798,6 +798,14 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Verificado** con Aprendiz: Tornado y Blizzard sin objetivo (`C_UseSkill` de 4 bytes; el servidor responde con `S_RangeSkill` tipo 0) y las capturas. Tests de la clasificación y del paquete.
 - **Pendiente:** comparar con el original la distancia de los 4 tornados y la densidad de la ventisca.
 
+## Colores de los nombres: PK y nivel de los monstruos
+
+![Nivel](docs/capturas/nombres_nivel.png) ![Rosa](docs/capturas/nombre_rosa.png)
+
+- **Nombre rosa** (`S_PinkName`: d id, d segundos): quien ataca a otro jugador legal en zona normal queda rosa 180 s (a él y a quienes lo ven); con 0 segundos, termina. Se guarda por objeto (`O_ROSA`). **Verificado** con dos clientes en un campo del mapa 4: Charla con Ctrl ataca a Prueba; llega `S_PinkName` 180 a los dos y Charla se ve rosa. (Después, los dos de vuelta en Talking Island.)
+- **Monstruos según su nivel:** `S_NPCPack` trae el nivel del monstruo (el segundo byte después del HP; en los personajes es 0). El nombre va blanco si es mucho más bajo que el jugador (≤ −10), verde si es parecido, amarillo si es algo más alto (≥ +5) y rojo si es mucho más alto (≥ +10) (`nivel_relativo`, `DIF_*` en `mundo/mundo.h`). Los NPC siguen en celeste. **Verificado** con Aprendiz (nivel 30): Rock Golem (5) blanco, Scorpion (26) verde, Elekkadom (35) amarillo, Jack-O-Lantern (45) rojo.
+- **Pendiente:** los umbrales son aproximados (como lo recordaba el usuario; no están en los datos); los jefes no se distinguen: el paquete no dice si un monstruo es jefe.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

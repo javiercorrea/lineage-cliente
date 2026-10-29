@@ -165,6 +165,12 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_FLAGS>()[s] = static_cast<u8>(e.v[OB_FLAGS]);
             o.col<O_NOMBRE>()[s] = guardar_texto(m, e.s[0]);
             o.col<O_TITULO>()[s] = guardar_texto(m, e.s[1]);
+            o.col<O_NIVEL>()[s] = static_cast<u8>(e.v[OB_NIVEL]);
+            break;
+        }
+        case Ev::NOMBRE_ROSA: {
+            Slot s = o.buscar(e.id);
+            if (s != SIN_SLOT) o.col<O_ROSA>()[s] = e.v[0] > 0 ? ahora + static_cast<u64>(e.v[0]) * 1000 : 0;
             break;
         }
         case Ev::MOVER_OBJETO: {

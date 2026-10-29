@@ -244,6 +244,10 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
   manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
   segundos, la estadística, en FUE el peso, c tipo).
+- **Nivel en `S_CharPack`:** `S_NPCPack` manda el nivel del monstruo en el segundo byte después del
+  HP (`S_OtherCharPacks` manda 0); de ahí sale el color del nombre según la diferencia con el jugador.
+- **Nombre rosa:** `S_PinkName` solo se manda si los dos son legales (lawful ≥ 0), ninguno ya rosa,
+  y ambos en zona normal (no en pueblos) y fuera de una guerra.
 - **Hechizos de área alrededor del lanzador** (Tornado, Fire Storm, Blizzard, Freezing Blizzard):
   sin objetivo (no tienen `range=` en `spells`); `S_RangeSkill` tipo 0. El sprite es uno solo: el
   original lo repite (4 tornados; la ventisca en toda la pantalla), según la clase de `spells`

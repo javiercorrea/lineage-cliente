@@ -231,6 +231,19 @@ TEST_CASE("Mundo: ataque, daño en el frame de impacto, muerte, cadáver y reini
     aplicar_eventos(m, l9, 7700);
     CHECK((m.objetos.col<O_FLAGS>()[yo] & FLAG_INVISIBLE) == 0);
 
+    // Nombre rosa (S_PinkName) por 180 s y su fin.
+    Evento rosa{};
+    rosa.tipo = Ev::NOMBRE_ROSA;
+    rosa.id = 1;
+    rosa.v[0] = 180;
+    Evento l11[] = {rosa};
+    aplicar_eventos(m, l11, 7800);
+    CHECK(m.objetos.col<O_ROSA>()[yo] == 7800 + 180 * 1000);
+    rosa.v[0] = 0;
+    Evento l12[] = {rosa};
+    aplicar_eventos(m, l12, 7900);
+    CHECK(m.objetos.col<O_ROSA>()[yo] == 0);
+
     // Muere otra vez y reinicia: se descarta todo salvo él.
     Evento l10[] = {muere};
     aplicar_eventos(m, l10, 8000);

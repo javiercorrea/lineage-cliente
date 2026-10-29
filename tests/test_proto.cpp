@@ -60,6 +60,29 @@ TEST_CASE("Decodificar: S_CharPacks y paquete truncado") {
     CHECK(ev.empty());
 }
 
+TEST_CASE("Decodificar: nivel de S_NPCPack y S_PinkName") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // S_NPCPack: h x, h y, d id, h gfx, c estado, c dir, c luz, c vel, d exp, h legal, s "$1", s "",
+    // c flags, d 0, s, s, c 0, c HP (0xFF), c 0, c nivel 25, c 0, c 0xFF, c 0xFF.
+    const u8 n[] = {3,    0x10, 0x80, 0x20, 0x80, 0x30, 0, 0, 0, 49, 0, 0, 2, 0, 0, 5,    0, 0, 0, 0, 0,
+                    '$',  '1',  0,    0,    0,    0,    0, 0, 0, 0, 0,  0, 0xFF, 0, 25, 0, 0xFF, 0xFF};
+    REQUIRE(decodificar({n, sizeof n}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PONER_OBJETO);
+    CHECK(ev[0].v[OB_GFX] == 49);
+    CHECK(ev[0].v[OB_NIVEL] == 25);
+    // S_PinkName: d id, d 180 segundos.
+    ev.clear();
+    const u8 r[] = {252, 0x30, 0, 0, 0, 180, 0, 0, 0};
+    REQUIRE(decodificar({r, sizeof r}, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::NOMBRE_ROSA);
+    CHECK(ev[0].id == 0x30);
+    CHECK(ev[0].v[0] == 180);
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);

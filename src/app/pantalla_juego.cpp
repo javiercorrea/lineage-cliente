@@ -400,10 +400,15 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         if (!nombre.empty()) {
             int w = ancho_texto(nombre.data(), nombre.size());
             // Los personajes (nombre propio; los NPC y monstruos vienen como "$N") según el
-            // alineamiento: legal azul, caótico rojo, neutral blanco.
+            // alineamiento: legal azul, caótico rojo, neutral blanco; rosa mientras dura el PK
+            // (S_PinkName). Los monstruos, según su nivel respecto del jugador (nivel_relativo).
             const bool personaje = !texto(a.mundo, o.col<O_NOMBRE>()[s]).empty() && texto(a.mundo, o.col<O_NOMBRE>()[s])[0] != '$';
             u32 color = rgba(200, 220, 255);
-            if (personaje) color = color_alineamiento(o.col<O_LEGAL>()[s]);
+            if (personaje) color = ahora < o.col<O_ROSA>()[s] ? rgba(255, 130, 200) : color_alineamiento(o.col<O_LEGAL>()[s]);
+            else if (o.col<O_NIVEL>()[s] && a.mundo.jugador.nivel && tipo_objeto(a, s) == TIPO_MONSTRUO) {
+                static const u32 COLORES[] = {rgba(240, 240, 240), rgba(120, 230, 120), rgba(255, 215, 80), rgba(255, 90, 80)};
+                color = COLORES[static_cast<int>(nivel_relativo(o.col<O_NIVEL>()[s], a.mundo.jugador.nivel))];
+            }
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
             // Marcado con True Target: la marca y su mensaje encima del nombre.

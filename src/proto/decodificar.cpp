@@ -104,6 +104,8 @@ bool poner(Lector& l, Evento& e) {
     l.s();
     l.c();
     e.v[OB_HP] = l.c();
+    l.c();
+    e.v[OB_NIVEL] = l.c();  // S_NPCPack: el nivel; S_OtherCharPacks: 0
     l.error = false;  // las variantes (puerta, mascota...) difieren al final; lo leído alcanza
     return true;
 }
@@ -501,6 +503,8 @@ bool fuerza_destreza(Lector& l, Evento& e) {
     e.v[IE_TIPO] = l.c();
     return true;
 }
+// S_PinkName: d id, d segundos (180 al atacar a otro jugador; 0 = terminó).
+bool nombre_rosa(Lector& l, Evento& e) { e.tipo = Ev::NOMBRE_ROSA; e.id = l.d(); e.v[0] = static_cast<i32>(l.d()); return true; }
 // S_HpMeter: d id, c HP en % (0xFF = ocultar la barra). En L1J-JP solo se manda para el grupo y
 // las mascotas; el % de los demás llega en S_CharPack.
 bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
@@ -613,6 +617,7 @@ constexpr Decodificador TABLA[] = {
     resucitar,      // RESURRECTION
     fuerza_destreza,  // STRUP
     fuerza_destreza,  // DEXUP
+    nombre_rosa,    // PINKNAME
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

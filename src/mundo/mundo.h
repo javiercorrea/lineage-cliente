@@ -34,9 +34,11 @@ enum ColObjeto : size_t {
     O_LEGAL,             // alineamiento (color del nombre)
     O_SONIDO,            // último frame de animación dibujado (índice + 1; 0 = ninguno): su sonido suena una vez
     O_NOMBRE, O_TITULO,
+    O_NIVEL,             // de S_CharPack (los monstruos; 0 en los personajes): color del nombre
+    O_ROSA,              // nombre rosa (S_PinkName: atacó a otro jugador) hasta este momento (ms)
 };
-using TablaObjetos =
-    TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32, TextoRef, TextoRef>;
+using TablaObjetos = TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32,
+                              TextoRef, TextoRef, u8, u64>;
 
 // Efecto con duración sobre el propio personaje (módulo "Buffs" del plan): haste, brave, escudos...
 // Clase EA_* y tipo según el paquete que lo informó (ver ICONO_EFECTO y VELOCIDAD en eventos.h).
@@ -175,6 +177,21 @@ constexpr u8 ESTADO_MUERTO = ACC_MORIR;
 
 void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora_ms);
 void agregar_efecto(Mundo& m, const EfectoVisual& e);
+// Color del nombre de un monstruo según su nivel respecto del jugador, como el original: blanco si
+// es mucho más bajo (casi no da experiencia), verde si es parecido, amarillo si es algo más alto y
+// rojo si es mucho más alto. Los umbrales no están en los datos: son aproximados (DIF_*).
+enum class NivelRelativo : u8 { FACIL, PAREJO, DIFICIL, PELIGROSO };
+constexpr int DIF_FACIL = -10, DIF_DIFICIL = 5, DIF_PELIGROSO = 10;  // nivel del monstruo − nivel del jugador
+constexpr NivelRelativo nivel_relativo(int monstruo, int jugador) {
+    const int d = monstruo - jugador;
+    return d <= DIF_FACIL ? NivelRelativo::FACIL
+           : d >= DIF_PELIGROSO ? NivelRelativo::PELIGROSO
+           : d >= DIF_DIFICIL   ? NivelRelativo::DIFICIL
+                                : NivelRelativo::PAREJO;
+}
+static_assert(nivel_relativo(5, 30) == NivelRelativo::FACIL && nivel_relativo(28, 30) == NivelRelativo::PAREJO &&
+              nivel_relativo(36, 30) == NivelRelativo::DIFICIL && nivel_relativo(45, 30) == NivelRelativo::PELIGROSO);
+
 // Pone (o quita, con 0 segundos) un efecto activo del propio personaje.
 void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora);
 // Quita los efectos activos que ya terminaron.
