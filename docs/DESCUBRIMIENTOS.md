@@ -232,6 +232,16 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   como `C_NPCAction` con ese id.
 - **Teleport con marcador:** el pergamino (usos 6 y 29) manda en `C_UseItem` el mapa y el id del
   marcador (0 = al azar); el hechizo Teleport, igual en `C_UseSkill`.
+- **Atributos de un ítem** (`L1ItemInstance.getStatusBytes`): van al final de `S_AddItem`,
+  `S_InvList` y `S_ItemStatus` como c largo + bytes, y solo si está identificado (si no, largo 0).
+  Son pares etiqueta + valor de tamaño fijo según la etiqueta (2 encantamiento, 5 acierto, 7 clases
+  en bits, 8–13 FUE…CAR, 14 HP en h, 15 MR en h…). Las etiquetas 1 (daño), 19 (AC), 21 (comida),
+  22 (luz) y 23 llevan detrás, sin etiqueta propia, el material (c) y el peso (d). Un 15 seguido de
+  33 y un tipo es una resistencia a un estado, no MR. Una etiqueta desconocida corta la lectura,
+  porque no se sabe cuánto ocupa.
+- **Usar un ítem sobre otro:** con los usos 7 (identificar), 14, 26 y 27 (encantar) `C_UseItem` lleva
+  el id del objetivo después del del pergamino. `S_IdentifyDesc` es un `S_ServerMessage` (mensajes
+  134–138) con un h (la descripción del ítem) adelante.
 - **Campos que el servidor no usa** pero hay que mandar: x, y de `C_GiveItem` y de `C_Door`, el tipo
   de `C_SelectTarget`.
 
@@ -243,6 +253,9 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama.
 - **Espera de hechizos y línea de vista:** ver §2; los dos descartan en silencio.
 - **Zonas seguras:** atacar a otro jugador en un pueblo se acepta pero no hace daño.
+- **Borrar un ítem** (`C_DeleteInventoryItem`): con cantidad 0 el servidor borra toda la pila, pero
+  lee la cantidad del ítem antes de revisar que exista, así que un id inexistente con cantidad 0 le
+  tira una excepción. El cliente siempre manda una cantidad > 0 de un ítem que tiene.
 - **Domesticar:** dar el ítem de domesticación (Monster Eye Meat, 40057, en la mayoría) a un animal
   con menos de un tercio de su vida y con carisma libre ≥ 6.
 - **Portales:** `C_MoveChar` revisa `DungeonTable` en la celda de destino antes que nada y toma las

@@ -10,11 +10,14 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 ## Resumen
 
-- **Del servidor al cliente:** 35 paquetes sin decodificar, más subtipos de `S_PacketBox` (40) y de
-  `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 42. De los 49 restantes,
+Última revisión: 2026-10-28.
+
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 24 (23 números, más
+  `S_CharReset`, que comparte el 33 con `S_PetCtrlMenu`), además de subtipos de `S_PacketBox` (40)
+  y de `S_SkillIconGFX`.
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 54. De los 37 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa.
+  `C_Chat`, que el cliente ya usa. Faltan 35.
 
 ## Hecho
 
@@ -27,11 +30,13 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Reparar armas: `S_SelectList` (208), `C_FixWeaponList` (106), `C_SelectList` (238).
 - Marcadores: `S_Bookmarks` (11), `C_Bookmark` (134), `C_BookmarkDelete` (223).
 - Volver a la selección de personaje: `C_ChangeChar` (237).
+- Basurero del inventario: `C_DeleteInventoryItem` (209).
+- Identificar: `S_IdentifyDesc` (43), y `C_UseItem` con el ítem objetivo (también encantar). Los
+  atributos del ítem identificado no son un paquete aparte: van en `S_AddItem`, `S_InvList` y
+  `S_ItemStatus`, y antes se descartaban.
 
-Detalle y verificación en ENTREGABLES.md, "Puertas, estados alterados, cantidad y mascotas" y
-"Reparar armas, marcadores y cambiar de personaje". También están `C_DeleteInventoryItem` (el
-basurero) y `S_IdentifyDesc` (43; los atributos del ítem identificado van en `S_AddItem`,
-`S_InvList` y `S_ItemStatus`).
+Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
+"Reparar armas, marcadores y cambiar de personaje" y "Basurero, detalle de los ítems e identificar".
 
 ## 1. Más impacto en el juego
 
@@ -70,7 +75,7 @@ basurero) y `S_IdentifyDesc` (43; los atributos del ítem identificado van en `S
 - **Clan recomendado:** `S_PledgeRecommendation` (192), `C_PledgeRecommendation` (228).
 - **Reiniciar atributos (Candle of Reminiscence):** `S_CharReset` (33), `C_CharReset` (236).
 - **Varios:** `C_FishClick` (26, pesca), `C_Ship` (117), `C_Rank` (88), `C_ChatParty` (113),
-  `C_CallPlayer` (144, GM). (`C_DeleteInventoryItem` (209) ya está: el basurero del inventario.)
+  `C_CallPlayer` (144, GM).
 - **Opciones del original al servidor:** `C_LoginToServerOK` (75: chat global y susurros
   abiertos o cerrados), `C_CharacterConfig` (129: disposición de la interfaz), `C_SendLocation` (41),
   `C_ExtraCommand` (157).
@@ -81,6 +86,6 @@ basurero) y `S_IdentifyDesc` (43; los atributos del ítem identificado van en `S
    comparten número: `CHARRESET` y `PETCTRL` son 33).
 2. Enviados por el servidor: los `S_OPCODE_X` que aparecen en algún `.java` fuera de `Opcodes.java`.
 3. Atendidos por el servidor: los `case C_OPCODE_X:` de `PacketHandler.java`.
-4. Cliente: los números de `JP363_SRV` y `JP363_CLI` en `src/proto/opcodes.cpp`.
+4. Cliente: los números de `{n, Srv::X}` y `{Cli::X, n}` en `src/proto/opcodes.cpp`.
 5. Subtipos: `new S_PacketBox(S_PacketBox.X` y `new S_SkillIconGFX(n` en el servidor, contra la
    función `caja` de `src/proto/decodificar.cpp`.

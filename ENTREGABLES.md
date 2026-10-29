@@ -751,6 +751,16 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   - sin flechas el servidor cuenta el disparo como fallo y no avisa; el cliente tampoco;
   - el arco a dos manos con un escudo puesto da "You cannot take that off" si el escudo está sellado.
 
+## Basurero, detalle de los ítems e identificar
+
+![Ítem identificado](docs/capturas/item_identificado.png) ![Basurero](docs/capturas/basurero.png)
+
+- **Basurero** (`C_DeleteInventoryItem`; `app/inventario_ui.cpp`, `app/cantidad_ui.cpp`): ícono abajo a la derecha del inventario. Arrastrar un ítem encima lo elimina, también lo que no se puede soltar ni vender. Siempre pregunta, con el diálogo de cantidad: cuántos de una pila, o confirmar si es uno. El servidor rechaza lo equipado, lo que no se puede borrar y lo sellado (con su mensaje). **Verificado:** una pila de 5 Potion of Bravery de Charla quedó en 3 (`S_ItemAmount` y la base); arrastrar al basurero abre la confirmación.
+- **Detalle de un ítem:** al pasar el mouse, el nombre y, si está identificado, sus atributos, uno por línea: daño o AC, material, peso, encantamiento, dos manos, clases que lo usan, acierto y daño (también con arco), FUE…CAR, HP, MP, SP, MR, resistencias a elementos y a estados, regeneración, bono de experiencia, robo de HP o MP. Si no está identificado, "Unidentified". Los atributos (`getStatusBytes` del servidor) llegan en `S_AddItem`, `S_InvList` y `S_ItemStatus`; antes el decodificador los saltaba. Se guardan por ítem (`I_ATRIBUTOS`) y `describir_atributos` (`mundo/inventario.cpp`) los pasa a texto.
+- **Pergaminos que se usan sobre otro ítem** (identificar, encantar arma y armadura: usos 7, 14, 26 y 27): el servidor lee en `C_UseItem` el ítem objetivo, y el cliente no lo mandaba, así que no funcionaban. Ahora, al usarlo, el pie del inventario pide "Click the target item" y el clic en un ítem manda `C_UseItem` con el objetivo; Esc cancela. `S_IdentifyDesc` sale como mensaje del servidor en el chat.
+- **Verificado:** un "Helmet of Magic Resistance" +2 sin identificar ("Unidentified"); `--usar="Scroll of Identify"` y un clic sobre el casco: `S_ItemStatus` con los atributos y `S_IdentifyDesc`; el detalle muestra AC 2, hierro, peso 35, Enchant +2, todas las clases y MR +6. Tests del formato (un arma y una armadura), de los paquetes y de los comandos.
+- **Pendiente o conocido:** los pergaminos de encantar no se probaron (mismo camino que identificar); el grado de los accesorios llega pero no se muestra; los textos del detalle están en inglés como el resto de la interfaz.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)
@@ -862,8 +872,10 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 61 | 61 passed | 0 failed
+[doctest] test cases: 62 | 62 passed | 0 failed
 ```
+
+El último, en `tests/test_mundo.cpp`: los atributos de un ítem identificado en texto (un arma y una armadura).
 
 Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).
 
