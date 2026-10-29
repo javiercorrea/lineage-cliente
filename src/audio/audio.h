@@ -1,11 +1,14 @@
 // Audio sobre SDL3: un dispositivo y varios SDL_AudioStream ligados a él (SDL los mezcla).
-//  - Música: sound/music<n>.mp3, decodificada de a poco con dr_mp3 (se mantiene ~0,5 s en cola),
-//    con una pausa opcional entre repeticiones (INTERVAL de music.def).
+//  - Música: sound/music<n>.mp3, decodificada de a poco con dr_mp3 en el hilo de audio de SDL (el
+//    callback del stream pide lo que falta), con una pausa opcional entre repeticiones (INTERVAL de
+//    music.def). Alimentarla desde el frame cortaba el sonido cuando el bucle se detiene, como al
+//    cambiar de aplicación (más de 1 s en macOS).
 //  - Efectos: sound/<id>.wav, en un caché que se carga al primer uso; se tocan en un grupo fijo de
 //    streams (si están todos ocupados, se corta el más viejo).
-//  - Ambiente: un sonido en bucle (MAIN_SOUND) en su propio stream.
+//  - Ambiente: un sonido en bucle (MAIN_SOUND) en su propio stream, también desde su callback.
 // Sin dispositivo de audio todo sigue andando en silencio.
 #pragma once
+#include <atomic>
 #include <string>
 #include <vector>
 #include "core/tipos.h"
@@ -38,7 +41,7 @@ public:
     // Sonido de ambiente en bucle (-1 = ninguno).
     void ambiente(i32 id);
 
-    // Una vez por frame: alimenta la música y el bucle de ambiente.
+    // Una vez por frame: vuelve a empezar la música después de la pausa entre repeticiones.
     void actualizar(u64 ahora_ms);
 
     u32 efectos_tocados() const { return efectos_tocados_; }  // para pruebas y --perf
@@ -48,6 +51,9 @@ private:
     const Wav* wav(u32 id);
     void abrir_mp3(u64 ahora_ms);
     void cerrar_mp3();
+    // Callbacks de los streams (hilo de audio, con el stream bloqueado).
+    static void alimentar_musica(void* yo, SDL_AudioStream* s, int falta, int total);
+    static void alimentar_ambiente(void* yo, SDL_AudioStream* s, int falta, int total);
 
     std::string carpeta_;
     u32 dispositivo_ = 0;
@@ -59,13 +65,15 @@ private:
     u32 id_stream_[N_EFECTOS] = {};
     std::vector<Wav*> wavs_;  // por id; nullptr sin cargar, Wav vacío si no existe
 
-    void* mp3_ = nullptr;  // drmp3
+    void* mp3_ = nullptr;  // drmp3; se cambia con stream_musica_ bloqueado
+    std::atomic<bool> mp3_termino_{false};  // lo marca el callback: el hilo principal lo cierra
     i32 musica_n_ = -1;
     u32 intervalo_s_ = 0;
     u64 reanudar_ms_ = 0;  // terminada: vuelve a empezar en este momento (0 = sonando)
     float pcm_[4096 * 2];
 
     i32 ambiente_id_ = -1;
+    const Wav* ambiente_wav_ = nullptr;  // el del bucle; se cambia con stream_ambiente_ bloqueado
     float vol_musica_ = 0.6f, vol_efectos_ = 0.8f;
     u32 efectos_tocados_ = 0;
 };

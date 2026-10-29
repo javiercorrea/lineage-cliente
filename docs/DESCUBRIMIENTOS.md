@@ -316,6 +316,12 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 - Un dispositivo de SDL3 y varios streams que SDL mezcla: música MP3 (dr_mp3, porque SDL3 no decodifica
   MP3), 16 streams de efectos (el más viejo se corta; el mismo efecto dentro de 60 ms no se repite) y
   un bucle de ambiente.
+- **La música y el ambiente se alimentan desde el hilo de audio** (callbacks de los streams), no
+  desde el frame. Antes se mantenía medio segundo en cola desde el bucle principal, y en macOS el
+  bucle se detiene más de 1 s al cambiar de aplicación (medido: 1091 ms al volver la ventana al
+  frente): el sonido daba un salto. Con una pausa forzada de 1,5 s, el código anterior vaciaba el
+  stream y el nuevo no. Los cambios de tema bloquean el stream (`SDL_LockAudioStream`) porque el
+  callback usa el mismo decodificador.
 - **Música por zona** (`music.def`): vale la primera zona que contiene la posición, en el orden del
   archivo (los pueblos van antes que el mapa que los rodea); "Login" y "Death" son temas fijos.
 - **Ambiente** (`envsound.def`): un bucle por zona y momento del día, más sonidos sueltos de cada

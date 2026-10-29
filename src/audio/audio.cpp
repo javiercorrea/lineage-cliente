@@ -39,6 +39,8 @@ bool Audio::abrir(const std::string& carpeta_juego) {
     }
     stream_musica_ = SDL_CreateAudioStream(&SALIDA, &SALIDA);
     stream_ambiente_ = SDL_CreateAudioStream(&SALIDA, &SALIDA);
+    SDL_SetAudioStreamGetCallback(stream_musica_, alimentar_musica, this);
+    SDL_SetAudioStreamGetCallback(stream_ambiente_, alimentar_ambiente, this);
     SDL_BindAudioStream(dispositivo_, stream_musica_);
     SDL_BindAudioStream(dispositivo_, stream_ambiente_);
     for (SDL_AudioStream*& s : streams_) {
@@ -51,6 +53,7 @@ bool Audio::abrir(const std::string& carpeta_juego) {
 }
 
 void Audio::cerrar() {
+    if (dispositivo_) SDL_CloseAudioDevice(dispositivo_);  // primero: ya no corren los callbacks
     cerrar_mp3();
     if (dispositivo_) {
         for (SDL_AudioStream*& s : streams_) {
@@ -60,7 +63,6 @@ void Audio::cerrar() {
         SDL_DestroyAudioStream(stream_musica_);
         SDL_DestroyAudioStream(stream_ambiente_);
         stream_musica_ = stream_ambiente_ = nullptr;
-        SDL_CloseAudioDevice(dispositivo_);
         dispositivo_ = 0;
     }
     for (Wav*& w : wavs_) {
@@ -119,16 +121,47 @@ void Audio::ambiente(i32 id) {
     if (id == ambiente_id_) return;
     ambiente_id_ = id;
     if (!dispositivo_) return;
+    const Wav* w = id >= 0 ? wav(static_cast<u32>(id)) : nullptr;  // fuera del bloqueo: puede leer el disco
+    SDL_LockAudioStream(stream_ambiente_);
     SDL_ClearAudioStream(stream_ambiente_);
-    if (id >= 0)
-        if (const Wav* w = wav(static_cast<u32>(id))) SDL_SetAudioStreamFormat(stream_ambiente_, &w->spec, nullptr);
+    ambiente_wav_ = w;
+    if (w) SDL_SetAudioStreamFormat(stream_ambiente_, &w->spec, nullptr);
+    SDL_UnlockAudioStream(stream_ambiente_);
+}
+
+void Audio::alimentar_ambiente(void* yo, SDL_AudioStream* s, int, int) {
+    // El bucle se vuelve a encolar cuando queda menos de la mitad.
+    const Wav* w = static_cast<Audio*>(yo)->ambiente_wav_;
+    if (w && SDL_GetAudioStreamQueued(s) < static_cast<int>(w->bytes / 2)) SDL_PutAudioStreamData(s, w->datos, static_cast<int>(w->bytes));
+}
+
+void Audio::alimentar_musica(void* yo, SDL_AudioStream* s, int falta, int) {
+    Audio& a = *static_cast<Audio*>(yo);
+    if (!a.mp3_ || a.mp3_termino_) return;
+    drmp3* m = mp3(a.mp3_);
+    // Lo que pide SDL más un cuarto de segundo de margen.
+    const int bytes_seg = static_cast<int>(m->sampleRate * m->channels * sizeof(float));
+    const int meta = std::max(falta, 0) + bytes_seg / 4;
+    while (SDL_GetAudioStreamQueued(s) < meta) {
+        const u64 cap = sizeof a.pcm_ / sizeof a.pcm_[0] / m->channels;
+        const u64 n = drmp3_read_pcm_frames_f32(m, cap, a.pcm_);
+        if (n == 0) {
+            a.mp3_termino_ = true;
+            return;
+        }
+        SDL_PutAudioStreamData(s, a.pcm_, static_cast<int>(n * m->channels * sizeof(float)));
+    }
 }
 
 void Audio::cerrar_mp3() {
     if (!mp3_) return;
-    drmp3_uninit(mp3(mp3_));
-    delete mp3(mp3_);
+    if (stream_musica_) SDL_LockAudioStream(stream_musica_);
+    void* viejo = mp3_;
     mp3_ = nullptr;
+    mp3_termino_ = false;
+    if (stream_musica_) SDL_UnlockAudioStream(stream_musica_);
+    drmp3_uninit(mp3(viejo));
+    delete mp3(viejo);
 }
 
 void Audio::abrir_mp3(u64 ahora_ms) {
@@ -145,9 +178,12 @@ void Audio::abrir_mp3(u64 ahora_ms) {
         reanudar_ms_ = ahora_ms + 60000;  // no existe: no se reintenta en cada frame
         return;
     }
-    mp3_ = m;
     const SDL_AudioSpec spec = {SDL_AUDIO_F32, static_cast<int>(m->channels), static_cast<int>(m->sampleRate)};
+    SDL_LockAudioStream(stream_musica_);
     SDL_SetAudioStreamFormat(stream_musica_, &spec, nullptr);
+    mp3_termino_ = false;
+    mp3_ = m;
+    SDL_UnlockAudioStream(stream_musica_);
 }
 
 void Audio::musica(i32 n, u32 intervalo_s, u64 ahora_ms) {
@@ -155,34 +191,19 @@ void Audio::musica(i32 n, u32 intervalo_s, u64 ahora_ms) {
     musica_n_ = n;
     intervalo_s_ = intervalo_s;
     if (!dispositivo_) return;
+    cerrar_mp3();  // antes de vaciar: si no, el callback alcanza a encolar del tema anterior
     SDL_ClearAudioStream(stream_musica_);
     abrir_mp3(ahora_ms);
 }
 
 void Audio::actualizar(u64 ahora_ms) {
     if (!dispositivo_) return;
-    // Música: medio segundo en cola; al terminar, la pausa de INTERVAL y de nuevo.
-    if (mp3_) {
-        drmp3* m = mp3(mp3_);
-        const int medio_segundo = static_cast<int>(m->sampleRate * m->channels * sizeof(float)) / 2;
-        while (SDL_GetAudioStreamQueued(stream_musica_) < medio_segundo) {
-            const u64 cap = sizeof pcm_ / sizeof pcm_[0] / m->channels;
-            const u64 n = drmp3_read_pcm_frames_f32(m, cap, pcm_);
-            if (n == 0) {
-                cerrar_mp3();
-                reanudar_ms_ = ahora_ms + static_cast<u64>(intervalo_s_) * 1000;
-                break;
-            }
-            SDL_PutAudioStreamData(stream_musica_, pcm_, static_cast<int>(n * m->channels * sizeof(float)));
-        }
-    } else if (musica_n_ >= 0 && reanudar_ms_ && ahora_ms >= reanudar_ms_) {
+    // La música y el ambiente los alimentan sus callbacks; aquí, el fin del tema y su vuelta.
+    if (mp3_ && mp3_termino_) {
+        cerrar_mp3();
+        reanudar_ms_ = ahora_ms + static_cast<u64>(intervalo_s_) * 1000;
+    } else if (!mp3_ && musica_n_ >= 0 && reanudar_ms_ && ahora_ms >= reanudar_ms_) {
         abrir_mp3(ahora_ms);
-    }
-    // Ambiente: se vuelve a encolar el bucle cuando queda poco.
-    if (ambiente_id_ >= 0) {
-        if (const Wav* w = wav(static_cast<u32>(ambiente_id_)))
-            if (SDL_GetAudioStreamQueued(stream_ambiente_) < static_cast<int>(w->bytes / 2))
-                SDL_PutAudioStreamData(stream_ambiente_, w->datos, static_cast<int>(w->bytes));
     }
 }
 
