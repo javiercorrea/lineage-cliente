@@ -34,6 +34,11 @@ struct Hechizo {
     // SpellBlessedArmor: una armadura); SpellEnchantCurrentWeapon usa la equipada sin indicarla.
     enum : u8 { SIN_ITEM, SOBRE_ARMA, SOBRE_ARMADURA } sobre_item = SIN_ITEM;
     bool sobre_arma_actual = false;  // SpellEnchantCurrentWeapon (Bless Weapon, Holy Weapon)
+    // Área alrededor del lanzador (S_RangeSkill tipo 0): cómo se reparte el gráfico. SpellTornado
+    // (Tornado, Fire Storm): 4 copias alrededor; SpellBlizzard (Blizzard, Freezing Blizzard): por
+    // toda el área. `area` = areaEffect (celdas).
+    enum : u8 { AREA_UNA, AREA_CUATRO, AREA_LLENA } reparto = AREA_UNA;
+    u8 area = 0;
     bool con_objetivo = false;  // se elige un personaje o monstruo; si no, se lanza al instante
     bool de_ataque = false;     // se lanza con la acción 18; si no, con la 19
     bool existe() const { return !nombre.empty(); }

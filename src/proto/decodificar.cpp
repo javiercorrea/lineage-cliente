@@ -704,26 +704,39 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
     }
     if (e.origen == Srv::RANGESKILLS) {
         // S_RangeSkill: c acción, d lanzador, h x, h y, c dirección, d secuencia, h gráfico, c tipo,
-        // h 0, h n, n × (d objetivo, c marca). El lanzador hace la acción y el gráfico se ve sobre
-        // cada objetivo.
+        // h 0, h n, n × (d objetivo, c marca). El lanzador hace la acción. El gráfico: con tipo 0
+        // (área alrededor del lanzador: Tornado, Fire Storm, Blizzard, Freezing Blizzard) una sola
+        // vez, sobre el lanzador (el sprite ya trae los 4 tornados, o la ventisca que cubre la
+        // pantalla); si no, sobre cada objetivo.
         Evento acc = e;
         acc.tipo = Ev::ACCION_OBJETO;
         acc.v[0] = l.c();
         acc.id = l.d();
-        l.h();
-        l.h();
+        const int cx = l.h(), cy = l.h();
         Evento dir = e;
         dir.tipo = Ev::CAMBIAR_DIRECCION;
         dir.id = acc.id;
         dir.v[0] = l.c() & 7;
         l.d();
         int gfx = l.h();
-        l.c();
+        const int tipo = l.c();
         l.h();
         int n = l.h();
         if (l.error) return false;
         salida.push_back(dir);
         salida.push_back(acc);
+        if (tipo == 0) {
+            Evento ef = e;
+            ef.tipo = Ev::EFECTO;
+            ef.id = acc.id;
+            ef.v[EF_GFX] = gfx;
+            ef.v[EF_X] = cx;
+            ef.v[EF_Y] = cy;
+            ef.v[EF_AREA] = 1;
+            salida.push_back(ef);
+            l.saltar(static_cast<size_t>(n) * 5);
+            return !l.error;
+        }
         for (int i = 0; i < n && !l.error; ++i) {
             Evento ef = e;
             ef.tipo = Ev::EFECTO;

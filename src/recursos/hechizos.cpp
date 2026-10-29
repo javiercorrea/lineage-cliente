@@ -74,6 +74,10 @@ bool hechizo_con_objetivo(std::string_view objetivos, bool tiene_alcance) {
     if (t == "caster" || empieza(t, "every") || empieza(t, "all ") || empieza(t, "hidden") || empieza(t, "invisible") ||
         empieza(t, "pledge members within") || (empieza(t, "area") && t.find("caster") != std::string_view::npos))
         return false;
+    // Área alrededor del lanzador (Tornado, Fire Storm, Blizzard, Freezing Blizzard: "Area of Effect
+    // Within N cells" sin range= en spells; el servidor las tiene con objetivo "none"). Lightning
+    // Storm y Meteor Strike dicen lo mismo pero tienen alcance: van sobre un objetivo.
+    if (empieza(t, "area") && !tiene_alcance) return false;
     // Ítems del inventario (encantar un arma o una armadura): no se elige en el mundo; el cliente
     // manda el arma o la armadura equipada (Hechizo::sobre_item).
     if (t.find("weapon") != std::string_view::npos || t.find("armor") != std::string_view::npos ||
@@ -135,6 +139,9 @@ bool TablaHechizos::cargar(const Recursos& r) {
         if (clase == "SpellEnchantWeapon") h.sobre_item = Hechizo::SOBRE_ARMA;
         if (clase == "SpellBlessedArmor") h.sobre_item = Hechizo::SOBRE_ARMADURA;
         h.sobre_arma_actual = clase == "SpellEnchantCurrentWeapon";
+        h.area = static_cast<u8>(std::min<u32>(atributo(tras, "areaEffect", esta), 255));
+        if (clase == "SpellTornado") h.reparto = Hechizo::AREA_CUATRO;
+        if (clase == "SpellBlizzard") h.reparto = Hechizo::AREA_LLENA;
         if (h.mp == 0) h.mp = static_cast<u16>(atributo(tras, "mpCost", esta));
         h.con_objetivo = tiene_alcance;  // se corrige con la ficha, abajo
     });

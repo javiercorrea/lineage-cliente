@@ -149,7 +149,44 @@ ObjId item_equipado_de(const App& a, u8 uso) {
 
 }  // namespace
 
+// Gráfico de un hechizo de área alrededor del lanzador (ver EF_AREA). El original lo reparte según
+// el hechizo; la disposición no está en los datos (va en el ejecutable), así que es aproximada:
+// - SpellTornado: 4 copias arriba, abajo, a la izquierda y a la derecha en pantalla, a la mitad del área;
+// - SpellBlizzard: una cada 3 celdas en todo el círculo del área (10 celdas: la pantalla original).
+static void dibujar_area(App& a, const Evento& e) {
+    const GfxId gfx = static_cast<GfxId>(e.v[EF_GFX]);
+    const Hechizo* h = nullptr;
+    for (u32 id = 1; id <= CANTIDAD_HECHIZOS && !h; ++id)
+        if (a.hechizos[id].gfx == gfx && a.hechizos[id].reparto != Hechizo::AREA_UNA) h = &a.hechizos[id];
+    EfectoVisual ef;
+    ef.gfx = gfx;
+    ef.inicio = a.entrada.ahora_ms;
+    auto poner = [&](int dx, int dy) {
+        ef.x0 = ef.x1 = e.v[EF_X] + dx;
+        ef.y0 = ef.y1 = e.v[EF_Y] + dy;
+        agregar_efecto(a.mundo, ef);
+    };
+    if (!h) {
+        poner(0, 0);
+    } else if (h->reparto == Hechizo::AREA_CUATRO) {
+        const int k = std::max(1, h->area / 2);  // en diagonal del mundo = recto en pantalla
+        poner(k, k);
+        poner(-k, -k);
+        poner(k, -k);
+        poner(-k, k);
+    } else {
+        const int r = std::max<int>(h->area, 1);
+        for (int dy = -r + 1; dy < r; dy += 3)
+            for (int dx = -r + 1; dx < r; dx += 3)
+                if (dx * dx + dy * dy <= r * r) poner(dx, dy);
+    }
+}
+
 void eventos_hechizos(App& a, const Evento& e) {
+    if (e.tipo == Ev::EFECTO && e.v[EF_AREA]) {
+        dibujar_area(a, e);
+        return;
+    }
     // Los buffs de los que el servidor no manda ícono (Advance Spirit, Light, muchos de elfo,
     // caballero y elfo oscuro): como el original, que trae la duración en spells, el ícono se pone
     // al ver el gráfico del hechizo (S_SkillSound) sobre el propio personaje poco después de lanzarlo.

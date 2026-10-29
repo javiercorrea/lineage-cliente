@@ -244,6 +244,10 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
   manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
   segundos, la estadística, en FUE el peso, c tipo).
+- **Hechizos de área alrededor del lanzador** (Tornado, Fire Storm, Blizzard, Freezing Blizzard):
+  sin objetivo (no tienen `range=` en `spells`); `S_RangeSkill` tipo 0. El sprite es uno solo: el
+  original lo repite (4 tornados; la ventisca en toda la pantalla), según la clase de `spells`
+  (`SpellTornado`, `SpellBlizzard`) y su `areaEffect`.
 - **Íconos de los buffs:** el servidor manda ícono solo para algunos (`S_SkillIconShield`,
   `S_SkillBrave`, `S_SkillHaste`, el aura de `S_PacketBox`, `S_Strup`/`S_Dexup`, `S_SkillIconGFX`).
   Para el resto, el original lleva el tiempo con la duración de `spells`; el cliente pone el ícono al

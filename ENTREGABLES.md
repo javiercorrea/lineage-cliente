@@ -789,6 +789,15 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Buffs sin paquete de ícono** (Advance Spirit, Light, Counter Magic, muchos de elfo, caballero y elfo oscuro): el cliente original trae en `spells` la duración de cada uno, así que lleva el tiempo él mismo. Ahora, al lanzar un buff sobre sí mismo, el ícono se pone cuando llega su gráfico (`S_SkillSound` con el `graphic=` de `spells`) sobre el personaje en los 3 s siguientes; sin `graphic=` (Light), vale el primero que llegue en 1,5 s. Si el servidor también manda el suyo (Holy Walk, Shield...), se dibuja uno solo. **Verificado** con Aprendiz: Advance Spirit (20m), Light (60m) y Holy Walk (59s, una sola vez) (`docs/capturas/buffs_propios.png`); con Cloud (caballero, nivel y vida subidos solo para la prueba y después restaurados): Reduction Armor y Solid Carriage quedan registrados.
 - **Magias sin ícono en los datos:** `spellicon.idx` tiene 168 entradas y en 0 las de caballero (Shock Stun, Reduction Armor, Bounce Attack, Solid Carriage, Counter Barrier), Armor Break, Avatar, Triple Arrow, Elemental Falldown, Counter Mirror, Aqua Protect, las de elfo 169–176 y Bloodlust; las de caballero dragón (181–195) e ilusionista (201–220) quedan fuera del archivo. Se ven como un recuadro con las primeras letras del nombre. Hay una serie de íconos de estado (1576–1600, el estilo del de Holy Walk, 1578) que probablemente son esos, pero ningún archivo de datos legible dice cuál es cuál: esa tabla debe estar en `lin.bin` (cifrado). Pendiente: asignarlos a mano, comparando con el original.
 
+## Hechizos de área alrededor del lanzador
+
+![Tornado](docs/capturas/area_tornado.png) ![Blizzard](docs/capturas/area_blizzard.png)
+
+- **Sin objetivo:** Tornado, Fire Storm, Blizzard y Freezing Blizzard afectan el área alrededor del lanzador (en el servidor, objetivo "none" con área 4, 3, 10 y 10). La ficha dice "Area of Effect Within N cells", igual que Lightning Storm y Meteor Strike, que sí van sobre un objetivo; la diferencia está en `spells`: las primeras no tienen `range=`. Ahora se lanzan al instante, sin pedir objetivo.
+- **El gráfico:** llega en `S_RangeSkill` tipo 0 con la lista de afectados; el cliente lo ponía sobre cada monstruo (y sin monstruos, no se veía nada). Ahora va en la celda del lanzador y se reparte según la clase de `spells`: `SpellTornado`, 4 copias (arriba, abajo, izquierda y derecha en pantalla, a la mitad del área); `SpellBlizzard`, una cada 3 celdas en todo el círculo del área (10 celdas: toda la pantalla original). Los sprites (758, 1819, 757, 3933) son de un solo cuadro de efecto: el original arma la composición en el ejecutable, así que la disposición es aproximada.
+- **Verificado** con Aprendiz: Tornado y Blizzard sin objetivo (`C_UseSkill` de 4 bytes; el servidor responde con `S_RangeSkill` tipo 0) y las capturas. Tests de la clasificación y del paquete.
+- **Pendiente:** comparar con el original la distancia de los 4 tornados y la densidad de la ventisca.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

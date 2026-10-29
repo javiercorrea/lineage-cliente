@@ -62,7 +62,9 @@ constexpr int FILAS_HECHIZOS = 28;
 enum : int { HZ_AGREGAR, HZ_FILAS };
 // EFECTO (S_SkillSound, S_EffectLocation, S_RangeSkill): gráfico sobre un objeto (id) o en una
 // celda (id = 0).
-enum : int { EF_GFX, EF_X, EF_Y };
+// EF_AREA: gráfico de un hechizo de área alrededor del lanzador (S_RangeSkill tipo 0), en su celda
+// (EF_X, EF_Y): lo reparte el cliente según el hechizo (dibujar_area en hechizos_ui.cpp).
+enum : int { EF_GFX, EF_X, EF_Y, EF_AREA };
 // VELOCIDAD (S_SkillHaste / S_SkillBrave; id = objeto): clase (VE_HASTE o VE_BRAVE), tipo
 // (haste: 0 normal, 1 rápido, 2 lento; brave: 0 nada, 1 poción, 3 waffle de elfo, 4 caminar
 // rápido, 6 bloodlust) y segundos que dura (0 en lo que se manda a los demás).

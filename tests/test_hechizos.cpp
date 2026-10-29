@@ -144,17 +144,19 @@ TEST_CASE("Hechizos: efectos, haste, brave e íconos") {
     CHECK(m.jugador.n_efectos == 2);
     vencer_efectos(m.jugador, 1000 + 1800 * 1000);
     CHECK(m.jugador.n_efectos == 1);
-    // S_RangeSkill: el lanzador hace la acción y cada objetivo recibe el gráfico.
+    // S_RangeSkill tipo 0 (área alrededor del lanzador, como Tornado): el lanzador hace la acción y
+    // el gráfico se ve una sola vez, sobre él (no sobre cada objetivo).
     auto& e6 = d({16, 18, 0x10, 0, 0, 0, 100, 0, 200, 0, 3, 1, 0, 0, 0, 0x78, 0x17, 0, 0, 0, 2, 0, 0x20, 0, 0, 0, 0x20, 0x21,
                   0, 0, 0, 0x20});
-    REQUIRE(e6.size() == 4);
+    REQUIRE(e6.size() == 3);
     CHECK(e6[0].tipo == Ev::CAMBIAR_DIRECCION);
     CHECK(e6[1].tipo == Ev::ACCION_OBJETO);
     CHECK(e6[1].v[0] == 18);
     CHECK(e6[2].tipo == Ev::EFECTO);
-    CHECK(e6[2].id == 0x20);
-    CHECK(e6[3].id == 0x21);
-    CHECK(e6[3].v[EF_GFX] == 6008);
+    CHECK(e6[2].id == 0x10);
+    CHECK(e6[2].v[EF_GFX] == 6008);
+    CHECK(e6[2].v[EF_AREA] == 1);  // lo reparte la app según el hechizo, en la celda del lanzador
+    CHECK(e6[2].v[EF_X] == 100);
 }
 
 TEST_CASE("Hechizos: intervalos propios con haste y brave") {
@@ -178,7 +180,8 @@ TEST_CASE("Hechizos: objetivo según la ficha del cliente") {
     CHECK(hechizo_con_objetivo("PC/NPC", true));
     CHECK(hechizo_con_objetivo("Caster or 1 Clan Member", false));
     CHECK_FALSE(hechizo_con_objetivo("Area of Effect of 8 Cells From Caster", true));
-    CHECK(hechizo_con_objetivo("Area of Effect Within 10 cells", false));
+    CHECK(hechizo_con_objetivo("Area of Effect Within 10 cells", true));   // Lightning Storm: con alcance
+    CHECK_FALSE(hechizo_con_objetivo("Area of Effect Within 4 Cells of Caster", false));  // Tornado
     CHECK_FALSE(hechizo_con_objetivo("Any weapon", true));
     CHECK_FALSE(hechizo_con_objetivo("Every player in your party", false));
 }
@@ -202,6 +205,16 @@ TEST_CASE("Hechizos: datos del cliente original" * doctest::skip(carpeta_juego()
     CHECK(h[4].gfx == 167);
     CHECK(h[17].demora_ms == 500);  // Lightning
     CHECK(h[43].nombre == "Haste");
+    CHECK_FALSE(h[53].con_objetivo);  // Tornado: alrededor del lanzador
+    CHECK_FALSE(h[59].con_objetivo);  // Blizzard
+    CHECK_FALSE(h[70].con_objetivo);  // Fire Storm
+    CHECK_FALSE(h[80].con_objetivo);  // Freezing Blizzard
+    CHECK(h[65].con_objetivo);        // Lightning Storm: área sobre un objetivo
+    CHECK(h[74].con_objetivo);        // Meteor Strike
+    CHECK(h[53].reparto == Hechizo::AREA_CUATRO);
+    CHECK(h[53].area == 4);
+    CHECK(h[59].reparto == Hechizo::AREA_LLENA);
+    CHECK(h[59].area == 10);
     // Encantar arma o armadura: el ítem va en C_UseSkill; los buffs traen su duración.
     CHECK(h[12].sobre_item == Hechizo::SOBRE_ARMA);      // Enchant Weapon
     CHECK(h[12].duracion_s == 1800);

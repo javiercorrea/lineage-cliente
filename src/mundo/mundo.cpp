@@ -283,7 +283,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             ef.x0 = ef.x1 = e.v[EF_X];
             ef.y0 = ef.y1 = e.v[EF_Y];
             ef.inicio = ahora;
-            if (ef.gfx > 0) agregar_efecto(m, ef);
+            if (ef.gfx > 0 && !e.v[EF_AREA]) agregar_efecto(m, ef);  // los de área los reparte la app
             break;
         }
         case Ev::VELOCIDAD: {
