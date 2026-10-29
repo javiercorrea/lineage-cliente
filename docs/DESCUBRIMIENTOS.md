@@ -244,6 +244,11 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
   manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
   segundos, la estadística, en FUE el peso, c tipo).
+- **Íconos de los buffs:** el servidor manda ícono solo para algunos (`S_SkillIconShield`,
+  `S_SkillBrave`, `S_SkillHaste`, el aura de `S_PacketBox`, `S_Strup`/`S_Dexup`, `S_SkillIconGFX`).
+  Para el resto, el original lleva el tiempo con la duración de `spells`; el cliente pone el ícono al
+  ver el gráfico de su hechizo sobre sí mismo. `spellicon.idx` cubre solo 168 magias y deja en 0
+  varias de caballero, elfo y otras clases.
 - **Usar un ítem sobre otro:** con los usos 7 (identificar), 14, 26 y 27 (encantar) `C_UseItem` lleva
   el id del objetivo después del del pergamino. `S_IdentifyDesc` es un `S_ServerMessage` (mensajes
   134–138) con un h (la descripción del ítem) adelante.

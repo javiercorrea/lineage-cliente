@@ -266,6 +266,7 @@ struct App {
     // muestra sobre los casilleros de hechizos.
     u64 hechizo_lanzado_ms = 0, hechizo_listo_ms = 0;
     u32 buff_de_item = 0;  // buff sobre el arma o la armadura recién lanzado: su ícono llega con el mensaje 161
+    u32 buff_propio = 0;   // buff recién lanzado sobre sí mismo: su ícono, al ver su gráfico sobre el personaje
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12

@@ -150,6 +150,20 @@ ObjId item_equipado_de(const App& a, u8 uso) {
 }  // namespace
 
 void eventos_hechizos(App& a, const Evento& e) {
+    // Los buffs de los que el servidor no manda ícono (Advance Spirit, Light, muchos de elfo,
+    // caballero y elfo oscuro): como el original, que trae la duración en spells, el ícono se pone
+    // al ver el gráfico del hechizo (S_SkillSound) sobre el propio personaje poco después de lanzarlo.
+    // Si el servidor también manda el suyo, se dibuja uno solo (dibujar_efectos_activos).
+    // Sin graphic= en spells (Light), el gráfico lo pone el servidor: vale el primero sobre el
+    // personaje en el segundo y medio siguiente.
+    const u16 gfx = a.buff_propio ? a.hechizos[a.buff_propio].gfx : 0;
+    if (e.tipo == Ev::EFECTO && a.buff_propio && e.id == a.mundo.jugador.id && (gfx == 0 || e.v[EF_GFX] == gfx)) {
+        if (a.entrada.ahora_ms - a.hechizo_lanzado_ms < (gfx ? 3000u : 1500u))
+            poner_efecto_activo(a.mundo.jugador, EA_HECHIZO, static_cast<u8>(a.buff_propio), a.hechizos[a.buff_propio].duracion_s,
+                                a.entrada.ahora_ms);
+        a.buff_propio = 0;
+        return;
+    }
     // El servidor no manda ícono de los buffs sobre el arma o la armadura (Enchant Weapon, Blessed
     // Armor, Bless Weapon...), solo el mensaje 161 ("%0 brilla..."): se registra el efecto con la
     // duración de spells.
@@ -207,6 +221,8 @@ int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora) {
                                     obj != SIN_SLOT ? o.col<O_Y>()[obj] : 0));
     }
     a.buff_de_item = h.sobre_item != Hechizo::SIN_ITEM || h.sobre_arma_actual ? id : 0;
+    const bool sobre_si = obj == SIN_SLOT || obj == yo;
+    a.buff_propio = !a.buff_de_item && !h.de_ataque && h.duracion_s > 0 && sobre_si ? id : 0;
     // Animación propia ya (el eco del servidor no la reinicia) y sin otra acción hasta que termine:
     // el servidor mide el intervalo entre hechizos con la duración de esa animación.
     const u8 accion = h.de_ataque ? ACC_HECHIZO_ATAQUE : ACC_HECHIZO;
@@ -527,11 +543,22 @@ void dibujar_efectos_activos(App& a, u64 ahora) {
     Graficos& g = *a.g;
     const EstadoJugador& j = a.mundo.jugador;
     constexpr int PASO = 36, Y = 2;
-    const int x0 = (a.gpu.ancho() - static_cast<int>(j.n_efectos) * PASO) / 2;
+    // Un efecto registrado por el cliente (EA_HECHIZO) no se dibuja si el servidor ya informó el
+    // mismo hechizo con su propio paquete (Holy Walk, Shield...).
+    auto repetido = [&](const EfectoActivo& ef) {
+        if (ef.clase != EA_HECHIZO) return false;
+        for (u32 k = 0; k < j.n_efectos; ++k)
+            if (j.efectos[k].clase != EA_HECHIZO && hechizo_de_efecto(j.efectos[k]) == ef.tipo) return true;
+        return false;
+    };
+    u32 visibles = 0;
+    for (u32 i = 0; i < j.n_efectos; ++i) visibles += !repetido(j.efectos[i]);
+    const int x0 = (a.gpu.ancho() - static_cast<int>(visibles) * PASO) / 2;
     const u64 ki = clave_orden(CAPA_UI, 2), kt = clave_orden(CAPA_UI_TEXTO, 2);
-    for (u32 i = 0; i < j.n_efectos; ++i) {
+    for (u32 i = 0, n = 0; i < j.n_efectos; ++i) {
         const EfectoActivo& ef = j.efectos[i];
-        const int x = x0 + static_cast<int>(i) * PASO;
+        if (repetido(ef)) continue;
+        const int x = x0 + static_cast<int>(n++) * PASO;
         const u64 resta = ef.fin > ahora ? (ef.fin - ahora + 999) / 1000 : 0;
         u32 icono = item_de_efecto(ef).icono;
         if (!icono) icono = a.hechizos[hechizo_de_efecto(ef)].icono;
