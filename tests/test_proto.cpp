@@ -128,6 +128,71 @@ TEST_CASE("Decodificar: S_CharReset (reiniciar atributos), S_Liquor, Bless of Ev
     CHECK(e.v[1] == 1);
 }
 
+TEST_CASE("Decodificar: grupo y bloqueados (S_PacketBox), S_Sound y sus comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // 104: un miembro además del líder ("A", 100 %) y "B" (0 %).
+    std::vector<u8> lista = {40, 104, 1, 1, 0, 0, 0, 'A', 0, 100, 4, 0, 0, 0, 1, 0, 2, 0,
+                             2, 0, 0, 0, 'B', 0, 0, 4, 0, 0, 0, 1, 0, 2, 0, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 3);
+    CHECK(ev[0].v[GR_TIPO] == GR_VACIAR);
+    CHECK(ev[1].id == 1);
+    CHECK(ev[1].s[0] == "A");
+    CHECK(ev[1].v[GR_LIDER] == 1);
+    CHECK(ev[1].v[GR_HP] == 100);
+    CHECK(ev[2].s[0] == "B");
+    CHECK(ev[2].v[GR_LIDER] == 0);
+    // 105: miembro nuevo, sin vida.
+    ev.clear();
+    std::vector<u8> nuevo = {40, 105, 3, 0, 0, 0, 'C', 0, 4, 0, 0, 0, 1, 0, 2, 0};
+    REQUIRE(decodificar(nuevo, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].s[0] == "C");
+    CHECK(ev[0].v[GR_HP] == 0xFF);
+    // 106: nuevo líder, seguido de las posiciones (110).
+    ev.clear();
+    std::vector<u8> lider = {40, 106, 3, 0, 0, 0, 0, 0, 1, 3, 0, 0, 0, 4, 0, 0, 0, 1, 0, 2, 0, 0};
+    REQUIRE(decodificar(lider, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].v[GR_TIPO] == GR_LIDER_NUEVO);
+    CHECK(ev[0].id == 3);
+    // 17: la lista de bloqueados; 19: uno quitado.
+    ev.clear();
+    std::vector<u8> bloq = {40, 17, 2, 'X', 0, 'Y', 0};
+    REQUIRE(decodificar(bloq, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].s[0] == "Y");
+    ev.clear();
+    std::vector<u8> quitado = {40, 19, 'X', 0};
+    REQUIRE(decodificar(quitado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::BLOQUEADO);
+    CHECK(ev[0].v[0] == 0);
+    // El peso sigue igual (otro subtipo de la misma caja).
+    ev.clear();
+    std::vector<u8> peso = {40, 10, 120};
+    REQUIRE(decodificar(peso, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::PESO);
+    // S_Sound: c repetir, h sonido.
+    ev.clear();
+    std::vector<u8> son = {84, 0, 0xb5, 0x01};
+    REQUIRE(decodificar(son, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::SONIDO);
+    CHECK(ev[0].v[0] == 437);
+    igual(cmd::bloquear(t, "X"), {101, 'X', 0});
+    igual(cmd::amigos(t), {60});
+    igual(cmd::amigo(t, true, "Y"), {99, 'Y', 0});
+    igual(cmd::amigo(t, false, "Y"), {211, 'Y', 0});
+    igual(cmd::grupo_chat(t, 0, "Z"), {113, 0, 'Z', 0});
+    igual(cmd::grupo_chat(t, 2), {113, 2});
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);

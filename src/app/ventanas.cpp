@@ -331,6 +331,8 @@ void dibujar_ayuda_teclas(App& a) {
         {"A", "Keep attacking the target (until it dies or you walk)"},
         {"Ctrl+click", "Force attack (NPCs, other players)"},
         {"/pk", "PK mode: clicking a player attacks"},
+        {"/exclude Name", "Block / unblock a player (no name: list)"},
+        {"/buddy, /addbuddy, /delbuddy", "Buddy list"},
         {"Middle click", "Select bar slot / use it on target"},
         {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
         {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},

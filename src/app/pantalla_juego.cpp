@@ -1232,6 +1232,7 @@ void frame_juego(App& a) {
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
     dibujar_mascotas(a);
+    dibujar_grupo(a);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);

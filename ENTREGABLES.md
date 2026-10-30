@@ -819,6 +819,17 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   **Verificado** con Aprendiz (maga, nivel 30) y `--reiniciar-atributos`: `S_CharReset` 1 (12/6/10/30), los atributos iniciales, 2 × 10 niveles y 9 × 1 con su `S_CharReset` 2, el fin, la vela consumida y de vuelta en Gludio con nivel 30. Después se restauró su fila de la base.
 - **Pendiente:** el reparto de los elixires no se probó (Aprendiz no tiene); el original muestra la ventana con imágenes propias, esta es una ventana de texto.
 
+## Grupo, bloqueados, amigos y sonidos del servidor
+
+![Panel del grupo](docs/capturas/grupo_panel.png)
+
+- **Panel del grupo** (`dibujar_grupo`, `app/social_ui.cpp`): `S_PacketBox` 104 trae la lista con el líder y la vida de cada uno (al que se une), 105 el que se une (a los demás), 106 el líder nuevo; la vida se actualiza con `S_HpMeter`, que el servidor manda a todo el grupo aunque estén lejos. Se vacía con los mensajes 418 (disuelto), 419 (echado) o 420 con el propio nombre. A la izquierda, a media altura, los otros miembros con su barra de vida y el líder con "*". **Verificado** con dos clientes en el mapa 2005: Charla `/invite Prueba`, Prueba con `--aceptar`: a Prueba le llega 104 y ve "* Charla" con su vida; a Charla, 105 y "Prueba entered the party".
+  - El servidor manda la vida de la lista 104 como 0 o 100 (calcula `(int)(hp/max) * 100`); la real llega enseguida con `S_HpMeter`.
+- **Bloqueados:** `/exclude Nombre` (`C_Exclude`) bloquea o desbloquea; el servidor confirma con `S_PacketBox` 18 o 19 y manda la lista con 17. **Verificado:** `/exclude Hooper` → 18.
+- **Amigos:** `/buddy` (`C_Buddy`: la página "buddy" con la lista y quién está conectado), `/addbuddy` y `/delbuddy`. **Verificado:** `/buddy` → `S_ShowHTML` "buddy".
+- **Grupo de chat:** `/chatparty` (la lista), `/chatoutparty`, `/chatbanish Nombre` (`C_ChatParty`). **Verificado:** `/chatparty` fuera de un grupo de chat → mensaje 425.
+- **`S_Sound`:** el sonido que pide el servidor (`sound/<n>.wav`). Con test; no se buscó en vivo qué ítem lo dispara.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

@@ -12,11 +12,11 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 15, además de subtipos de
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 14, además de subtipos de
   `S_PacketBox` (40) y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 58. De los 33 restantes,
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 63. De los 28 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 31.
+  `C_Chat`, que el cliente ya usa. Faltan 26.
 
 ## Hecho
 
@@ -42,6 +42,9 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
   Anillos de control: `S_Ability` (116).
 - Reiniciar atributos (Candle of Reminiscence): `S_CharReset` (33, el mismo número que
   `S_PetCtrlMenu`: subtipos 1–3), `C_CharReset` (236).
+- Grupo: `S_PacketBox` 104, 105, 106 y 110 (el panel del grupo). Bloqueados: `C_Exclude` (101) y
+  `S_PacketBox` 17–19. Amigos: `C_Buddy` (60), `C_AddBuddy` (99), `C_DeleteBuddy` (211). Grupo de
+  chat: `C_ChatParty` (113). Sonidos del servidor: `S_Sound` (84).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
@@ -55,12 +58,11 @@ encantar arma o armadura".
 
 ## 2. Avisos y efectos visuales
 
-- `S_Sound` (84): sonidos que dispara el servidor.
 - `S_ChangeName` (81), `S_UseMap` (100): cambio de nombre, mapas del tesoro.
 - `S_SkillIconGFX`: el cliente dibuja 34 (poción azul) y 40 (Immune to Harm); faltan 15, 35, 36, 56 y 75.
 - `S_PacketBox` (40): el cliente usa peso (10), comida (11) y el aura (0x16). Faltan, de los que el
-  servidor envía: actualizaciones del grupo (104–110), duelo (5), guerra (0–2), nivel máximo (12),
-  esquiva (88, 101), tiempo en mapas con límite (159), Bless of Ain (82), bloqueados (18, 19),
+  servidor envía: duelo (5), guerra (0–2), nivel máximo (12),
+  esquiva (88, 101), tiempo en mapas con límite (159), Bless of Ain (82),
   cierre de sesión (42), llamado de un GM (45), cambio de rango (27), líder del pueblo (23),
   emblema del clan (`PLEDGE_EMBLEM_STATUS`), registro del almacén del clan (117).
 
@@ -70,14 +72,12 @@ encantar arma o armadura".
 - **Tablón de los pueblos:** `S_Board` (64), `S_BoardRead` (56), `C_Board` (73), `C_BoardRead` (59),
   `C_BoardNext` (221), `C_BoardWrite` (14), `C_BoardDelete` (12).
 - **Correo:** `S_Mail` (1), `C_Mail` (22).
-- **Amigos y bloqueados:** `C_AddBuddy` (99), `C_DeleteBuddy` (211), `C_BuddyList` (60), `C_Exclude` (101).
 - **Duelo, matrimonio, PK:** `C_Fight` (47), `C_Propose` (185), `C_CheckPK` (137).
 - **Castillos, guerras y casas:** `S_War` (123), `S_CastleMaster` (66), `S_TaxRate` (72),
   `S_Deposit` (203), `S_Drawal` (224), `S_HouseList` (24), `S_HouseMap` (44); `C_War` (235),
   `C_TaxRate` (200), `C_Deposit` (35), `C_Drawal` (192), `C_HireSoldier` (97), `C_ChangeWarTime` (4).
 - **Clan recomendado:** `S_PledgeRecommendation` (192), `C_PledgeRecommendation` (228).
-- **Varios:** `C_FishClick` (26, pesca), `C_Ship` (117), `C_Rank` (88), `C_ChatParty` (113),
-  `C_CallPlayer` (144, GM).
+- **Varios:** `C_FishClick` (26, pesca), `C_Ship` (117), `C_Rank` (88), `C_CallPlayer` (144, GM).
 - **Opciones del original al servidor:** `C_LoginToServerOK` (75: chat global y susurros
   abiertos o cerrados), `C_CharacterConfig` (129: disposición de la interfaz), `C_SendLocation` (41),
   `C_ExtraCommand` (157).

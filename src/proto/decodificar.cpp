@@ -542,6 +542,8 @@ bool bendicion_eva(Lector& l, Evento& e) {
 }
 // S_Ability: c tipo (1 anillo de control de teletransporte, 5 de control de invocación), c puesto.
 bool anillo(Lector& l, Evento& e) { e.tipo = Ev::ANILLO; e.v[0] = l.c(); e.v[1] = l.c(); return true; }
+// S_Sound: c repetir, h sonido (sound/<n>.wav).
+bool sonido(Lector& l, Evento& e) { e.tipo = Ev::SONIDO; l.c(); e.v[0] = l.h(); return true; }
 // S_HpMeter: d id, c HP en % (0xFF = ocultar la barra). En L1J-JP solo se manda para el grupo y
 // las mascotas; el % de los demás llega en S_CharPack.
 bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
@@ -658,6 +660,7 @@ constexpr Decodificador TABLA[] = {
     licor,          // LIQUOR
     bendicion_eva,  // BLESSOFEVA
     anillo,         // ABILITY
+    sonido,         // SOUND
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -746,6 +749,62 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
             if (!l.error) salida.push_back(it);
         }
         return !l.error;
+    }
+    if (e.origen == Srv::PACKETBOX && l.quedan(1) &&
+        (l.datos[0] == 104 || l.datos[0] == 105 || l.datos[0] == 106 || l.datos[0] == 110 || (l.datos[0] >= 17 && l.datos[0] <= 19))) {
+        // S_PacketBox del grupo (S_Party) y de los bloqueados, con varios eventos:
+        //  - 104: c n, el líder (d id, s nombre, c hp, d mapa, h x, h y) y n miembros más, c 0;
+        //  - 105: un miembro nuevo (d id, s nombre, d mapa, h x, h y);
+        //  - 106: nuevo líder (d id, h 0) seguido de un 110 (el servidor no corta el switch);
+        //  - 110: c n, n × (d id, d mapa, h x, h y), c 0: posiciones, que el cliente no usa;
+        //  - 17: c n, n × s (la lista de bloqueados); 18 / 19: s agregado / quitado.
+        const int sub = l.c();
+        auto miembro = [&](bool con_hp, bool lider) {
+            Evento m = e;
+            m.tipo = Ev::GRUPO;
+            m.v[GR_TIPO] = GR_MIEMBRO;
+            m.id = l.d();
+            m.s[0] = l.s();
+            m.v[GR_HP] = con_hp ? l.c() : 0xFF;
+            m.v[GR_LIDER] = lider;
+            l.d();
+            l.h();
+            l.h();
+            if (!l.error) salida.push_back(m);
+        };
+        if (sub == 104) {
+            const int n = l.c();
+            Evento v = e;
+            v.tipo = Ev::GRUPO;
+            v.v[GR_TIPO] = GR_VACIAR;
+            salida.push_back(v);
+            for (int i = 0; i <= n && !l.error; ++i) miembro(true, i == 0);
+        } else if (sub == 105) {
+            miembro(false, false);
+        } else if (sub == 106) {
+            Evento m = e;
+            m.tipo = Ev::GRUPO;
+            m.v[GR_TIPO] = GR_LIDER_NUEVO;
+            m.id = l.d();
+            salida.push_back(m);
+        } else if (sub == 17) {
+            const int n = l.c();
+            for (int i = 0; i < n && !l.error; ++i) {
+                Evento b = e;
+                b.tipo = Ev::BLOQUEADO;
+                b.v[0] = 1;
+                b.s[0] = l.s();
+                if (!l.error) salida.push_back(b);
+            }
+        } else if (sub == 18 || sub == 19) {
+            Evento b = e;
+            b.tipo = Ev::BLOQUEADO;
+            b.v[0] = sub == 18;
+            b.s[0] = l.s();
+            salida.push_back(b);
+        }
+        l.error = false;  // 110 y el resto de 106: posiciones que no se usan
+        return true;
     }
     if (e.origen == Srv::RANGESKILLS) {
         // S_RangeSkill: c acción, d lanzador, h x, h y, c dirección, d secuencia, h gráfico, c tipo,

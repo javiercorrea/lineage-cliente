@@ -119,6 +119,14 @@ enum class IdVentana : u8 { ESTADO, INVENTARIO, HECHIZOS, NPC, OPCIONES, SALIDA,
 struct Rect {
     int x, y, w, h;
 };
+// Grupo (S_PacketBox 104–106; social_ui.cpp): los miembros con su vida (S_HpMeter) y el líder.
+struct MiembroGrupo {
+    ObjId id = 0;
+    std::string nombre;
+    u8 hp = 0xFF;  // %; 0xFF desconocida
+    bool lider = false;
+};
+
 // Mascota o invocación propia (S_PetCtrlMenu; mascotas_ui.cpp).
 struct Mascota {
     ObjId id = 0;
@@ -322,6 +330,8 @@ struct App {
     DialogoCantidad cantidad;
     ReinicioAtributos reinicio;
     std::vector<Mascota> mascotas;
+    std::vector<MiembroGrupo> grupo;
+    std::vector<std::string> bloqueados;  // C_Exclude: el servidor no le pasa sus mensajes
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
     // Destino elegido para el próximo Teleport (se usa al lanzarlo; 0, 0 = al azar).
@@ -517,6 +527,7 @@ void ofrecer_en_intercambio(App& a, ObjId item);  // todo el montón
 void dibujar_pregunta(App& a);  // antes del chat: Enter y Escape responden
 void dibujar_intercambio(App& a);
 void dibujar_social(App& a);
+void dibujar_grupo(App& a);
 void procesar_social(App& a, u64 ahora);  // prueba automática
 Rect rect_social(const App& a);
 Rect rect_intercambio(const App& a);

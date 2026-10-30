@@ -19,7 +19,7 @@ enum class Ev : u8 {
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
-    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO,
+    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO,
     IGNORADO,
 };
 
@@ -74,6 +74,11 @@ enum : int { VE_HASTE, VE_BRAVE };
 // ICONO_EFECTO (S_SkillIconShield, S_SkillIconAura, S_SkillIconGFX): clase, tipo y segundos
 // (0 = se terminó).
 enum : int { IE_CLASE, IE_TIPO, IE_SEG };
+// GRUPO (S_PacketBox 104–110): GR_TIPO GR_VACIAR (llega la lista entera), GR_MIEMBRO (e.id, s[0]
+// nombre, GR_HP en % o 0xFF, GR_LIDER), GR_LIDER_NUEVO (e.id). BLOQUEADO (S_PacketBox 17–19): s[0]
+// el nombre, v[0] 1 agregado / 0 quitado. SONIDO (S_Sound): v[0] el sonido.
+enum : int { GR_TIPO, GR_HP, GR_LIDER };
+enum : int { GR_VACIAR, GR_MIEMBRO, GR_LIDER_NUEVO };
 // REINICIO (S_CharReset, reiniciar atributos con la Candle of Reminiscence): RE_TIPO 1 empieza
 // (RE_HP, RE_MP, RE_AC, RE_MAX), 2 estado tras cada paso (RE_NIVEL, RE_MAX, RE_HP, RE_MP, RE_AC y los
 // 6 atributos desde RE_FUE: fue, int, sab, des, con, car), 3 faltan puntos de elixir (RE_PUNTOS).

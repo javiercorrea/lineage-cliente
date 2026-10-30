@@ -110,7 +110,8 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **F5–F12:** lanzan el hechizo asignado (se guardan por personaje en `settings.ini`, `atajos=`). Un hechizo con objetivo espera el clic sobre el objetivo; clic derecho cancela.
 - **Social** (botón, o el del panel original): grupo, intercambio y clan con botones y ayuda. Las preguntas del servidor (invitaciones, pedidos de intercambio o de entrar al clan) aparecen con **Yes/No** (Enter/Escape).
 - **Intercambio:** hay que estar al lado del otro y mirándolo. Se arrastra un ítem del inventario a la ventana (o doble clic con el intercambio abierto), y OK cuando los dos están conformes.
-- **Comandos de chat:** `/invite Nombre`, `/party`, `/leave`, `/kick Nombre` (grupo); `/trade`; `/clan Nombre` (crear, príncipe con 30000 adena), `/join` (frente a un príncipe), `/pledge`, `/leaveclan`, `/banclan Nombre`, `/emblem` (sube un emblema de muestra); `/title [Nombre] Título`; `/who [Nombre]`. Lo que no es un comando va al chat.
+- **Comandos de chat:** `/invite Nombre`, `/party`, `/leave`, `/kick Nombre` (grupo); `/trade`; `/clan Nombre` (crear, príncipe con 30000 adena), `/join` (frente a un príncipe), `/pledge`, `/leaveclan`, `/banclan Nombre`, `/emblem` (sube un emblema de muestra); `/title [Nombre] Título`; `/who [Nombre]`; `/exclude Nombre` (bloquea o desbloquea; sin nombre, la lista); `/buddy`, `/addbuddy Nombre`, `/delbuddy Nombre` (amigos); `/chatparty`, `/chatoutparty`, `/chatbanish Nombre` (grupo de chat). Lo que no es un comando va al chat.
+- **Grupo:** a la izquierda, a media altura, la lista de los otros miembros con su vida; el líder con "*".
 - **Nombres:** azul con alineamiento ≥ 500, rojo con ≤ −500; el título arriba y el emblema del clan a la izquierda.
 - **F1:** ayuda con todas las teclas.
 - **Sonido:** música por zona, efectos de las animaciones y ambiente. El volumen de música y efectos está en **Options**.

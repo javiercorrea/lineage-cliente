@@ -250,6 +250,26 @@ inline Escritor reinicio(const TablaOpcodes& t, u8 etapa, std::initializer_list<
     for (u8 v : datos) e.c(v);
     return e;
 }
+// C_Exclude: s nombre (bloquear o desbloquear: el servidor responde S_PacketBox 18 o 19).
+inline Escritor bloquear(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::EXCLUDE);
+    e.s(nombre);
+    return e;
+}
+// C_Buddy (lista de amigos: S_Buddy, la página "buddy"), C_AddBuddy / C_DeleteBuddy: s nombre.
+inline Escritor amigos(const TablaOpcodes& t) { return Escritor(t, Cli::BUDDYLIST); }
+inline Escritor amigo(const TablaOpcodes& t, bool agregar, std::string_view nombre) {
+    Escritor e(t, agregar ? Cli::ADDBUDDY : Cli::DELETEBUDDY);
+    e.s(nombre);
+    return e;
+}
+// C_ChatParty (grupo de chat): 0 + s nombre echa, 1 sale, 2 muestra la lista.
+inline Escritor grupo_chat(const TablaOpcodes& t, u8 tipo, std::string_view nombre = {}) {
+    Escritor e(t, Cli::CHATPARTY);
+    e.c(tipo);
+    if (tipo == 0) e.s(nombre);
+    return e;
+}
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.
 inline Escritor dar_item(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y, u32 item, u32 cantidad) {
     Escritor e(t, Cli::GIVEITEM);
