@@ -8,6 +8,7 @@
 // marca de leída (657), cerrar (658), Write (662), Delete (664), Cancel (578) y Send (582), cada
 // botón con su imagen resaltada en N + 1. El original no trae un ícono de "correo nuevo": el sobre
 // arriba a la izquierda (cartas sin leer; un clic abre el correo) es un dibujo propio.
+// Con la UI simple no se usa el papel: un recuadro oscuro, texto claro y botones de texto.
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
@@ -23,7 +24,8 @@ namespace {
 constexpr int ANCHO = 238, ALTO = 350, FILA = 26;
 constexpr u32 IMG_PAPEL = 656, IMG_LEIDA = 657, IMG_CERRAR = 658, IMG_WRITE = 662,
               IMG_DELETE = 664, IMG_CANCEL = 578, IMG_SEND = 582;
-const u32 TINTA = rgba(60, 38, 20), TINTA_SUAVE = rgba(120, 95, 65);
+// Los colores del texto: tinta sobre el papel, o los de la UI simple (se eligen en cada cuadro).
+u32 TINTA, TINTA_SUAVE, TINTA_VIVA;
 constexpr const char* BANDEJAS[3] = {"Inbox", "Clan", "Saved"};
 
 int x0(const App& a) { return (a.gpu.ancho() - ANCHO) / 2; }
@@ -33,8 +35,8 @@ int y0() { return 50; }
 bool vinculo(Graficos& g, const EntradaFrame& e, std::string_view t, int x, int y, u64 clave, bool activo) {
     const int w = ancho_texto(t.data(), t.size());
     const bool encima = ui::sobre(e, x, y - 2, w, ALTO_GLIFO + 4);
-    g.texto(t, static_cast<float>(x), static_cast<float>(y), clave, activo || encima ? rgba(150, 40, 20) : TINTA_SUAVE);
-    if (activo) g.gpu().rectangulo(x, y + ALTO_GLIFO + 1, w, 1, clave, rgba(150, 40, 20));
+    g.texto(t, static_cast<float>(x), static_cast<float>(y), clave, activo || encima ? TINTA_VIVA : TINTA_SUAVE);
+    if (activo) g.gpu().rectangulo(x, y + ALTO_GLIFO + 1, w, 1, clave, TINTA_VIVA);
     return encima && e.clic;
 }
 
@@ -134,11 +136,21 @@ void dibujar_correo(App& a) {
     Graficos& g = *a.g;
     EntradaFrame& e = a.entrada;
     const int x = x0(a), y = y0();
-    const u64 kt = clave_orden(CAPA_UI_TEXTO, 72), kf = clave_orden(CAPA_UI, 0);
-    // El papel del original (o un recuadro si no está).
+    // El papel del original (o un recuadro, con la UI simple o si no está).
     const RegionAtlas& papel = g.img(IMG_PAPEL);
-    if (papel.valida()) g.gpu().dibujar(papel, x, y, kf);
-    else ui::recuadro(g, x, y, ANCHO, ALTO, 235);
+    const bool simple = a.cfg.ui_simple || !papel.valida();
+    const u64 kt = clave_orden(CAPA_UI_TEXTO, 72), kf = clave_orden(CAPA_UI, simple ? 3 : 0);  // sobre el recuadro (2)
+    if (simple) {
+        ui::recuadro(g, x, y, ANCHO, ALTO, 235);
+        TINTA = ui::COLOR_TEXTO, TINTA_SUAVE = rgba(170, 160, 140), TINTA_VIVA = rgba(255, 220, 130);
+    } else {
+        g.gpu().dibujar(papel, x, y, kf);
+        TINTA = rgba(60, 38, 20), TINTA_SUAVE = rgba(120, 95, 65), TINTA_VIVA = rgba(150, 40, 20);
+    }
+    // Los botones: la imagen del original o uno de texto.
+    auto boton = [&](u32 img, std::string_view t, int bx, int by) {
+        return simple ? ui::boton_texto(g, e, t, bx, by, 64, 20) : ui::boton(g, e, img, bx, by);
+    };
     g.texto("Mail", static_cast<float>(x + 20), static_cast<float>(y + 22), kt, TINTA);
     char txt[200];
 
@@ -152,7 +164,7 @@ void dibujar_correo(App& a) {
             const int fy = y + 62 + i * 26;
             g.texto(rotulos[i], static_cast<float>(x + 20), static_cast<float>(fy + 3), kt, TINTA);
             if (e.clic && ui::sobre(e, x + 72, fy, ANCHO - 92, 18)) c.foco = i;
-            g.gpu().rectangulo(x + 72, fy, ANCHO - 92, 18, kf + 1, rgba(70, 50, 30, 210));
+            g.gpu().rectangulo(x + 72, fy, ANCHO - 92, 18, kf + 1, simple ? rgba(40, 32, 25, 255) : rgba(70, 50, 30, 210));
             ui::caja_texto(g, e, *campos[i], x + 75, fy + 2, ANCHO - 98, c.foco == i, false, maximos[i]);
         }
         if (e.tab) c.foco = (c.foco + 1) % 3;
@@ -160,13 +172,13 @@ void dibujar_correo(App& a) {
         if (vinculo(g, e, c.al_clan ? "To a character instead" : "To the pledge instead", x + 20, y + ALTO - 70, kt, false))
             c.al_clan = !c.al_clan;
         const int by = y + ALTO - 50;
-        if (!c.destino.empty() && !c.asunto.empty() && ui::boton(g, e, IMG_SEND, x + 30, by)) {
+        if (!c.destino.empty() && !c.asunto.empty() && boton(IMG_SEND, "Send", x + 30, by)) {
             enviar(a, cmd::escribir_correo(a.op, c.al_clan, sin_espacios(c.destino), sin_espacios(c.asunto), sin_espacios(c.cuerpo)));
             c.escribiendo = false;
             c.asunto.clear();
             c.cuerpo.clear();
         }
-        if (ui::boton(g, e, IMG_CANCEL, x + ANCHO - 90, by) || e.escape) {
+        if (boton(IMG_CANCEL, "Cancel", x + ANCHO - 94, by) || e.escape) {
             c.escribiendo = false;
             e.escape = false;
         }
@@ -176,7 +188,9 @@ void dibujar_correo(App& a) {
     }
 
     // Cerrar (o volver a la lista, leyendo una carta) y las bandejas.
-    if (ui::boton(g, e, IMG_CERRAR, x + ANCHO - 34, y + 16) || e.escape) {
+    if (simple) g.texto("[x]", static_cast<float>(x + ANCHO - 26), static_cast<float>(y + 6), kt, TINTA);
+    if ((simple ? e.clic && ui::sobre(e, x + ANCHO - 28, y + 2, 26, 20) : ui::boton(g, e, IMG_CERRAR, x + ANCHO - 34, y + 16)) ||
+        e.escape) {
         if (c.leyendo) c.leyendo = 0;
         else c.abierto = false;
         e.escape = false;
@@ -193,7 +207,7 @@ void dibujar_correo(App& a) {
             texto_ajustado(g, it->asunto, x + 20, y + 64, ANCHO - 40, kt, TINTA, 2);
         }
         texto_ajustado(g, c.texto, x + 20, y + 98, ANCHO - 40, kt, TINTA, 12);
-        if (ui::boton(g, e, IMG_DELETE, x + 22, y + ALTO - 48)) enviar(a, cmd::correo(a.op, static_cast<u8>(0x30 + c.bandeja), c.leyendo));
+        if (boton(IMG_DELETE, "Delete", x + 22, y + ALTO - 48)) enviar(a, cmd::correo(a.op, static_cast<u8>(0x30 + c.bandeja), c.leyendo));
         if (c.bandeja == 0 && vinculo(g, e, "Keep", x + ANCHO - 70, y + ALTO - 42, kt, false))
             enviar(a, cmd::correo(a.op, 0x40, c.leyendo));
         return;
@@ -204,8 +218,8 @@ void dibujar_correo(App& a) {
         const Carta& m = c.cartas[i];
         const int fy = y + 46 + static_cast<int>(i) * FILA;
         const bool encima = ui::sobre(e, x + 16, fy, ANCHO - 32, FILA - 2);
-        if (encima) g.gpu().rectangulo(x + 16, fy, ANCHO - 32, FILA - 2, kf + 1, rgba(150, 110, 60, 90));
-        if (m.leida) g.gpu().dibujar(g.img(IMG_LEIDA), x + ANCHO - 30, fy + 2, kf + 2);
+        if (encima) g.gpu().rectangulo(x + 16, fy, ANCHO - 32, FILA - 2, kf + 1, simple ? rgba(60, 50, 35, 230) : rgba(150, 110, 60, 90));
+        if (m.leida && !simple) g.gpu().dibujar(g.img(IMG_LEIDA), x + ANCHO - 30, fy + 2, kf + 2);
         g.texto(m.asunto, static_cast<float>(x + 20), static_cast<float>(fy + 2), kt, m.leida ? TINTA_SUAVE : TINTA);
         const std::time_t f = static_cast<std::time_t>(m.fecha);
         char fecha[32] = "";
@@ -214,7 +228,7 @@ void dibujar_correo(App& a) {
         g.texto(txt, static_cast<float>(x + 20), static_cast<float>(fy + 13), kt, TINTA_SUAVE);
         if (encima && e.clic) enviar(a, cmd::correo(a.op, static_cast<u8>(0x10 + c.bandeja), m.id));
     }
-    if (ui::boton(g, e, IMG_WRITE, x + 22, y + ALTO - 46)) {
+    if (boton(IMG_WRITE, "Write", x + 22, y + ALTO - 46)) {
         c.escribiendo = true;
         c.foco = c.destino.empty() ? 0 : 1;
     }

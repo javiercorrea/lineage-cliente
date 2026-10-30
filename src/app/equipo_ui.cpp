@@ -5,6 +5,9 @@
 // Los recuadros se midieron sobre la imagen; qué parte va en cada uno es una deducción por dónde
 // caen sobre la silueta (casco en la cabeza, aro al costado, botas en los pies...). Los anillos no
 // tienen recuadro: van más chicos en el espacio libre de abajo a la derecha.
+// Con la UI simple no se usa la imagen: una lista de las partes (de la cabeza a los pies) con el
+// ícono y el nombre de lo equipado, con el estilo de los demás paneles de texto.
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include "app/app.h"
@@ -38,42 +41,79 @@ void dibujar_equipo(App& a, int x0, int y0) {
     const EntradaFrame& e = a.entrada;
     const Inventario& inv = a.mundo.inventario;
     const TablaItems& t = inv.items;
-    const int x = x0 + 34, y = y0 + 24;  // la imagen, centrada en la ventana
     const u64 kf = clave_orden(CAPA_UI, 3), ki = clave_orden(CAPA_UI, 5), kt = clave_orden(CAPA_UI_TEXTO, 5);
-    const RegionAtlas& fondo = g.img(IMG_EQUIPO);
-    if (fondo.valida()) g.gpu().dibujar(fondo, x, y, kf);
+    // Qué hay equipado en cada parte.
+    constexpr size_t N = std::size(RECUADROS);
+    Slot en[N], anillos[4];
+    std::fill(std::begin(en), std::end(en), SIN_SLOT);
+    int nanillos = 0;
+    for (Slot s = 0; s < t.tamano(); ++s) {
+        if (!item_equipado(nombre_item(inv, s))) continue;
+        const u8 uso = t.col<I_USO>()[s];
+        if (uso == USO_ANILLO) {
+            if (nanillos < 4) anillos[nanillos++] = s;
+            continue;
+        }
+        for (size_t i = 0; i < N; ++i)
+            if (RECUADROS[i].uso == uso) {
+                en[i] = s;
+                break;
+            }
+    }
 
     Slot bajo = SIN_SLOT;
     auto poner = [&](Slot s, int rx, int ry, int rw, int rh) {
         const int lado = std::min({32, rw, rh});
         const RegionAtlas& ic = g.icono(t.col<I_GFX>()[s]);
-        g.gpu().dibujar_escalado(ic, static_cast<float>(x + rx + (rw - lado) / 2), static_cast<float>(y + ry + (rh - lado) / 2),
+        g.gpu().dibujar_escalado(ic, static_cast<float>(rx + (rw - lado) / 2), static_cast<float>(ry + (rh - lado) / 2),
                                  static_cast<float>(lado), static_cast<float>(lado), ki);
-        if (ui::sobre(e, x + rx, y + ry, rw, rh)) bajo = s;
+        if (ui::sobre(e, rx, ry, rw, rh)) bajo = s;
     };
-    int anillos = 0;
-    for (const Recuadro& r : RECUADROS)
-        if (!fondo.valida()) g.gpu().rectangulo(x + r.x, y + r.y, r.w, r.h, kf, rgba(30, 30, 40, 220));
-    for (Slot s = 0; s < t.tamano(); ++s) {
-        if (!item_equipado(nombre_item(inv, s))) continue;
-        const u8 uso = t.col<I_USO>()[s];
-        if (uso == USO_ANILLO) {
-            poner(s, ANILLOS_X + anillos % 2 * (LADO_ANILLO + 2), ANILLOS_Y + anillos / 2 * (LADO_ANILLO + 2), LADO_ANILLO, LADO_ANILLO);
-            ++anillos;
-            continue;
-        }
-        for (const Recuadro& r : RECUADROS)
-            if (r.uso == uso) {
-                poner(s, r.x, r.y, r.w, r.h);
-                break;
+    char txt[160];
+    const RegionAtlas& fondo = g.img(IMG_EQUIPO);
+    if (a.cfg.ui_simple || !fondo.valida()) {
+        // Una fila por parte: rótulo, ícono (16×16) y nombre; los anillos, en la última fila.
+        constexpr int FILA = 18, ROTULO = 58, LADO = 16;
+        const int x = x0 + 14, w = ui::VENTANA_ANCHO - 28;
+        int y = y0 + 28;
+        const u32 rotulo = rgba(214, 190, 140), vacio = rgba(110, 100, 80);
+        auto fila = [&](const char* nombre, const Slot* ss, int n) {
+            g.gpu().rectangulo(x, y, w, FILA - 2, kf, n && ss[0] != SIN_SLOT ? rgba(40, 32, 22, 200) : rgba(22, 18, 14, 200));
+            g.texto(nombre, static_cast<float>(x + 4), static_cast<float>(y + 2), kt, rotulo);
+            const int ix = x + ROTULO;
+            if (!n || ss[0] == SIN_SLOT) {
+                g.texto("-", static_cast<float>(ix + 2), static_cast<float>(y + 2), kt, vacio);
+            } else if (n == 1) {
+                poner(ss[0], ix, y - 1, LADO, LADO + 2);
+                const size_t largo = expandir_desc(a.desc, nombre_item(inv, ss[0]), txt, sizeof txt);
+                std::string_view nom(txt, largo);
+                if (const size_t p = nom.rfind(" ("); p != std::string_view::npos && nom.ends_with(")")) nom = nom.substr(0, p);
+                const int ancho = w - ROTULO - LADO - 10;
+                if (ancho_texto(nom.data(), nom.size()) > ancho) nom = nom.substr(0, bytes_que_caben(nom.data(), nom.size(), ancho));
+                g.texto(nom, static_cast<float>(ix + LADO + 4), static_cast<float>(y + 2), kt, ui::COLOR_TEXTO);
+                if (ui::sobre(e, x, y, w, FILA - 2)) bajo = ss[0];
+            } else {
+                for (int i = 0; i < n; ++i) poner(ss[i], ix + i * (LADO + 4), y - 1, LADO, LADO + 2);
             }
+            y += FILA;
+        };
+        for (size_t i : {0, 1, 3, 2, 4, 5, 6, 7, 8, 9, 10}) fila(RECUADROS[i].nombre, &en[i], 1);  // de la cabeza a los pies
+        fila("Rings", anillos, nanillos);
+        std::snprintf(txt, sizeof txt, "%d", a.mundo.jugador.ca);
+        g.texto("Armor Class", static_cast<float>(x + 4), static_cast<float>(y + 6), kt, rotulo);
+        g.texto(txt, static_cast<float>(x + ROTULO + 30), static_cast<float>(y + 6), kt, ui::COLOR_TEXTO);
+    } else {
+        const int x = x0 + 34, y = y0 + 24;  // la imagen, centrada en la ventana
+        g.gpu().dibujar(fondo, x, y, kf);
+        for (size_t i = 0; i < N; ++i)
+            if (en[i] != SIN_SLOT) poner(en[i], x + RECUADROS[i].x, y + RECUADROS[i].y, RECUADROS[i].w, RECUADROS[i].h);
+        for (int i = 0; i < nanillos; ++i)
+            poner(anillos[i], x + ANILLOS_X + i % 2 * (LADO_ANILLO + 2), y + ANILLOS_Y + i / 2 * (LADO_ANILLO + 2), LADO_ANILLO, LADO_ANILLO);
+        // La AC en su campo.
+        std::snprintf(txt, sizeof txt, "%d", a.mundo.jugador.ca);
+        g.texto(txt, static_cast<float>(x + 112 - ancho_texto(txt, std::strlen(txt)) / 2), static_cast<float>(y + 223), kt,
+                ui::COLOR_TEXTO);
     }
-    // La AC en su campo.
-    char txt[16];
-    std::snprintf(txt, sizeof txt, "%d", a.mundo.jugador.ca);
-    g.texto(txt, static_cast<float>(x + 112 - ancho_texto(txt, std::strlen(txt)) / 2), static_cast<float>(y + 223), kt,
-            ui::COLOR_TEXTO);
-    if (!fondo.valida()) g.texto("Armor Class", static_cast<float>(x + 20), static_cast<float>(y + 223), kt, rgba(214, 190, 140));
 
     // Con el puntero encima: el nombre y los atributos del ítem.
     if (bajo != SIN_SLOT) {
