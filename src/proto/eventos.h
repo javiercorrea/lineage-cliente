@@ -19,7 +19,7 @@ enum class Ev : u8 {
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
-    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO,
+    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO, TIENDA, TIENDA_LINEA,
     IGNORADO,
 };
 
@@ -78,6 +78,11 @@ enum : int { IE_CLASE, IE_TIPO, IE_SEG };
 // nombre, GR_HP en % o 0xFF, GR_LIDER), GR_LIDER_NUEVO (e.id). BLOQUEADO (S_PacketBox 17–19): s[0]
 // el nombre, v[0] 1 agregado / 0 quitado. SONIDO (S_Sound): v[0] el sonido.
 enum : int { GR_TIPO, GR_HP, GR_LIDER };
+// TIENDA (S_PrivateShop): e.id el vendedor, TP_TIPO 0 lo que vende / 1 lo que compra; después una
+// TIENDA_LINEA por línea: TP_ORDEN, TP_CANTIDAD, TP_PRECIO, y en las de venta TP_GFX, TP_BENDICION y
+// s[0] el nombre; en las de compra TP_ITEM, el ítem propio que se le puede vender.
+// ACCION_OBJETO con la acción 70 (tienda abierta): s[0] el título.
+enum : int { TP_TIPO, TP_ORDEN, TP_CANTIDAD, TP_PRECIO, TP_GFX, TP_BENDICION, TP_ITEM };
 enum : int { GR_VACIAR, GR_MIEMBRO, GR_LIDER_NUEVO };
 // REINICIO (S_CharReset, reiniciar atributos con la Candle of Reminiscence): RE_TIPO 1 empieza
 // (RE_HP, RE_MP, RE_AC, RE_MAX), 2 estado tras cada paso (RE_NIVEL, RE_MAX, RE_HP, RE_MP, RE_AC y los

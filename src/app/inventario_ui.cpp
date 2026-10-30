@@ -222,6 +222,7 @@ void dibujar_inventario(App& a) {
         }
         return;  // mientras tanto no se arrastra ni se usa otra cosa
     }
+    if (e.clic && bajo >= 0 && clic_item_tienda(a, t.ids()[static_cast<Slot>(bajo)])) return;  // armando la tienda
     if (e.pulsado && bajo >= 0) a.arrastrando = t.ids()[static_cast<Slot>(bajo)];
     if (a.arrastrando && e.presionado) {
         Slot s = t.buscar(a.arrastrando);

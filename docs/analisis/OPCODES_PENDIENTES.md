@@ -12,11 +12,11 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 14, además de subtipos de
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 13, además de subtipos de
   `S_PacketBox` (40) y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 63. De los 28 restantes,
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 65. De los 26 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 26.
+  `C_Chat`, que el cliente ya usa. Faltan 24.
 
 ## Hecho
 
@@ -45,6 +45,8 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Grupo: `S_PacketBox` 104, 105, 106 y 110 (el panel del grupo). Bloqueados: `C_Exclude` (101) y
   `S_PacketBox` 17–19. Amigos: `C_Buddy` (60), `C_AddBuddy` (99), `C_DeleteBuddy` (211). Grupo de
   chat: `C_ChatParty` (113). Sonidos del servidor: `S_Sound` (84).
+- Tienda de jugadores: `S_PrivateShop` (190), `C_Shop` (16), `C_ShopList` (193; en la lista de
+  opcodes se llama `C_PrivateShopList`); comprar y vender a la tienda van por `C_Result`.
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
@@ -68,7 +70,6 @@ encantar arma o armadura".
 
 ## 3. Sistemas completos
 
-- **Tiendas de jugadores:** `S_PrivateShop` (190), `C_Shop` (16), `C_PrivateShopList` (193).
 - **Tablón de los pueblos:** `S_Board` (64), `S_BoardRead` (56), `C_Board` (73), `C_BoardRead` (59),
   `C_BoardNext` (221), `C_BoardWrite` (14), `C_BoardDelete` (12).
 - **Correo:** `S_Mail` (1), `C_Mail` (22).

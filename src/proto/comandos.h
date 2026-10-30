@@ -270,6 +270,37 @@ inline Escritor grupo_chat(const TablaOpcodes& t, u8 tipo, std::string_view nomb
     if (tipo == 0) e.s(nombre);
     return e;
 }
+// Tienda de jugadores. C_Shop: c 0, h n venta, n × (d ítem, d precio, d cantidad), h n compra
+// (ídem), y el título (los bytes que siguen: se repiten a los demás en S_DoActionShop); c 1 la cierra.
+struct LineaTienda {
+    u32 item, precio, cantidad;
+};
+inline Escritor abrir_tienda(const TablaOpcodes& t, std::span<const LineaTienda> venta, std::string_view titulo) {
+    Escritor e(t, Cli::SHOP);
+    e.c(0).h(static_cast<u16>(venta.size()));
+    for (const LineaTienda& l : venta) e.d(l.item).d(l.precio).d(l.cantidad);
+    e.h(0).s(titulo);
+    return e;
+}
+inline Escritor cerrar_tienda(const TablaOpcodes& t) {
+    Escritor e(t, Cli::SHOP);
+    e.c(1);
+    return e;
+}
+// C_ShopList: c tipo (0 lo que vende, 1 lo que compra), d vendedor. Responde S_PrivateShop.
+inline Escritor ver_tienda(const TablaOpcodes& t, u8 tipo, u32 vendedor) {
+    Escritor e(t, Cli::SHOPLIST);
+    e.c(tipo).d(vendedor);
+    return e;
+}
+// Venderle a la tienda (C_Result tipo 1): d vendedor, c 1, c 1, c 0, d ítem propio, 3 bytes de
+// cantidad (readCH), c orden. Comprarle es C_Result tipo 0 con (orden, cantidad) por línea.
+inline Escritor vender_a_tienda(const TablaOpcodes& t, u32 vendedor, u32 item, u32 cantidad, u8 orden) {
+    Escritor e(t, Cli::RESULT);
+    e.d(vendedor).c(RESULTADO_VENTA).c(1).c(0).d(item);
+    e.c(static_cast<u8>(cantidad)).c(static_cast<u8>(cantidad >> 8)).c(static_cast<u8>(cantidad >> 16)).c(orden);
+    return e;
+}
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.
 inline Escritor dar_item(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y, u32 item, u32 cantidad) {
     Escritor e(t, Cli::GIVEITEM);

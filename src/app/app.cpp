@@ -275,6 +275,7 @@ void procesar_red(App& a) {
         eventos_forma(a, e);
         eventos_npc(a, e);
         eventos_social(a, e);
+        eventos_tienda(a, e);
         if (e.tipo == Ev::SONIDO) a.audio.efecto(static_cast<u32>(e.v[0]), 1.0f, a.entrada.ahora_ms);  // S_Sound
         eventos_cantidad(a, e);
         eventos_reinicio(a, e);
@@ -344,6 +345,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--atacar=", 0) == 0) a.aut.atacar = valor("--atacar=");
         else if (s == "--reiniciar") a.aut.reiniciar = true;
         else if (s == "--reiniciar-atributos") a.aut.reiniciar_atributos = true;
+        else if (s.rfind("--tienda-propia=", 0) == 0) a.aut.tienda_propia = valor("--tienda-propia=");
         else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
         else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
         else if (s.rfind("--borrar=", 0) == 0) a.aut.items.push_back({false, valor("--borrar="), "", true});

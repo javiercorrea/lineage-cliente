@@ -102,6 +102,13 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
         v.bucle = false;
         return v;
     }
+    // Vendedor con la tienda abierta: sentado (el último cuadro de la acción 70).
+    if (!muerto && vendedor(a, o.ids()[s]))
+        if (const RangoAccion* r = a.sprites.accion(gfx, 70)) {
+            v.rango = r;
+            v.bucle = false;
+            return v;
+        }
     u8 base;
     if (muerto) {
         base = ACC_MORIR;
@@ -411,6 +418,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             }
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
+            if (const Vendedor* v = vendedor(a, o.ids()[s]); v && !v->titulo.empty()) {  // título de la tienda
+                const int wt = ancho_texto(v->titulo.data(), v->titulo.size());
+                g.gpu().rectangulo(static_cast<int>(sx) + 24 - wt / 2 - 3, static_cast<int>(top) - 30, wt + 6, ALTO_GLIFO + 4,
+                                   clave_orden(CAPA_EFECTOS, 0), rgba(60, 40, 10, 210));
+                g.texto(v->titulo, sx + 24 - wt / 2, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
+            }
             // Marcado con True Target: la marca y su mensaje encima del nombre.
             if (o.ids()[s] == a.marca_objetivo) {
                 const int wm = ancho_texto(a.marca_texto.data(), a.marca_texto.size());
@@ -606,7 +619,7 @@ void elegir_objetivo_bajo_puntero(App& a) {
     Slot b = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
     u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
     // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
-    a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
+    a.hablar_objetivo = b != SIN_SLOT && (es_npc(a, b) || vendedor(a, a.objetivo)) && !e.ctrl;
     const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
     if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
 }
@@ -617,7 +630,7 @@ void mover_jugador(App& a, u64 ahora) {
     const EntradaFrame& e = a.entrada;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
     // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
     // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
@@ -684,7 +697,9 @@ void mover_jugador(App& a, u64 ahora) {
         int dx = o.col<O_X>()[obj] - o.col<O_X>()[s], dy = o.col<O_Y>()[obj] - o.col<O_Y>()[s];
         if (a.hablar_objetivo && std::max(std::abs(dx), std::abs(dy)) <= DISTANCIA_HABLAR_NPC) {
             // A una puerta no se le habla: se abre o se cierra (C_Door).
-            if (tipo_objeto(a, obj) == TIPO_PUERTA)
+            if (vendedor(a, a.objetivo))
+                abrir_tienda_de(a, a.objetivo);
+            else if (tipo_objeto(a, obj) == TIPO_PUERTA)
                 enviar(a, cmd::puerta(a.op, static_cast<u16>(o.col<O_X>()[obj]), static_cast<u16>(o.col<O_Y>()[obj]), a.objetivo));
             else
                 enviar(a, cmd::hablar_npc(a.op, a.objetivo));
@@ -1233,6 +1248,7 @@ void frame_juego(App& a) {
     dibujar_barra(a, vi.panel_y - 36 - 6);
     dibujar_mascotas(a);
     dibujar_grupo(a);
+    dibujar_tienda(a);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);

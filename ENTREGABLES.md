@@ -830,6 +830,17 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Grupo de chat:** `/chatparty` (la lista), `/chatoutparty`, `/chatbanish Nombre` (`C_ChatParty`). **Verificado:** `/chatparty` fuera de un grupo de chat → mensaje 425.
 - **`S_Sound`:** el sonido que pide el servidor (`sound/<n>.wav`). Con test; no se buscó en vivo qué ítem lo dispara.
 
+## Tienda de jugadores
+
+![Tienda](docs/capturas/tienda_jugador.png)
+
+- **Dónde:** solo en las salas del mercado (mapas 340, 350, 360 y 370; fuera, el servidor responde el mensaje 876).
+- **Vendedores** (`app/tienda_ui.cpp`): `S_DoActionGFX` con la acción 70 trae el título de la tienda (también a quien llega después). Se los dibuja sentados (el último cuadro de la acción 70) con el título en un recuadro sobre el nombre. Un clic camina hasta 2 celdas y pide la lista (`C_ShopList`); `S_PrivateShop` tipo 0 trae lo que vende (orden, bendición, ícono, cantidad, precio y nombre) y tipo 1 lo que compra, solo con los ítems propios que le sirven.
+- **Comprar y venderle:** la ventana tiene "Sells" y "Buys"; un clic en una línea pregunta cuántos con el diálogo de cantidad y manda `C_Result` tipo 0 (orden y cantidad) o tipo 1 (ítem propio, cantidad en 3 bytes y orden); después pide la lista otra vez.
+- **La propia:** `/shop Título` abre la ventana para armarla: un clic en un ítem del inventario pide el precio por unidad y lo agrega con toda la pila; "Open" la abre (`C_Shop` 0 con la lista y el título) y "Close shop" (o `/shop` otra vez) la cierra (`C_Shop` 1).
+- **Verificado** con dos clientes en el mapa 340 y `--tienda-propia` / `--cantidad`: Charla abre "Vendo pociones" con 3 Potion of Bravery a 50; Prueba la ve sentada con el título, hace clic (a 5 celdas: 3 pasos y la lista), compra 1: `S_AddItem`, su adena 106 → 56 y la lista con 2. En la base: Prueba 56 adena y 1 poción; Charla +50 adena y 2 pociones. (Después, las dos de vuelta en Talking Island.)
+- **Pendiente:** la propia solo vende (la lista de compra de `C_Shop` va vacía); "Buys" (venderle a otro) no se probó en vivo; el precio y el título no se pueden editar en la ventana (el título va con `/shop Título`).
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

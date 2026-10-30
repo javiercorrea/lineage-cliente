@@ -193,6 +193,46 @@ TEST_CASE("Decodificar: grupo y bloqueados (S_PacketBox), S_Sound y sus comandos
     igual(cmd::grupo_chat(t, 2), {113, 2});
 }
 
+TEST_CASE("Tienda de jugadores: S_DoActionShop, S_PrivateShop y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // S_DoActionGFX con la acción 70 y el título.
+    std::vector<u8> sentado = {218, 5, 0, 0, 0, 70, 'V', 'e', 'n', 'd', 'o', 0};
+    REQUIRE(decodificar(sentado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::ACCION_OBJETO);
+    CHECK(ev[0].v[0] == 70);
+    CHECK(ev[0].s[0] == "Vendo");
+    // S_PrivateShop tipo 0: una línea (orden 0, bendición 1, gfx 34, 3 a 500, "$1", 0).
+    ev.clear();
+    std::vector<u8> vende = {190, 0, 5, 0, 0, 0, 1, 0, 0, 1, 34, 0, 3, 0, 0, 0, 0xf4, 1, 0, 0, '$', '1', 0, 0};
+    REQUIRE(decodificar(vende, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::TIENDA);
+    CHECK(ev[0].id == 5);
+    CHECK(ev[1].v[TP_GFX] == 34);
+    CHECK(ev[1].v[TP_CANTIDAD] == 3);
+    CHECK(ev[1].v[TP_PRECIO] == 500);
+    CHECK(ev[1].s[0] == "$1");
+    // Tipo 1: (orden 2, ítem propio 9, 4 a 100).
+    ev.clear();
+    std::vector<u8> compra = {190, 1, 5, 0, 0, 0, 1, 0, 2, 9, 0, 0, 0, 4, 0, 0, 0, 100, 0, 0, 0};
+    REQUIRE(decodificar(compra, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].v[TP_ORDEN] == 2);
+    CHECK(ev[1].v[TP_ITEM] == 9);
+    const cmd::LineaTienda venta[] = {{9, 500, 3}};
+    igual(cmd::abrir_tienda(t, venta, "Vendo"), {16, 0, 1, 0, 9, 0, 0, 0, 0xf4, 1, 0, 0, 3, 0, 0, 0, 0, 0, 'V', 'e', 'n', 'd', 'o', 0});
+    igual(cmd::cerrar_tienda(t), {16, 1});
+    igual(cmd::ver_tienda(t, 1, 5), {193, 1, 5, 0, 0, 0});
+    igual(cmd::vender_a_tienda(t, 5, 9, 2, 3), {40, 5, 0, 0, 0, 1, 1, 0, 9, 0, 0, 0, 2, 0, 0, 3});
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);

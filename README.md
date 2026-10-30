@@ -111,6 +111,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Social** (botón, o el del panel original): grupo, intercambio y clan con botones y ayuda. Las preguntas del servidor (invitaciones, pedidos de intercambio o de entrar al clan) aparecen con **Yes/No** (Enter/Escape).
 - **Intercambio:** hay que estar al lado del otro y mirándolo. Se arrastra un ítem del inventario a la ventana (o doble clic con el intercambio abierto), y OK cuando los dos están conformes.
 - **Comandos de chat:** `/invite Nombre`, `/party`, `/leave`, `/kick Nombre` (grupo); `/trade`; `/clan Nombre` (crear, príncipe con 30000 adena), `/join` (frente a un príncipe), `/pledge`, `/leaveclan`, `/banclan Nombre`, `/emblem` (sube un emblema de muestra); `/title [Nombre] Título`; `/who [Nombre]`; `/exclude Nombre` (bloquea o desbloquea; sin nombre, la lista); `/buddy`, `/addbuddy Nombre`, `/delbuddy Nombre` (amigos); `/chatparty`, `/chatoutparty`, `/chatbanish Nombre` (grupo de chat). Lo que no es un comando va al chat.
+- **Tienda de jugadores** (en las salas del mercado): clic en un vendedor (sentado, con el título encima) muestra lo que vende y lo que compra; clic en una línea pregunta cuántos. `/shop Título` arma la propia: clic en un ítem del inventario pide el precio; "Open" la abre y `/shop` otra vez la cierra.
 - **Grupo:** a la izquierda, a media altura, la lista de los otros miembros con su vida; el líder con "*".
 - **Nombres:** azul con alineamiento ≥ 500, rojo con ≤ −500; el título arriba y el emblema del clan a la izquierda.
 - **F1:** ayuda con todas las teclas.
@@ -170,6 +171,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--borrar=Nombre` | Elimina (basurero) el primer ítem cuyo nombre lo contenga; con `--cantidad=N`, N de la pila (si no, pregunta) |
 | `--usar-sobre=Pergamino@Ítem` | Usa el primer ítem cuyo nombre contenga "Pergamino" sobre el primero que contenga "Ítem" (identificar, encantar) |
 | `--reiniciar-atributos` | En el reinicio de atributos (Lolo + Candle of Reminiscence), reparte los puntos en orden, sube de nivel y termina solo |
+| `--tienda-propia=Ítem@precio@título` | A los 300 frames abre la tienda propia con el primer ítem cuyo nombre lo contenga (toda la pila) a ese precio. Con `--cantidad=N`, comprar o venderle a una tienda acepta N sin preguntar |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

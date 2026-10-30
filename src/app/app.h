@@ -78,6 +78,7 @@ struct Automatizacion {
     std::string mantener_sobre;  // --mantener-sobre=Nombre,N: como --mantener, sobre donde está ese objeto en el frame 300
     bool ctrl = false;  // --ctrl: Ctrl mantenido todo el tiempo (forzar ataque)
     std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
+    std::string tienda_propia;  // --tienda-propia=Ítem@precio@título: abre la tienda propia con ese ítem (tienda_ui.cpp)
     bool reiniciar_atributos = false;  // --reiniciar-atributos: recorre el reinicio solo (reinicio_ui.cpp)
     int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
     std::string destino;  // --destino: en el diálogo de teleport, el marcador con ese nombre ("Random": al azar)
@@ -119,6 +120,29 @@ enum class IdVentana : u8 { ESTADO, INVENTARIO, HECHIZOS, NPC, OPCIONES, SALIDA,
 struct Rect {
     int x, y, w, h;
 };
+// Tienda de jugadores (tienda_ui.cpp). Vendedores a la vista con su título; la tienda que se está
+// mirando (S_PrivateShop); y la propia: lo que se pone a la venta.
+struct Vendedor {
+    ObjId id = 0;
+    std::string titulo;
+};
+struct LineaTiendaVista {
+    u8 orden = 0, bendicion = 0;
+    u16 gfx = 0;
+    u32 cantidad = 0, precio = 0;
+    ObjId mi_item = 0;  // en "lo que compra": el ítem propio que se le vende
+    std::string nombre;
+};
+struct TiendaJugadores {
+    std::vector<Vendedor> vendedores;
+    ObjId vista = 0;   // la tienda abierta en pantalla (0 = ninguna)
+    u8 tipo = 0;       // 0 lo que vende, 1 lo que compra
+    std::vector<LineaTiendaVista> lineas;
+    bool armando = false, abierta = false;  // la propia
+    std::string titulo;
+    std::vector<cmd::LineaTienda> venta;
+};
+
 // Grupo (S_PacketBox 104–106; social_ui.cpp): los miembros con su vida (S_HpMeter) y el líder.
 struct MiembroGrupo {
     ObjId id = 0;
@@ -158,6 +182,7 @@ struct DialogoCantidad {
     bool abierto = false;
     bool dar = false;         // true: C_GiveItem del `item` a `objeto`; false: C_Amount a `objeto`
     bool borrar = false;      // true: C_DeleteInventoryItem del `item` (el basurero)
+    u8 tienda = 0;            // tienda de jugadores (tienda_ui.cpp): 1 comprar, 2 venderle, 3 precio al armar
     bool escribiendo = false; // ya se escribió un número (el siguiente se agrega en vez de reemplazar)
     ObjId objeto = 0, item = 0;
     i32 valor = 1, min = 1, max = 1, precio = 0;
@@ -331,6 +356,7 @@ struct App {
     ReinicioAtributos reinicio;
     std::vector<Mascota> mascotas;
     std::vector<MiembroGrupo> grupo;
+    TiendaJugadores tienda_pj;
     std::vector<std::string> bloqueados;  // C_Exclude: el servidor no le pasa sus mensajes
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
@@ -528,6 +554,15 @@ void dibujar_pregunta(App& a);  // antes del chat: Enter y Escape responden
 void dibujar_intercambio(App& a);
 void dibujar_social(App& a);
 void dibujar_grupo(App& a);
+// Tienda de jugadores (tienda_ui.cpp).
+void eventos_tienda(App& a, const Evento& e);
+void dibujar_tienda(App& a);
+bool sobre_tienda(const App& a);
+const Vendedor* vendedor(const App& a, ObjId id);
+void abrir_tienda_de(App& a, ObjId vendedor);           // al llegar junto al vendedor
+bool comando_tienda(App& a, std::string_view orden, std::string_view arg);
+bool clic_item_tienda(App& a, ObjId item);              // inventario: agregar a la propia mientras se arma
+void aceptar_cantidad_tienda(App& a);
 void procesar_social(App& a, u64 ahora);  // prueba automática
 Rect rect_social(const App& a);
 Rect rect_intercambio(const App& a);

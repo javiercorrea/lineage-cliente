@@ -202,8 +202,16 @@ bool caja(Lector& l, Evento& e) {
     }
     return true;
 }
-// S_DoActionGFX: d id, c acción
-bool accion(Lector& l, Evento& e) { e.tipo = Ev::ACCION_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
+// S_DoActionGFX: d id, c acción. S_DoActionShop (acción 70, tienda abierta): y el título.
+constexpr int ACC_TIENDA = 70;
+bool accion(Lector& l, Evento& e) {
+    e.tipo = Ev::ACCION_OBJETO;
+    e.id = l.d();
+    e.v[0] = l.c();
+    if (e.v[0] == ACC_TIENDA && l.quedan(1)) e.s[0] = l.s();
+    l.error = false;  // el título puede venir sin \0
+    return true;
+}
 // S_CharVisualUpdate: d id, c arma/estado
 bool visual(Lector& l, Evento& e) { e.tipo = Ev::CAMBIO_VISUAL; e.id = l.d(); e.v[0] = l.c(); return true; }
 
@@ -661,6 +669,7 @@ constexpr Decodificador TABLA[] = {
     bendicion_eva,  // BLESSOFEVA
     anillo,         // ABILITY
     sonido,         // SOUND
+    ignorar,        // PRIVATESHOPLIST (varios eventos: ver decodificar)
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -804,6 +813,38 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
             salida.push_back(b);
         }
         l.error = false;  // 110 y el resto de 106: posiciones que no se usan
+        return true;
+    }
+    if (e.origen == Srv::PRIVATESHOPLIST) {
+        // S_PrivateShop: c tipo, d vendedor, h n. Tipo 0 (vende): n × (c orden, c bendición, h gfx,
+        // d cantidad, d precio, s nombre, c 0). Tipo 1 (compra): por cada ítem propio que le sirve,
+        // c orden, d ítem propio, d cantidad, d precio.
+        Evento cab = e;
+        cab.tipo = Ev::TIENDA;
+        cab.v[TP_TIPO] = l.c();
+        cab.id = l.d();
+        const int n = l.h();
+        if (l.error) return false;
+        salida.push_back(cab);
+        for (int i = 0; l.quedan(1) && !l.error && (cab.v[TP_TIPO] == 1 || i < n); ++i) {
+            Evento li = e;
+            li.tipo = Ev::TIENDA_LINEA;
+            li.id = cab.id;
+            li.v[TP_ORDEN] = l.c();
+            if (cab.v[TP_TIPO] == 0) {
+                li.v[TP_BENDICION] = l.c();
+                li.v[TP_GFX] = l.h();
+                li.v[TP_CANTIDAD] = static_cast<i32>(l.d());
+                li.v[TP_PRECIO] = static_cast<i32>(l.d());
+                li.s[0] = l.s();
+                l.c();
+            } else {
+                li.v[TP_ITEM] = static_cast<i32>(l.d());
+                li.v[TP_CANTIDAD] = static_cast<i32>(l.d());
+                li.v[TP_PRECIO] = static_cast<i32>(l.d());
+            }
+            if (!l.error) salida.push_back(li);
+        }
         return true;
     }
     if (e.origen == Srv::RANGESKILLS) {
