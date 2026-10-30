@@ -16,9 +16,13 @@ constexpr u64 MS_DOBLE_CLIC = 400;
 constexpr int BASURA_X = GRILLA_X + COLUMNAS * CELDA - 22, BASURA_Y = GRILLA_Y + FILAS * CELDA + 2, BASURA_W = 20,
               BASURA_H = 18;  // el basurero, dentro de la ventana
 
-// Basurero dibujado con rectángulos (tapa, asa, cuerpo con ranuras); rojizo si un ítem está encima.
+// El basurero del original (1003; 1004 resaltado, con un ítem encima); si no está, con rectángulos.
 void dibujar_basurero(Graficos& g, int x, int y, bool encima) {
     const u64 k = clave_orden(CAPA_UI, 13);
+    if (const RegionAtlas& r = g.img(encima ? 1004 : 1003); r.valida()) {
+        g.gpu().dibujar(r, x + 3, y, k);
+        return;
+    }
     const u32 c = encima ? rgba(230, 110, 90) : rgba(170, 160, 140), oscuro = rgba(40, 32, 22, 255);
     g.gpu().rectangulo(x + 7, y, 6, 2, k, c);
     g.gpu().rectangulo(x + 1, y + 2, 18, 3, k, c);

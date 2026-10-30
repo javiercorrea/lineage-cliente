@@ -172,6 +172,7 @@ struct Correo {
     bool escribiendo = false, al_clan = false;
     std::string destino, asunto, cuerpo;
     int foco = 0;
+    int nuevas = 0;  // sin leer en la bandeja normal: el sobre de aviso
 };
 
 // Grupo (S_PacketBox 104–106; social_ui.cpp): los miembros con su vida (S_HpMeter) y el líder.

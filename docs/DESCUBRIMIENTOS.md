@@ -259,6 +259,11 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   sin objetivo (no tienen `range=` en `spells`); `S_RangeSkill` tipo 0. El sprite es uno solo: el
   original lo repite (4 tornados; la ventisca en toda la pantalla), según la clase de `spells`
   (`SpellTornado`, `SpellBlizzard`) y su `areaEffect`.
+- **Gráficos de la interfaz:** las `N.img` de `Sprite.pak` son 1444; no hay índice con nombres, así
+  que se buscan mirando hojas de miniaturas. Correo: papel 656 (y 577 con rótulos impresos), leída
+  657, cerrar 658, Read 660, Write 662, Delete 664, flechas 666 y 672–675, Cancel 578, Close 580,
+  Send 582 (otros colores de papel y botones más adelante); basurero 1003; botones del panel en
+  pares normal/resaltado (392–405, 1011–1018). No hay un ícono de "correo nuevo".
 - **Íconos de los buffs:** el servidor manda ícono solo para algunos (`S_SkillIconShield`,
   `S_SkillBrave`, `S_SkillHaste`, el aura de `S_PacketBox`, `S_Strup`/`S_Dexup`, `S_SkillIconGFX`).
   Para el resto, el original lleva el tiempo con la duración de `spells`; el cliente pone el ícono al
