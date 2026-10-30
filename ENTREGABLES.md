@@ -852,6 +852,15 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **De paso:** el basurero del inventario usa el del original (1003; 1004 resaltado con un ítem encima).
 - **Pendiente:** el texto de una línea (se muestra cortado en varias); sin acentos ni caracteres no ASCII; las flechas de página del original (666/667, 672–675) no se usan (se muestran 10 cartas).
 
+## Equipo del personaje
+
+![Equipo](docs/capturas/equipo.png)
+
+- **Pestañas en la ventana de estado** (Alt+C): "Status" (los atributos, como antes) y "Equipment" (`app/equipo_ui.cpp`), como el original, que los muestra en la misma ventana.
+- **La imagen del original:** 981 de `Sprite.pak` (179×275), encontrada en las hojas de miniaturas junto a la página de estado (982) y el marco (983/984): la silueta con un recuadro por parte del cuerpo y "Armor Class". En cada recuadro, el ícono de lo equipado: la parte sale del tipo de uso del ítem (1 arma, 2 armadura, 18 camiseta, 19 capa, 20 guantes, 21 botas, 22 casco, 24 collar, 25 escudo, 37 cinturón, 40 aro) y "equipado" del sufijo del nombre. Los anillos (23) no tienen recuadro: van más chicos en el espacio libre de abajo a la derecha. Con el puntero encima, el nombre y los atributos del ítem. La AC va en su campo. Sin la imagen, recuadros oscuros en el mismo lugar.
+- **Verificado** con Charla: casco, capa, camiseta, armadura, guantes, arco, botas y AC −13 en sus recuadros.
+- **Pendiente:** qué parte va en cada recuadro se dedujo de dónde cae sobre la silueta (casco en la cabeza, aro al costado, botas en los pies): conviene compararlo con el original; los talismanes y patrones (usos 43–48) no se muestran; la página "Status" sigue con el marco propio (la 982 del original queda para después).
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

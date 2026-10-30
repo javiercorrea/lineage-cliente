@@ -968,6 +968,10 @@ void dibujar_estado(App& a) {
     const Rect rv = rect_ventana(a, IdVentana::ESTADO);
     const int ESTADO_X = rv.x, ESTADO_Y = rv.y;
     if (ui::ventana(g, e, a.cfg.ui_simple, ESTADO_X, ESTADO_Y, "Status", opacidad_ventanas(a))) a.ventana_estado = false;
+    // Dos pestañas, como el original: los atributos y el equipo.
+    if (ui::boton_texto(g, e, "Status", ESTADO_X + 20, ESTADO_Y + ui::VENTANA_ALTO - 24, 96, 18)) a.pestana_estado = 0;
+    if (ui::boton_texto(g, e, "Equipment", ESTADO_X + 128, ESTADO_Y + ui::VENTANA_ALTO - 24, 96, 18)) a.pestana_estado = 1;
+    if (a.pestana_estado == 1) return dibujar_equipo(a, ESTADO_X, ESTADO_Y);
 
     const EstadoJugador& j = a.mundo.jugador;
     Slot s = a.mundo.objetos.buscar(j.id);

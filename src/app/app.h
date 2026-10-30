@@ -326,6 +326,7 @@ struct App {
     std::string chat_entrada;
     u32 chat_desplazamiento = 0;  // líneas hacia atrás desde la más reciente
     bool ventana_estado = false;
+    u8 pestana_estado = 0;  // 0 atributos, 1 equipo (equipo_ui.cpp)
     // Hechizos (Alt+S, F5–F12). Un hechizo con objetivo espera el clic en el objetivo
     // (hechizo_apuntando) y después se camina hasta tenerlo en alcance (hechizo_pendiente).
     bool ventana_hechizos = false;
@@ -588,6 +589,8 @@ void dibujar_pregunta(App& a);  // antes del chat: Enter y Escape responden
 void dibujar_intercambio(App& a);
 void dibujar_social(App& a);
 void dibujar_grupo(App& a);
+// Pestaña "Equipment" de la ventana de estado (equipo_ui.cpp), en la ventana de esquina (x, y).
+void dibujar_equipo(App& a, int x, int y);
 // Tienda de jugadores (tienda_ui.cpp).
 void eventos_tienda(App& a, const Evento& e);
 void dibujar_tienda(App& a);
