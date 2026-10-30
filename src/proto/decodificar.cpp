@@ -438,7 +438,31 @@ bool pedir_cantidad(Lector& l, Evento& e) {
 // S_PetCtrlMenu: c 0x0c, h ?, d 0 entra / 1 sale, d mascota y, si entra: h mapa, h 0, h x, h y,
 // s nombre. Con otro primer byte es S_CharReset (mismo número), que se ignora.
 bool mascota(Lector& l, Evento& e) {
-    if (l.c() != 0x0c) {
+    const u8 sub = l.c();
+    if (sub >= 1 && sub <= 3) {
+        // S_CharReset (mismo opcode): 1 h hp, h mp, c ac, c nivel máximo; 2 c nivel, c máximo, h hp,
+        // h mp, h ac, 6 × c atributo; 3 c puntos de elixir.
+        e.tipo = Ev::REINICIO;
+        e.v[RE_TIPO] = sub;
+        if (sub == 1) {
+            e.v[RE_HP] = l.h();
+            e.v[RE_MP] = l.h();
+            e.v[RE_AC] = l.c();
+            e.v[RE_MAX] = l.c();
+            e.v[RE_NIVEL] = 1;
+        } else if (sub == 2) {
+            e.v[RE_NIVEL] = l.c();
+            e.v[RE_MAX] = l.c();
+            e.v[RE_HP] = l.h();
+            e.v[RE_MP] = l.h();
+            e.v[RE_AC] = l.h();
+            for (int i = 0; i < 6; ++i) e.v[RE_FUE + i] = l.c();
+        } else {
+            e.v[RE_PUNTOS] = l.c();
+        }
+        return true;
+    }
+    if (sub != 0x0c) {
         e.tipo = Ev::IGNORADO;
         return true;
     }
@@ -505,6 +529,19 @@ bool fuerza_destreza(Lector& l, Evento& e) {
 }
 // S_PinkName: d id, d segundos (180 al atacar a otro jugador; 0 = terminó).
 bool nombre_rosa(Lector& l, Evento& e) { e.tipo = Ev::NOMBRE_ROSA; e.id = l.d(); e.v[0] = static_cast<i32>(l.d()); return true; }
+// S_Liquor: d id, c tipo (1 borracho: la pantalla se mece; 8 tercer acelerador, 600 s; 0 terminó).
+bool licor(Lector& l, Evento& e) { e.tipo = Ev::LICOR; e.id = l.d(); e.v[0] = l.c(); return true; }
+// S_SkillIconBlessOfEva: d id, h segundos (respirar bajo el agua).
+bool bendicion_eva(Lector& l, Evento& e) {
+    e.tipo = Ev::ICONO_EFECTO;
+    e.v[IE_CLASE] = IE_EVA;
+    e.v[IE_TIPO] = 0;
+    e.id = l.d();
+    e.v[IE_SEG] = l.h();
+    return true;
+}
+// S_Ability: c tipo (1 anillo de control de teletransporte, 5 de control de invocación), c puesto.
+bool anillo(Lector& l, Evento& e) { e.tipo = Ev::ANILLO; e.v[0] = l.c(); e.v[1] = l.c(); return true; }
 // S_HpMeter: d id, c HP en % (0xFF = ocultar la barra). En L1J-JP solo se manda para el grupo y
 // las mascotas; el % de los demás llega en S_CharPack.
 bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
@@ -618,6 +655,9 @@ constexpr Decodificador TABLA[] = {
     fuerza_destreza,  // STRUP
     fuerza_destreza,  // DEXUP
     nombre_rosa,    // PINKNAME
+    licor,          // LIQUOR
+    bendicion_eva,  // BLESSOFEVA
+    anillo,         // ABILITY
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

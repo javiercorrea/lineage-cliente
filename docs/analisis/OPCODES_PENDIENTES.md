@@ -12,12 +12,11 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 19 (18 números, más
-  `S_CharReset`, que comparte el 33 con `S_PetCtrlMenu`), además de subtipos de `S_PacketBox` (40)
-  y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 57. De los 34 restantes,
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 15, además de subtipos de
+  `S_PacketBox` (40) y de `S_SkillIconGFX`.
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 58. De los 33 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 32.
+  `C_Chat`, que el cliente ya usa. Faltan 31.
 
 ## Hecho
 
@@ -39,6 +38,10 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 - Portales del mapa del cliente: `C_EnterPortal` (249), con la lista del final del `.s32`.
 - Íconos de Enchant Mighty/Dexterity y Dress Mighty/Dexterity: `S_Strup` (120), `S_Dexup` (28).
 - Nombre rosa del PK: `S_PinkName` (252).
+- Borracho y tercer acelerador: `S_Liquor` (31). Bless of Eva: `S_SkillIconBlessOfEva` (12).
+  Anillos de control: `S_Ability` (116).
+- Reiniciar atributos (Candle of Reminiscence): `S_CharReset` (33, el mismo número que
+  `S_PetCtrlMenu`: subtipos 1–3), `C_CharReset` (236).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
@@ -52,9 +55,7 @@ encantar arma o armadura".
 
 ## 2. Avisos y efectos visuales
 
-- `S_Liquor` (31): efecto de borracho.
 - `S_Sound` (84): sonidos que dispara el servidor.
-- `S_BlessOfEva` (12): respirar bajo el agua. `S_Ability` (116): anillos.
 - `S_ChangeName` (81), `S_UseMap` (100): cambio de nombre, mapas del tesoro.
 - `S_SkillIconGFX`: el cliente dibuja 34 (poción azul) y 40 (Immune to Harm); faltan 15, 35, 36, 56 y 75.
 - `S_PacketBox` (40): el cliente usa peso (10), comida (11) y el aura (0x16). Faltan, de los que el
@@ -75,7 +76,6 @@ encantar arma o armadura".
   `S_Deposit` (203), `S_Drawal` (224), `S_HouseList` (24), `S_HouseMap` (44); `C_War` (235),
   `C_TaxRate` (200), `C_Deposit` (35), `C_Drawal` (192), `C_HireSoldier` (97), `C_ChangeWarTime` (4).
 - **Clan recomendado:** `S_PledgeRecommendation` (192), `C_PledgeRecommendation` (228).
-- **Reiniciar atributos (Candle of Reminiscence):** `S_CharReset` (33), `C_CharReset` (236).
 - **Varios:** `C_FishClick` (26, pesca), `C_Ship` (117), `C_Rank` (88), `C_ChatParty` (113),
   `C_CallPlayer` (144, GM).
 - **Opciones del original al servidor:** `C_LoginToServerOK` (75: chat global y susurros

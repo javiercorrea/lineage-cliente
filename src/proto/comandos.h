@@ -1,5 +1,6 @@
 // Paquetes cliente -> servidor. Se arman en un buffer reutilizable y se encolan al hilo de red.
 #pragma once
+#include <initializer_list>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -238,6 +239,15 @@ inline Escritor borrar_item(const TablaOpcodes& t, u32 item, u32 cantidad) {
 inline Escritor entrar_portal(const TablaOpcodes& t, u16 x, u16 y) {
     Escritor e(t, Cli::ENTERPORTAL);
     e.h(x).h(y);
+    return e;
+}
+// C_CharReset (reiniciar atributos): 1 + los 6 iniciales (fue, int, sab, des, con, car); 2 + paso
+// (0 sube un nivel, 7 diez, 1–6 un nivel y un punto en ese atributo, 8 + atributo termina);
+// 3 + los 6 finales (después de repartir los puntos de elixir).
+inline Escritor reinicio(const TablaOpcodes& t, u8 etapa, std::initializer_list<u8> datos) {
+    Escritor e(t, Cli::CHARRESET);
+    e.c(etapa);
+    for (u8 v : datos) e.c(v);
     return e;
 }
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.

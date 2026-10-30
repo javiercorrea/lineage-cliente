@@ -83,6 +83,51 @@ TEST_CASE("Decodificar: nivel de S_NPCPack y S_PinkName") {
     CHECK(ev[0].v[0] == 180);
 }
 
+TEST_CASE("Decodificar: S_CharReset (reiniciar atributos), S_Liquor, Bless of Eva y S_Ability") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    auto uno = [&](std::vector<u8> p) {
+        ev.clear();
+        REQUIRE(decodificar(p, t, arena, ev));
+        REQUIRE(ev.size() == 1);
+        return ev[0];
+    };
+    // Mismo opcode (33) que el menú de mascota: 1 empieza (mago: hp 12, mp 6, ac 10, nivel máximo 30).
+    Evento e = uno({33, 1, 12, 0, 6, 0, 10, 30});
+    CHECK(e.tipo == Ev::REINICIO);
+    CHECK(e.v[RE_TIPO] == 1);
+    CHECK(e.v[RE_HP] == 12);
+    CHECK(e.v[RE_MAX] == 30);
+    // 2: nivel 11 de 30, hp 80, mp 40, ac 9, atributos 8 18 18 7 12 12.
+    e = uno({33, 2, 11, 30, 80, 0, 40, 0, 9, 0, 8, 18, 18, 7, 12, 12});
+    CHECK(e.v[RE_NIVEL] == 11);
+    CHECK(e.v[RE_FUE + 1] == 18);  // inteligencia
+    CHECK(e.v[RE_FUE + 5] == 12);  // carisma
+    e = uno({33, 3, 4});
+    CHECK(e.v[RE_PUNTOS] == 4);
+    ev.clear();
+    std::vector<u8> otro = {33, 0x55, 1};  // ni mascota (0x0c) ni reinicio: ignorado
+    REQUIRE(decodificar(otro, t, arena, ev));
+    CHECK(ev.empty());
+    igual(cmd::reinicio(t, 1, {8, 18, 18, 7, 12, 12}), {236, 1, 8, 18, 18, 7, 12, 12});
+    igual(cmd::reinicio(t, 2, {8, 2}), {236, 2, 8, 2});
+    e = uno({31, 5, 0, 0, 0, 8});
+    CHECK(e.tipo == Ev::LICOR);
+    CHECK(e.v[0] == 8);
+    e = uno({12, 5, 0, 0, 0, 0x58, 0x02});
+    CHECK(e.v[IE_CLASE] == IE_EVA);
+    CHECK(e.v[IE_SEG] == 600);
+    e = uno({116, 1, 1, 2, 0, 0});
+    CHECK(e.tipo == Ev::ANILLO);
+    CHECK(e.v[1] == 1);
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);
@@ -382,9 +427,9 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     e = uno({33, 0x0c, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0});
     CHECK(e.v[MA_AGREGAR] == 0);
     ev.clear();
-    std::vector<u8> reinicio = {33, 0x01, 0, 0};
+    std::vector<u8> reinicio = {33, 0x01, 12, 0, 6, 0, 10, 30};
     REQUIRE(decodificar(reinicio, t, arena, ev));
-    CHECK(ev.empty());  // S_CharReset (mismo número): ignorado
+    CHECK(ev[0].tipo == Ev::REINICIO);  // S_CharReset (mismo número): no es la mascota
     e = uno({177, 5, 0, 0, 0, 0, 0, 2});
     CHECK(e.tipo == Ev::ELEGIR_OBJETIVO_MASCOTA);
     CHECK(e.id == 5);

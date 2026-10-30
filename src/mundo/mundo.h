@@ -45,7 +45,8 @@ using TablaObjetos = TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u
 // EA_FUERZA / EA_DESTREZA: S_Strup / S_Dexup (tipo 5 Enchant Mighty/Dexterity, 2 Dress, otro: poción).
 // EA_HECHIZO: lo registra el cliente (tipo = id del hechizo), para los buffs sobre el arma o la
 // armadura, de los que el servidor no manda ícono.
-enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_HECHIZO };
+// EA_TERCERA: tercer acelerador (S_Liquor 8); EA_EVA: Bless of Eva (respirar bajo el agua).
+enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_HECHIZO, EA_TERCERA, EA_EVA };
 struct EfectoActivo {
     u8 clase, tipo;
     u64 fin;  // ms
@@ -66,6 +67,9 @@ struct EstadoJugador {
     u8 hechizos[FILAS_HECHIZOS] = {};  // S_AddSkill: fila = nivel, bit c = hechizo fila*8+c+1
     u8 haste = 0;  // 0 normal, 1 rápido, 2 lento (S_SkillHaste)
     u8 brave = 0;  // 0 nada, 1 poción, 3 waffle, 4 caminar rápido, 6 bloodlust (S_SkillBrave)
+    bool tercera = false;  // tercer acelerador (S_Liquor 8): todo × 0,87, como la waffle
+    bool borracho = false; // S_Liquor 1: la pantalla se mece
+    u8 anillos = 0;        // S_Ability: bit 1 control de teletransporte, bit 5 control de invocación
     u8 inmovil = 0;   // S_Paralysis: el que empezó (PARALISIS_*), 0 = puede moverse y actuar
     u8 ceguera = 0;   // S_CurseBlind: 0 ve, 1 ciego, 2 ciego con Floating Eye
     EfectoActivo efectos[MAX_EFECTOS_ACTIVOS];

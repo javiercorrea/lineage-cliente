@@ -19,7 +19,7 @@ enum class Ev : u8 {
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
-    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA,
+    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO,
     IGNORADO,
 };
 
@@ -74,7 +74,11 @@ enum : int { VE_HASTE, VE_BRAVE };
 // ICONO_EFECTO (S_SkillIconShield, S_SkillIconAura, S_SkillIconGFX): clase, tipo y segundos
 // (0 = se terminó).
 enum : int { IE_CLASE, IE_TIPO, IE_SEG };
-enum : int { IE_ESCUDO, IE_AURA, IE_ICONO, IE_FUERZA, IE_DESTREZA };
+// REINICIO (S_CharReset, reiniciar atributos con la Candle of Reminiscence): RE_TIPO 1 empieza
+// (RE_HP, RE_MP, RE_AC, RE_MAX), 2 estado tras cada paso (RE_NIVEL, RE_MAX, RE_HP, RE_MP, RE_AC y los
+// 6 atributos desde RE_FUE: fue, int, sab, des, con, car), 3 faltan puntos de elixir (RE_PUNTOS).
+enum : int { RE_TIPO, RE_NIVEL, RE_MAX, RE_HP, RE_MP, RE_AC, RE_FUE, RE_PUNTOS = RE_FUE + 6 };
+enum : int { IE_ESCUDO, IE_AURA, IE_ICONO, IE_FUERZA, IE_DESTREZA, IE_EVA };
 // CAMBIO_FORMA (S_ChangeShape; id = objeto): gfx nuevo y si conserva el arma (0 = se la sacó).
 enum : int { CF_GFX, CF_ARMA };
 // HTML (S_NPCTalkReturn / S_ShowHTML; id = objeto que la muestra): s[0] = id de la página

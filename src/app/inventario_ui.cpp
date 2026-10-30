@@ -57,6 +57,10 @@ bool se_usa_sobre_item(u8 uso) { return uso == 7 || uso == 14 || uso == 26 || us
 
 void usar_item(App& a, ObjId item) {
     Slot s = a.mundo.inventario.items.buscar(item);
+    if (s != SIN_SLOT) {
+        a.gfx_item_usado = a.mundo.inventario.items.col<I_GFX>()[s];
+        a.t_item_usado = a.entrada.ahora_ms;
+    }
     if (s != SIN_SLOT && se_usa_sobre_item(a.mundo.inventario.items.col<I_USO>()[s])) {
         a.usar_sobre = item;  // el próximo clic en el inventario elige el objetivo
         a.ventana_inventario = true;

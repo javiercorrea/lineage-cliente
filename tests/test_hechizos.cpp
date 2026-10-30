@@ -171,6 +171,11 @@ TEST_CASE("Hechizos: intervalos propios con haste y brave") {
     CHECK(paso < 400);
     j.brave = 4;  // caminar rápido: solo al caminar
     CHECK(intervalo_propio(j, Intervalo::ATACAR, 800) == 630);
+    {
+        EstadoJugador k;
+        k.tercera = true;  // tercer acelerador (S_Liquor 8): × 0,87
+        CHECK(factor_intervalo(k, Intervalo::ATACAR) == doctest::Approx(0.87));
+    }
     j.haste = 2;  // lento
     CHECK(intervalo_propio(j, Intervalo::ATACAR, 750) == 1050);
 }

@@ -59,6 +59,7 @@ double factor_intervalo(const EstadoJugador& j, Intervalo t) {
     if (j.brave == 3) f *= 0.87;
     if (t == Intervalo::CAMINAR && j.brave == 4) f *= 0.75;
     if (t == Intervalo::ATACAR && j.brave == 6) f *= 0.75 * 0.87;
+    if (j.tercera) f *= 0.87;
     return f;
 }
 
@@ -166,6 +167,21 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_NOMBRE>()[s] = guardar_texto(m, e.s[0]);
             o.col<O_TITULO>()[s] = guardar_texto(m, e.s[1]);
             o.col<O_NIVEL>()[s] = static_cast<u8>(e.v[OB_NIVEL]);
+            break;
+        }
+        case Ev::LICOR: {
+            if (e.id != m.jugador.id) break;
+            EstadoJugador& j = m.jugador;
+            if (e.v[0] == 8 || e.v[0] == 0) j.tercera = e.v[0] == 8;
+            if (e.v[0] == 1 || e.v[0] == 0) j.borracho = e.v[0] == 1;
+            // El servidor no manda el tiempo del tercer acelerador: son 600 s (L1BuffUtil).
+            if (e.v[0] == 8) poner_efecto_activo(j, EA_TERCERA, 0, 600, ahora);
+            if (e.v[0] == 0) poner_efecto_activo(j, EA_TERCERA, 0, 0, ahora);
+            break;
+        }
+        case Ev::ANILLO: {
+            const u8 bit = static_cast<u8>(1u << (e.v[0] & 7));
+            m.jugador.anillos = static_cast<u8>(e.v[1] ? m.jugador.anillos | bit : m.jugador.anillos & ~bit);
             break;
         }
         case Ev::NOMBRE_ROSA: {
@@ -305,7 +321,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             break;
         }
         case Ev::ICONO_EFECTO: {
-            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA};
+            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_EVA};
             poner_efecto_activo(m.jugador, CLASES[e.v[IE_CLASE]], static_cast<u8>(e.v[IE_TIPO]), e.v[IE_SEG], ahora);
             break;
         }

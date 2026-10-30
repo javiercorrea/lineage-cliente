@@ -168,6 +168,7 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 | `--ctrl` | Ctrl mantenido todo el tiempo (forzar ataque) |
 | `--borrar=Nombre` | Elimina (basurero) el primer ítem cuyo nombre lo contenga; con `--cantidad=N`, N de la pila (si no, pregunta) |
 | `--usar-sobre=Pergamino@Ítem` | Usa el primer ítem cuyo nombre contenga "Pergamino" sobre el primero que contenga "Ítem" (identificar, encantar) |
+| `--reiniciar-atributos` | En el reinicio de atributos (Lolo + Candle of Reminiscence), reparte los puntos en orden, sube de nivel y termina solo |
 | `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
 | `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
 | `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |

@@ -206,4 +206,7 @@ void frame_crear(App& a) {
         if (ev.tipo == Ev::RESULTADO_CREAR && ev.v[0] != 2) a.aviso = motivo_crear(ev.v[0]);
 }
 
+const u8* stats_base_clase(int clase) { return BASE[std::clamp(clase, 0, 6)]; }
+int bonus_clase(int clase) { return BONUS[std::clamp(clase, 0, 6)]; }
+
 }  // namespace lin

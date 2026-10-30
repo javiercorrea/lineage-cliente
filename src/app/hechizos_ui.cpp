@@ -183,6 +183,14 @@ static void dibujar_area(App& a, const Evento& e) {
 }
 
 void eventos_hechizos(App& a, const Evento& e) {
+    // Pociones de FUE/DES (Flora...): S_Strup/S_Dexup con el aumento en el lugar del tipo; el
+    // ícono es el de la poción recién usada.
+    if (e.tipo == Ev::ICONO_EFECTO && (e.v[IE_CLASE] == IE_FUERZA || e.v[IE_CLASE] == IE_DESTREZA) && e.v[IE_SEG] > 0 &&
+        e.v[IE_TIPO] != 5 && e.v[IE_TIPO] != 2) {
+        const u16 icono = a.entrada.ahora_ms - a.t_item_usado < 3000 ? a.gfx_item_usado : 0;
+        (e.v[IE_CLASE] == IE_FUERZA ? a.icono_fuerza : a.icono_destreza) = icono;
+        return;
+    }
     if (e.tipo == Ev::EFECTO && e.v[EF_AREA]) {
         dibujar_area(a, e);
         return;
@@ -555,17 +563,19 @@ struct EfectoDeItem {
     u16 icono;
     std::string_view nombre;
 };
-static EfectoDeItem item_de_efecto(const EfectoActivo& ef) {
+static EfectoDeItem item_de_efecto(const App& a, const EfectoActivo& ef) {
     if (ef.clase == EA_BRAVE && ef.tipo == 1) return {79, "Brave Potion"};
     if (ef.clase == EA_BRAVE && ef.tipo == 3) return {130, "Elven Waffle"};
     if (ef.clase == EA_ICONO && ef.tipo == 34) return {75, "Blue Potion"};
-    if (ef.clase == EA_FUERZA && ef.tipo != 5 && ef.tipo != 2) return {0, "STR"};  // pociones
-    if (ef.clase == EA_DESTREZA && ef.tipo != 5 && ef.tipo != 2) return {0, "DEX"};
+    if (ef.clase == EA_FUERZA && ef.tipo != 5 && ef.tipo != 2) return {a.icono_fuerza, "STR potion"};  // pociones
+    if (ef.clase == EA_DESTREZA && ef.tipo != 5 && ef.tipo != 2) return {a.icono_destreza, "DEX potion"};
+    if (ef.clase == EA_TERCERA) return {0, "Third Speed"};
+    if (ef.clase == EA_EVA) return {0, "Bless of Eva"};
     return {0, {}};
 }
 
 size_t nombre_efecto_activo(const App& a, const EfectoActivo& ef, char* buf, size_t cap) {
-    std::string_view n = item_de_efecto(ef).nombre;
+    std::string_view n = item_de_efecto(a, ef).nombre;
     if (n.empty()) n = a.hechizos[hechizo_de_efecto(ef)].nombre;
     if (n.empty()) n = "?";
     size_t m = std::min(n.size(), cap - 1);
@@ -597,7 +607,7 @@ void dibujar_efectos_activos(App& a, u64 ahora) {
         if (repetido(ef)) continue;
         const int x = x0 + static_cast<int>(n++) * PASO;
         const u64 resta = ef.fin > ahora ? (ef.fin - ahora + 999) / 1000 : 0;
-        u32 icono = item_de_efecto(ef).icono;
+        u32 icono = item_de_efecto(a, ef).icono;
         if (!icono) icono = a.hechizos[hechizo_de_efecto(ef)].icono;
         const RegionAtlas& r = icono ? g.icono(icono) : RegionAtlas{};
         // A punto de terminar (menos de 10 s), parpadea.

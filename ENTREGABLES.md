@@ -806,6 +806,19 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Monstruos según su nivel:** `S_NPCPack` trae el nivel del monstruo (el segundo byte después del HP; en los personajes es 0). El nombre va blanco si es mucho más bajo que el jugador (≤ −10), verde si es parecido, amarillo si es algo más alto (≥ +5) y rojo si es mucho más alto (≥ +10) (`nivel_relativo`, `DIF_*` en `mundo/mundo.h`). Los NPC siguen en celeste. **Verificado** con Aprendiz (nivel 30): Rock Golem (5) blanco, Scorpion (26) verde, Elekkadom (35) amarillo, Jack-O-Lantern (45) rojo.
 - **Pendiente:** los umbrales son aproximados (como lo recordaba el usuario; no están en los datos); los jefes no se distinguen: el paquete no dice si un monstruo es jefe.
 
+## Pociones de FUE y DES, otros efectos y reiniciar atributos
+
+![Reiniciar atributos](docs/capturas/reiniciar_atributos.png) ![Poción de FUE](docs/capturas/pocion_fue.png)
+
+- **Pociones de FUE y DES** (Flora, estímulo, talento): llegan como `S_Strup`/`S_Dexup` con el aumento en el lugar del tipo (6), así que no se distinguen de las magias por el paquete; el ícono es el del ítem recién usado. **Verificado** con Aprendiz y la poción 40922: `S_Strup` 300 s y el ícono de la poción (5m).
+- **`S_Liquor`:** 1 borracho (la pantalla se mece hasta el 0), 8 tercer acelerador: todas las acciones × 0,87 (como en el `AcceleratorChecker` del servidor) y su efecto en la barra (600 s; el paquete no trae el tiempo). **`S_SkillIconBlessOfEva`:** respirar bajo el agua, con su tiempo. **`S_Ability`:** anillos de control de teletransporte e invocación; se guardan (el cliente ya pregunta el destino del teleport y la invocación llega como página del servidor).
+- **Reiniciar atributos** (`app/reinicio_ui.cpp`; `S_CharReset` comparte el número 33 con el menú de mascota: subtipos 1–3): con la Candle of Reminiscence se habla con Lolo (Gludio, acción "ent"); el servidor lleva al personaje al mapa 997 y abre la ventana:
+  1. los 75 puntos iniciales como al crear el personaje (el servidor no los valida: cada atributo entre la base y base + bonus de la clase, y la suma 75; las tablas de `pantalla_crear.cpp`);
+  2. subir de nivel: de a 1 o de a 10 hasta el 50; desde ahí cada nivel suma un punto en un atributo elegido; el último nivel termina (`C_CharReset` 2, 8 + atributo);
+  3. si hay elixires, repartir esos puntos (`S_CharReset` 3, `C_CharReset` 3).
+  **Verificado** con Aprendiz (maga, nivel 30) y `--reiniciar-atributos`: `S_CharReset` 1 (12/6/10/30), los atributos iniciales, 2 × 10 niveles y 9 × 1 con su `S_CharReset` 2, el fin, la vela consumida y de vuelta en Gludio con nivel 30. Después se restauró su fila de la base.
+- **Pendiente:** el reparto de los elixires no se probó (Aprendiz no tiene); el original muestra la ventana con imágenes propias, esta es una ventana de texto.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

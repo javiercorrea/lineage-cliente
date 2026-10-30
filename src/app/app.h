@@ -78,6 +78,7 @@ struct Automatizacion {
     std::string mantener_sobre;  // --mantener-sobre=Nombre,N: como --mantener, sobre donde está ese objeto en el frame 300
     bool ctrl = false;  // --ctrl: Ctrl mantenido todo el tiempo (forzar ataque)
     std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
+    bool reiniciar_atributos = false;  // --reiniciar-atributos: recorre el reinicio solo (reinicio_ui.cpp)
     int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
     std::string destino;  // --destino: en el diálogo de teleport, el marcador con ese nombre ("Random": al azar)
     size_t pulsadas = 0;
@@ -134,6 +135,14 @@ struct ElegirDestino {
     bool abierto = false;
     ObjId item = 0;   // pergamino de teleport, o 0 si es el hechizo
     u32 hechizo = 0;  // Teleport o Mass Teleport
+};
+
+// Reiniciar atributos (reinicio_ui.cpp): S_CharReset / C_CharReset, con la Candle of Reminiscence.
+struct ReinicioAtributos {
+    enum Fase : u8 { CERRADO, INICIAL, SUBIR, ELIXIR } fase = CERRADO;
+    int nivel = 1, maximo = 1, hp = 0, mp = 0, ac = 0, puntos = 0;
+    u8 stats[6] = {};  // fue, int, sab, des, con, car (el orden de C_CharReset)
+    u8 extra[6] = {};  // lo que se va sumando en la fase inicial o con los elixires
 };
 
 // Diálogo de cantidad (cantidad_ui.cpp): S_InputAmount del servidor, o cuántos dar de una pila.
@@ -267,6 +276,9 @@ struct App {
     u64 hechizo_lanzado_ms = 0, hechizo_listo_ms = 0;
     u32 buff_de_item = 0;  // buff sobre el arma o la armadura recién lanzado: su ícono llega con el mensaje 161
     u32 buff_propio = 0;   // buff recién lanzado sobre sí mismo: su ícono, al ver su gráfico sobre el personaje
+    u16 gfx_item_usado = 0;  // ícono del último ítem usado y cuándo: el de las pociones de FUE/DES
+    u64 t_item_usado = 0;
+    u16 icono_fuerza = 0, icono_destreza = 0;  // el de la poción que dio el efecto activo
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12
@@ -308,6 +320,7 @@ struct App {
     bool ventana_sobre_otra = false;
     bool escribiendo_chat = false;
     DialogoCantidad cantidad;
+    ReinicioAtributos reinicio;
     std::vector<Mascota> mascotas;
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
@@ -469,6 +482,12 @@ void eventos_social(App& a, const Evento& e);
 
 // Diálogo de cantidad y dar ítems (cantidad_ui.cpp).
 void eventos_cantidad(App& a, const Evento& e);
+// Reiniciar atributos (reinicio_ui.cpp).
+void eventos_reinicio(App& a, const Evento& e);
+void dibujar_reinicio(App& a);
+// Atributos base de cada clase (pantalla_crear.cpp): fue, des, con, sab, car, int; y sus puntos libres.
+const u8* stats_base_clase(int clase);
+int bonus_clase(int clase);
 // Dar un ítem del inventario a un NPC o una mascota; de una pila, pregunta cuántos.
 void dar_item(App& a, ObjId objetivo, ObjId item);
 void dibujar_cantidad(App& a);

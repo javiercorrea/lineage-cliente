@@ -244,6 +244,13 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
   manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
   segundos, la estadística, en FUE el peso, c tipo).
+- **Pociones de FUE/DES:** `S_Strup`/`S_Dexup` llevan en el campo "tipo" el aumento de la poción
+  (6), y 5 o 2 para las magias de mago y de elfo: el cliente no sabe qué poción fue más que por el
+  ítem recién usado.
+- **Opcode 33:** `S_PetCtrlMenu` (primer byte 0x0c) y `S_CharReset` (1, 2 o 3); al entrar llegan otros
+  paquetes con ese número y otro primer byte (0x04, 0x42, 0x43, 0x2a) que se ignoran.
+- **Reiniciar atributos:** el servidor no valida los atributos iniciales de `C_CharReset` 1 (los asigna
+  tal cual): el cliente aplica las reglas de la creación.
 - **Nivel en `S_CharPack`:** `S_NPCPack` manda el nivel del monstruo en el segundo byte después del
   HP (`S_OtherCharPacks` manda 0); de ahí sale el color del nombre según la diferencia con el jugador.
 - **Nombre rosa:** `S_PinkName` solo se manda si los dos son legales (lawful ≥ 0), ninguno ya rosa,
