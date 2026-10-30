@@ -159,6 +159,7 @@ bool comando_social(App& a, std::string_view linea) {
     while (!arg.empty() && arg.front() == ' ') arg.remove_prefix(1);
     if (comando_marcador(a, orden, arg)) return true;
     if (comando_tienda(a, orden, arg)) return true;
+    if (comando_correo(a, orden)) return true;
     if (igual_sin_mayusculas(orden, "pk")) {  // modo PK (del cliente): atacar jugadores con un clic
         a.modo_pk = !a.modo_pk;
         aviso(a, a.modo_pk ? "PK mode ON: clicking another player attacks them. /pk to turn it off."

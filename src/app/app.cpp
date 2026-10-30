@@ -276,6 +276,8 @@ void procesar_red(App& a) {
         eventos_npc(a, e);
         eventos_social(a, e);
         eventos_tienda(a, e);
+        eventos_tablon(a, e);
+        eventos_correo(a, e);
         if (e.tipo == Ev::SONIDO) a.audio.efecto(static_cast<u32>(e.v[0]), 1.0f, a.entrada.ahora_ms);  // S_Sound
         eventos_cantidad(a, e);
         eventos_reinicio(a, e);

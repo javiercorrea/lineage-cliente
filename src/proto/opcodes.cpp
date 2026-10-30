@@ -39,6 +39,7 @@ constexpr ParSrv JP363_SRV[] = {
     {57, Srv::INVIS},         {227, Srv::RESURRECTION},  {120, Srv::STRUP},        {28, Srv::DEXUP},
     {252, Srv::PINKNAME},     {31, Srv::LIQUOR},         {12, Srv::BLESSOFEVA},    {116, Srv::ABILITY},
     {84, Srv::SOUND},         {190, Srv::PRIVATESHOPLIST},
+    {64, Srv::BOARD},         {56, Srv::BOARDREAD},      {1, Srv::MAIL},
     // SKILLICONGFX y SKILLICONAURA usan el número de PACKETBOX (40): son subtipos de esa caja.
 };
 constexpr ParCli JP363_CLI[] = {
@@ -60,6 +61,8 @@ constexpr ParCli JP363_CLI[] = {
     {Cli::ENTERPORTAL, 249},  {Cli::CHARRESET, 236},    {Cli::EXCLUDE, 101},      {Cli::BUDDYLIST, 60},
     {Cli::ADDBUDDY, 99},      {Cli::DELETEBUDDY, 211},  {Cli::CHATPARTY, 113},
     {Cli::SHOP, 16},          {Cli::SHOPLIST, 193},
+    {Cli::BOARD, 73},         {Cli::BOARDREAD, 59},     {Cli::BOARDNEXT, 221},    {Cli::BOARDWRITE, 14},
+    {Cli::BOARDDELETE, 12},   {Cli::MAIL, 22},
 };
 
 const char* NOMBRES[] = {
@@ -73,7 +76,7 @@ const char* NOMBRES[] = {
     "SKILLBRAVE", "SKILLICONSHIELD", "RANGESKILLS", "POLY", "SHOWHTML", "SHOWSHOPBUYLIST",
     "SHOWSHOPSELLLIST", "SHOWRETRIEVELIST", "YES_NO", "TRADE", "TRADEADDITEM", "TRADESTATUS", "EMBLEM", "SKILLBUY",
     "DOOR", "PARALYSIS", "POISON", "CURSEBLIND", "INPUTAMOUNT", "PETCTRL", "SELECTTARGET", "TRUETARGET",
-    "BOOKMARKS", "SELECTLIST", "IDENTIFYDESC", "INVIS", "RESURRECTION", "STRUP", "DEXUP", "PINKNAME", "LIQUOR", "BLESSOFEVA", "ABILITY", "SOUND", "PRIVATESHOPLIST",
+    "BOOKMARKS", "SELECTLIST", "IDENTIFYDESC", "INVIS", "RESURRECTION", "STRUP", "DEXUP", "PINKNAME", "LIQUOR", "BLESSOFEVA", "ABILITY", "SOUND", "PRIVATESHOPLIST", "BOARD", "BOARDREAD", "MAIL",
 };
 static_assert(sizeof(NOMBRES) / sizeof(NOMBRES[0]) == static_cast<size_t>(Srv::CANTIDAD));
 

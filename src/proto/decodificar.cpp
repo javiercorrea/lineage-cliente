@@ -552,6 +552,53 @@ bool bendicion_eva(Lector& l, Evento& e) {
 bool anillo(Lector& l, Evento& e) { e.tipo = Ev::ANILLO; e.v[0] = l.c(); e.v[1] = l.c(); return true; }
 // S_Sound: c repetir, h sonido (sound/<n>.wav).
 bool sonido(Lector& l, Evento& e) { e.tipo = Ev::SONIDO; l.c(); e.v[0] = l.h(); return true; }
+// Texto UTF-16LE terminado en 0 0 (el correo) a la arena, en ASCII: lo demás queda como '?'.
+std::string_view texto_utf16(Lector& l) {
+    char buf[1024];
+    size_t n = 0;
+    while (l.quedan(2)) {
+        const u16 c = l.h();
+        if (c == 0) break;
+        if (n < sizeof buf) buf[n++] = c == '\r' ? ' ' : c < 0x80 ? static_cast<char>(c) : '?';
+    }
+    return l.arena->copiar({buf, n});
+}
+// S_BoardRead: d tema, s autor, s título, s fecha, s texto.
+bool tablon_leer(Lector& l, Evento& e) {
+    e.tipo = Ev::TABLON_LEER;
+    e.id = l.d();
+    const std::string_view autor = l.s(), titulo = l.s(), fecha = l.s();
+    e.s[1] = l.s();
+    char buf[256];
+    const int m = std::snprintf(buf, sizeof buf, "%.*s  %.*s  %.*s", static_cast<int>(autor.size()), autor.data(),
+                                static_cast<int>(fecha.size()), fecha.data(), static_cast<int>(titulo.size()), titulo.data());
+    e.s[0] = l.arena->copiar({buf, static_cast<size_t>(std::clamp(m, 0, static_cast<int>(sizeof buf) - 1))});
+    return true;
+}
+// S_Mail (salvo las listas, en decodificar): c tipo y según el tipo: 0x10–0x12 d carta + texto
+// UTF-16; 0x20/0x21 c entregada; 0x30–0x32 y 0x40 d carta, c 1; 0x50 d carta, c copia propia, s
+// remitente, asunto UTF-16.
+bool correo(Lector& l, Evento& e) {
+    e.tipo = Ev::CORREO;
+    const int t = l.c();
+    e.v[CO_TIPO] = t;
+    if (t >= 0x10 && t <= 0x12) {
+        e.id = l.d();
+        e.s[1] = texto_utf16(l);
+    } else if (t == 0x20 || t == 0x21) {
+        e.v[CO_OK] = l.c();
+    } else if ((t >= 0x30 && t <= 0x32) || t == 0x40 || t == 0x41) {
+        e.id = l.d();
+    } else if (t == 0x50) {
+        e.id = l.d();
+        e.v[CO_ENVIADA] = l.c();
+        e.s[0] = l.s();
+        e.s[1] = texto_utf16(l);
+    } else {
+        e.tipo = Ev::IGNORADO;
+    }
+    return true;
+}
 // S_HpMeter: d id, c HP en % (0xFF = ocultar la barra). En L1J-JP solo se manda para el grupo y
 // las mascotas; el % de los demás llega en S_CharPack.
 bool hp_objeto(Lector& l, Evento& e) { e.tipo = Ev::HP_OBJETO; e.id = l.d(); e.v[0] = l.c(); return true; }
@@ -670,6 +717,9 @@ constexpr Decodificador TABLA[] = {
     anillo,         // ABILITY
     sonido,         // SOUND
     ignorar,        // PRIVATESHOPLIST (varios eventos: ver decodificar)
+    ignorar,        // BOARD (varios eventos: ver decodificar)
+    tablon_leer,    // BOARDREAD
+    correo,         // MAIL (las listas, en decodificar)
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -813,6 +863,57 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
             salida.push_back(b);
         }
         l.error = false;  // 110 y el resto de 106: posiciones que no se usan
+        return true;
+    }
+    if (e.origen == Srv::BOARD) {
+        // S_Board: c 0, d tablón, d número (0x7FFFFFFF en la primera página, que trae además c 0,
+        // h 300: el costo de escribir), c n, n × (d tema, s autor, s fecha, s título).
+        l.c();
+        Evento cab = e;
+        cab.tipo = Ev::TABLON;
+        cab.id = l.d();
+        const u32 numero = l.d();
+        const int n = l.c();
+        if (numero == 0x7FFFFFFF) {
+            l.c();
+            l.h();
+        }
+        if (l.error) return false;
+        salida.push_back(cab);
+        for (int i = 0; i < n && !l.error; ++i) {
+            Evento t = e;
+            t.tipo = Ev::TABLON_TEMA;
+            t.id = l.d();
+            const std::string_view autor = l.s(), fecha = l.s();
+            t.s[1] = l.s();
+            char buf[160];
+            const int m = std::snprintf(buf, sizeof buf, "%.*s  %.*s", static_cast<int>(autor.size()), autor.data(),
+                                        static_cast<int>(fecha.size()), fecha.data());
+            t.s[0] = arena.copiar({buf, static_cast<size_t>(std::clamp(m, 0, static_cast<int>(sizeof buf) - 1))});
+            if (!l.error) salida.push_back(t);
+        }
+        return true;
+    }
+    if (e.origen == Srv::MAIL && l.quedan(1) && l.datos[0] <= 2) {
+        // S_Mail lista (tipo 0 normal, 1 clan, 2 guardadas): c tipo, h n, n × (d carta, c leída,
+        // d fecha, c 1 si la mandó uno, s el otro, asunto en UTF-16 terminado en 0 0).
+        Evento cab = e;
+        cab.tipo = Ev::CORREO;
+        cab.v[CO_TIPO] = l.c();
+        const int n = l.h();
+        if (l.error) return false;
+        salida.push_back(cab);
+        for (int i = 0; i < n && !l.error; ++i) {
+            Evento c = cab;
+            c.v[CO_LISTA] = 1;
+            c.id = l.d();
+            c.v[CO_LEIDA] = l.c();
+            c.v[CO_FECHA] = static_cast<i32>(l.d());
+            c.v[CO_ENVIADA] = l.c();
+            c.s[0] = l.s();
+            c.s[1] = texto_utf16(l);
+            if (!l.error) salida.push_back(c);
+        }
         return true;
     }
     if (e.origen == Srv::PRIVATESHOPLIST) {

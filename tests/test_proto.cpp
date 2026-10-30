@@ -233,6 +233,65 @@ TEST_CASE("Tienda de jugadores: S_DoActionShop, S_PrivateShop y comandos") {
     igual(cmd::vender_a_tienda(t, 5, 9, 2, 3), {40, 5, 0, 0, 0, 1, 1, 0, 9, 0, 0, 0, 2, 0, 0, 3});
 }
 
+TEST_CASE("Tablón y correo: S_Board, S_BoardRead, S_Mail y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(2048);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // Primera página: c 0, d tablón 7, d 0x7FFFFFFF, c 1, c 0, h 300, (d 3, "Ana", "1/2", "Hola").
+    std::vector<u8> pag = {64, 0, 7, 0, 0, 0, 0xff, 0xff, 0xff, 0x7f, 1, 0, 0x2c, 1,
+                           3, 0, 0, 0, 'A', 'n', 'a', 0, '1', '/', '2', 0, 'H', 'o', 'l', 'a', 0};
+    REQUIRE(decodificar(pag, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::TABLON);
+    CHECK(ev[0].id == 7);
+    CHECK(ev[1].id == 3);
+    CHECK(ev[1].s[0] == "Ana  1/2");
+    CHECK(ev[1].s[1] == "Hola");
+    // Página siguiente: sin c 0, h 300.
+    ev.clear();
+    std::vector<u8> sig = {64, 0, 7, 0, 0, 0, 3, 0, 0, 0, 1, 2, 0, 0, 0, 'B', 0, 'd', 0, 'T', 0};
+    REQUIRE(decodificar(sig, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].id == 2);
+    ev.clear();
+    std::vector<u8> leer = {56, 3, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 'o', 'l', 'a', 0, '1', '/', '2', 0, 'x', 'y', 0};
+    REQUIRE(decodificar(leer, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::TABLON_LEER);
+    CHECK(ev[0].s[0] == "Ana  1/2  Hola");
+    CHECK(ev[0].s[1] == "xy");
+    // S_Mail lista: tipo 0, una carta (d 9, leída 0, fecha, recibida, "Ana", asunto "Hi" en UTF-16).
+    ev.clear();
+    std::vector<u8> lista = {1, 0, 1, 0, 9, 0, 0, 0, 0, 1, 0, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].id == 9);
+    CHECK(ev[1].s[0] == "Ana");
+    CHECK(ev[1].s[1] == "Hi");
+    // El texto (0x10) y el aviso de carta nueva (0x50).
+    ev.clear();
+    std::vector<u8> texto = {1, 0x10, 9, 0, 0, 0, 'o', 0, 'k', 0, 0, 0};
+    REQUIRE(decodificar(texto, t, arena, ev));
+    CHECK(ev[0].v[CO_TIPO] == 0x10);
+    CHECK(ev[0].s[1] == "ok");
+    ev.clear();
+    std::vector<u8> nueva = {1, 0x50, 9, 0, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0};
+    REQUIRE(decodificar(nueva, t, arena, ev));
+    CHECK(ev[0].v[CO_TIPO] == 0x50);
+    CHECK(ev[0].v[CO_ENVIADA] == 0);
+    CHECK(ev[0].s[0] == "Ana");
+    igual(cmd::tablon(t, Cli::BOARD, 7), {73, 7, 0, 0, 0});
+    igual(cmd::tablon(t, Cli::BOARDREAD, 7, 3), {59, 7, 0, 0, 0, 3, 0, 0, 0});
+    igual(cmd::escribir_tablon(t, 7, "T", "x"), {14, 7, 0, 0, 0, 'T', 0, 'x', 0});
+    igual(cmd::correo(t, 0), {22, 0});
+    igual(cmd::correo(t, 0x10, 9), {22, 0x10, 9, 0, 0, 0});
+    igual(cmd::escribir_correo(t, false, "Ana", "Hi", "x"), {22, 0x20, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0, 'x', 0, 0, 0});
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);

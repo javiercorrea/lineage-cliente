@@ -841,6 +841,15 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Verificado** con dos clientes en el mapa 340 y `--tienda-propia` / `--cantidad`: Charla abre "Vendo pociones" con 3 Potion of Bravery a 50; Prueba la ve sentada con el título, hace clic (a 5 celdas: 3 pasos y la lista), compra 1: `S_AddItem`, su adena 106 → 56 y la lista con 2. En la base: Prueba 56 adena y 1 poción; Charla +50 adena y 2 pociones. (Después, las dos de vuelta en Talking Island.)
 - **Pendiente:** la propia solo vende (la lista de compra de `C_Shop` va vacía); "Buys" (venderle a otro) no se probó en vivo; el precio y el título no se pueden editar en la ventana (el título va con `/shop Título`).
 
+## Tablón de los pueblos y correo
+
+![Tablón](docs/capturas/tablon.png) ![Correo](docs/capturas/correo.png)
+
+- **Tablón** (`app/tablon_ui.cpp`; gfx 1544, 1546, 1557, 1559, 2205, 2207): un clic camina hasta él y manda `C_Board` (antes iba `C_NPCTalk`, que el servidor no responde para el tablón). `S_Board` trae una página de hasta 8 temas (id, autor, fecha, título; la primera además el costo, 300); "Next" pide la siguiente con el último tema (`C_BoardBack`); un clic lee el tema (`C_BoardRead` / `S_BoardRead`); "Write" (título y texto) publica (`C_BoardWrite`) y el autor puede borrar el suyo (`C_BoardDelete`). El servidor cobra las 300 adena sin revisar que alcancen: el cliente no deja publicar sin ellas.
+- **Correo** (`app/correo_ui.cpp`): `/mail` abre la bandeja (Inbox, Clan, Saved: `C_Mail` 0–2); un clic lee la carta (0x10+), "Delete" (0x30+) y "Keep" (0x40, a guardadas). "Write" escribe a un personaje (50 adena) o a todo el clan (1000 por miembro): destinatario, asunto y texto. El asunto y el texto van en UTF-16LE (asunto, 0 0, texto, 0 0); el cliente escribe y muestra solo ASCII (lo demás, "?"). Una carta nueva (`S_Mail` 0x50) avisa en el chat. El servidor manda la bandeja al entrar al juego.
+- **Verificado** en el tablón de Talking Island (mapa 0) y con dos personajes, escribiendo con `--pulsar` y clics simulados: Charla publica "Hola tablon" (`C_BoardWrite`, la página con 1 tema, 300 adena menos en la base), lo lee ("Charla 26/10/31 Hola tablon") y lo borra (la página vacía; 0 temas en la base). Charla le escribe a Prueba "Hola correo" (`S_Mail` 0x50 de la copia y 0x20 entregada); Prueba abre `/mail` y lee "From Charla: Hola correo".
+- **Pendiente:** el texto de una línea (se muestra cortado en varias); sin acentos ni caracteres no ASCII; el aviso de cartas sin leer al entrar.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

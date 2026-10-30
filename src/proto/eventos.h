@@ -19,7 +19,7 @@ enum class Ev : u8 {
     HECHIZOS, EFECTO, VELOCIDAD, ICONO_EFECTO, CAMBIO_FORMA, HTML, TELETRANSPORTE, LISTA_TIENDA, ITEM_TIENDA,
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
-    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO, TIENDA, TIENDA_LINEA,
+    MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO, TIENDA, TIENDA_LINEA, TABLON, TABLON_TEMA, TABLON_LEER, CORREO,
     IGNORADO,
 };
 
@@ -82,6 +82,13 @@ enum : int { GR_TIPO, GR_HP, GR_LIDER };
 // TIENDA_LINEA por línea: TP_ORDEN, TP_CANTIDAD, TP_PRECIO, y en las de venta TP_GFX, TP_BENDICION y
 // s[0] el nombre; en las de compra TP_ITEM, el ítem propio que se le puede vender.
 // ACCION_OBJETO con la acción 70 (tienda abierta): s[0] el título.
+// TABLON (S_Board): e.id el tablón; una TABLON_TEMA por tema: e.id el tema, s[0] "autor fecha",
+// s[1] el título. TABLON_LEER (S_BoardRead): e.id el tema, s[0] "autor  fecha  título", s[1] el texto.
+// CORREO (S_Mail): CO_TIPO el subtipo del paquete (0–2 lista: una CORREO por carta con CO_LISTA = 1;
+// 0x10–0x12 el texto; 0x20/0x21 resultado del envío en CO_OK; 0x30–0x32 y 0x40 borrada o
+// guardada; 0x50 aviso de carta nueva, CO_ENVIADA = es la copia propia). e.id la carta, CO_LEIDA,
+// CO_FECHA (segundos), CO_ENVIADA, s[0] el otro (remitente o destinatario), s[1] el asunto o el texto.
+enum : int { CO_TIPO, CO_LISTA, CO_LEIDA, CO_FECHA, CO_ENVIADA, CO_OK };
 enum : int { TP_TIPO, TP_ORDEN, TP_CANTIDAD, TP_PRECIO, TP_GFX, TP_BENDICION, TP_ITEM };
 enum : int { GR_VACIAR, GR_MIEMBRO, GR_LIDER_NUEVO };
 // REINICIO (S_CharReset, reiniciar atributos con la Candle of Reminiscence): RE_TIPO 1 empieza

@@ -149,7 +149,7 @@ void procesar_barra(App& a) {
     if (a.barra_de != nombre_personaje(a)) cargar_barra(a);
     if (a.entrada.alt_numero) usar_casillero(a, a.entrada.alt_numero - 1);
     // 1–0 sin Alt: con el chat cerrado (chat con Enter) y sin otro diálogo de texto abierto.
-    if (a.entrada.numero && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.ventana_forma && !a.cantidad.abierto)
+    if (a.entrada.numero && a.cfg.chat_con_enter && !a.escribiendo_chat && !escribiendo_en_ventana(a) && !a.cantidad.abierto)
         usar_casillero(a, a.entrada.numero - 1);
     if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
     if (a.entrada.medio_presionado) usar_elegido(a);

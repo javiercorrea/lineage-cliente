@@ -12,11 +12,11 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
 
 Última revisión: 2026-10-28.
 
-- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 13, además de subtipos de
+- **Del servidor al cliente:** el servidor envía 107 opcodes; faltan 10, además de subtipos de
   `S_PacketBox` (40) y de `S_SkillIconGFX`.
-- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 65. De los 26 restantes,
+- **Del cliente al servidor:** el servidor atiende 91; el cliente envía 71. De los 20 restantes,
   `C_ArrowAttack` (247) y `C_ChatGlobal` (62) no faltan: van al mismo manejador que `C_Attack` y
-  `C_Chat`, que el cliente ya usa. Faltan 24.
+  `C_Chat`, que el cliente ya usa. Faltan 18.
 
 ## Hecho
 
@@ -47,6 +47,9 @@ Para repetirla: el script está descrito al final. Al implementar uno, tacharlo 
   chat: `C_ChatParty` (113). Sonidos del servidor: `S_Sound` (84).
 - Tienda de jugadores: `S_PrivateShop` (190), `C_Shop` (16), `C_ShopList` (193; en la lista de
   opcodes se llama `C_PrivateShopList`); comprar y vender a la tienda van por `C_Result`.
+- Tablón de los pueblos: `S_Board` (64), `S_BoardRead` (56), `C_Board` (73), `C_BoardRead` (59),
+  `C_BoardNext` (221, `C_BoardBack`), `C_BoardWrite` (14), `C_BoardDelete` (12). Correo: `S_Mail`
+  (1), `C_Mail` (22).
 
 Detalle y verificación en ENTREGABLES.md: "Puertas, estados alterados, cantidad y mascotas",
 "Reparar armas, marcadores y cambiar de personaje", "Basurero, detalle de los ítems e identificar" e
@@ -70,9 +73,6 @@ encantar arma o armadura".
 
 ## 3. Sistemas completos
 
-- **Tablón de los pueblos:** `S_Board` (64), `S_BoardRead` (56), `C_Board` (73), `C_BoardRead` (59),
-  `C_BoardNext` (221), `C_BoardWrite` (14), `C_BoardDelete` (12).
-- **Correo:** `S_Mail` (1), `C_Mail` (22).
 - **Duelo, matrimonio, PK:** `C_Fight` (47), `C_Propose` (185), `C_CheckPK` (137).
 - **Castillos, guerras y casas:** `S_War` (123), `S_CastleMaster` (66), `S_TaxRate` (72),
   `S_Deposit` (203), `S_Drawal` (224), `S_HouseList` (24), `S_HouseMap` (44); `C_War` (235),

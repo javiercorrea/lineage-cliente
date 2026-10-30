@@ -104,7 +104,9 @@ add_executable(lineage
     src/app/sonido.cpp
     src/app/clima.cpp
     src/app/cantidad_ui.cpp
+    src/app/correo_ui.cpp
     src/app/reinicio_ui.cpp
+    src/app/tablon_ui.cpp
     src/app/tienda_ui.cpp
     src/app/mascotas_ui.cpp
     src/app/marcadores_ui.cpp

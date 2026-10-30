@@ -143,6 +143,37 @@ struct TiendaJugadores {
     std::vector<cmd::LineaTienda> venta;
 };
 
+// Tablón de los pueblos (tablon_ui.cpp): la página de temas, el que se lee y lo que se escribe.
+struct TemaTablon {
+    u32 id = 0;
+    std::string autor, titulo;  // autor: "nombre  fecha"
+};
+struct Tablon {
+    ObjId id = 0;  // el tablón abierto (0 = cerrado)
+    std::vector<TemaTablon> temas;
+    u32 leyendo = 0;            // tema abierto
+    std::string cabecera, texto;  // del que se lee
+    bool escribiendo = false;
+    std::string nuevo_titulo, nuevo_texto;
+    int foco = 0;
+};
+// Correo (correo_ui.cpp): bandejas 0 normal, 1 clan, 2 guardadas.
+struct Carta {
+    u32 id = 0, fecha = 0;
+    bool leida = false, enviada = false;
+    std::string otro, asunto;
+};
+struct Correo {
+    bool abierto = false;
+    u8 bandeja = 0;
+    std::vector<Carta> cartas;
+    u32 leyendo = 0;
+    std::string texto;
+    bool escribiendo = false, al_clan = false;
+    std::string destino, asunto, cuerpo;
+    int foco = 0;
+};
+
 // Grupo (S_PacketBox 104–106; social_ui.cpp): los miembros con su vida (S_HpMeter) y el líder.
 struct MiembroGrupo {
     ObjId id = 0;
@@ -357,6 +388,8 @@ struct App {
     std::vector<Mascota> mascotas;
     std::vector<MiembroGrupo> grupo;
     TiendaJugadores tienda_pj;
+    Tablon tablon;
+    Correo correo;
     std::vector<std::string> bloqueados;  // C_Exclude: el servidor no le pasa sus mensajes
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
@@ -563,6 +596,17 @@ void abrir_tienda_de(App& a, ObjId vendedor);           // al llegar junto al ve
 bool comando_tienda(App& a, std::string_view orden, std::string_view arg);
 bool clic_item_tienda(App& a, ObjId item);              // inventario: agregar a la propia mientras se arma
 void aceptar_cantidad_tienda(App& a);
+// Una ventana con un campo de texto tiene el teclado: los atajos (1–0, A, Enter del chat) no actúan.
+inline bool escribiendo_en_ventana(const App& a) { return a.ventana_forma || a.tablon.escribiendo || a.correo.escribiendo; }
+// Tablón de los pueblos (tablon_ui.cpp) y correo (correo_ui.cpp).
+bool es_tablon(GfxId gfx);
+void eventos_tablon(App& a, const Evento& e);
+void dibujar_tablon(App& a);
+bool sobre_tablon(const App& a);
+void eventos_correo(App& a, const Evento& e);
+void dibujar_correo(App& a);
+bool sobre_correo(const App& a);
+bool comando_correo(App& a, std::string_view orden);
 void procesar_social(App& a, u64 ahora);  // prueba automática
 Rect rect_social(const App& a);
 Rect rect_intercambio(const App& a);

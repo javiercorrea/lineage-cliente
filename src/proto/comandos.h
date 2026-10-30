@@ -301,6 +301,39 @@ inline Escritor vender_a_tienda(const TablaOpcodes& t, u32 vendedor, u32 item, u
     e.c(static_cast<u8>(cantidad)).c(static_cast<u8>(cantidad >> 8)).c(static_cast<u8>(cantidad >> 16)).c(orden);
     return e;
 }
+// Tablón de los pueblos. C_Board: d tablón (responde S_Board, la primera página). C_BoardBack: d
+// tablón, d el último tema visto (la página siguiente). C_BoardRead: d tablón, d tema (S_BoardRead).
+// C_BoardWrite: d tablón, s título, s texto (cuesta 300 adena). C_BoardDelete: d tablón, d tema.
+inline Escritor tablon(const TablaOpcodes& t, Cli c, u32 tablon_id, u32 tema = 0) {
+    Escritor e(t, c);
+    e.d(tablon_id);
+    if (c != Cli::BOARD) e.d(tema);
+    return e;
+}
+inline Escritor escribir_tablon(const TablaOpcodes& t, u32 tablon_id, std::string_view titulo, std::string_view texto) {
+    Escritor e(t, Cli::BOARDWRITE);
+    e.d(tablon_id).s(titulo).s(texto);
+    return e;
+}
+// Correo. C_Mail: c tipo; 0–2 abre esa bandeja; 0x10–0x12 + d carta la lee; 0x30–0x32 + d la borra;
+// 0x40 + d la guarda; 0x20 (50 adena) o 0x21 (al clan, 1000 adena) + h 0 + s destinatario (o clan)
+// + asunto y texto en UTF-16LE, cada uno terminado en 0 0.
+inline Escritor correo(const TablaOpcodes& t, u8 tipo, u32 carta = 0) {
+    Escritor e(t, Cli::MAIL);
+    e.c(tipo);
+    if (tipo >= 0x10) e.d(carta);
+    return e;
+}
+inline Escritor escribir_correo(const TablaOpcodes& t, bool al_clan, std::string_view a_quien, std::string_view asunto,
+                                std::string_view texto) {
+    Escritor e(t, Cli::MAIL);
+    e.c(al_clan ? 0x21 : 0x20).h(0).s(a_quien);
+    for (std::string_view parte : {asunto, texto}) {
+        for (char ch : parte) e.c(static_cast<u8>(ch)).c(0);
+        e.c(0).c(0);
+    }
+    return e;
+}
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.
 inline Escritor dar_item(const TablaOpcodes& t, u32 objetivo, u16 x, u16 y, u32 item, u32 cantidad) {
     Escritor e(t, Cli::GIVEITEM);

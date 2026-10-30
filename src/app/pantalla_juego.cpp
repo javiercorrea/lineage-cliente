@@ -630,7 +630,7 @@ void mover_jugador(App& a, u64 ahora) {
     const EntradaFrame& e = a.entrada;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_tablon(a) || sobre_correo(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
     // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
     // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
@@ -648,7 +648,7 @@ void mover_jugador(App& a, u64 ahora) {
     if (!e.presionado) a.objetivo_fijo = false;
     // Tecla A (con el chat cerrado): atacar al objetivo, o al monstruo bajo el puntero, hasta que
     // muera o se camine.
-    if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !a.ventana_forma) {
+    if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !escribiendo_en_ventana(a)) {
         ObjId t = a.objetivo && !a.hablar_objetivo ? a.objetivo : objeto_bajo_puntero(a);
         Slot b = t ? o.buscar(t) : SIN_SLOT;
         if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
@@ -699,6 +699,8 @@ void mover_jugador(App& a, u64 ahora) {
             // A una puerta no se le habla: se abre o se cierra (C_Door).
             if (vendedor(a, a.objetivo))
                 abrir_tienda_de(a, a.objetivo);
+            else if (es_tablon(o.col<O_GFX>()[obj]))
+                enviar(a, cmd::tablon(a.op, Cli::BOARD, a.objetivo));
             else if (tipo_objeto(a, obj) == TIPO_PUERTA)
                 enviar(a, cmd::puerta(a.op, static_cast<u16>(o.col<O_X>()[obj]), static_cast<u16>(o.col<O_Y>()[obj]), a.objetivo));
             else
@@ -935,7 +937,7 @@ void dibujar_chat(App& a) {
     // Línea de entrada. Con "chat con Enter" está cerrada hasta apretar Enter (así las teclas son
     // acciones); Enter envía y la cierra, Esc la vacía y la cierra (y no llega a las ventanas).
     const bool con_enter = a.cfg.chat_con_enter;
-    if (con_enter && !a.escribiendo_chat && e.enter && !a.ventana_forma) {
+    if (con_enter && !a.escribiendo_chat && e.enter && !escribiendo_en_ventana(a)) {
         a.escribiendo_chat = true;
         e.enter = false;
     }
@@ -1248,11 +1250,18 @@ void frame_juego(App& a) {
     dibujar_barra(a, vi.panel_y - 36 - 6);
     dibujar_mascotas(a);
     dibujar_grupo(a);
+    // Tienda, tablón y correo encima de las ventanas (nivel 30); el diálogo de cantidad, encima de todo.
+    a.gpu.nivel_ventana(30);
     dibujar_tienda(a);
+    dibujar_tablon(a);
+    dibujar_correo(a);
+    a.gpu.nivel_ventana(0);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
+    a.gpu.nivel_ventana(31);
     dibujar_cantidad(a);
+    a.gpu.nivel_ventana(0);
     dibujar_reinicio(a);
     dibujar_destino(a);
     a.gpu.nivel_ventana(0);
