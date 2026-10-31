@@ -108,6 +108,8 @@ void abrir_tienda(App& a, ObjId npc, TipoTienda tipo) {
     }
 }
 
+}  // namespace
+
 // Un vínculo de la página: otra página local, el almacén o una acción para el servidor.
 void activar(App& a, std::string_view vinculo, bool es_enlace) {
     if (vinculo.empty()) return;
@@ -130,6 +132,8 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
         enviar(a, cmd::accion_npc(a.op, a.npc, vinculo));
     }
 }
+
+namespace {
 
 // Total de la selección: lo que se paga (compra, retiro) o se cobra (venta).
 u64 total(const App& a) {

@@ -50,6 +50,12 @@ void aceptar(App& a) {
 
 }  // namespace
 
+void aceptar_cantidad(App& a, i32 valor) {
+    if (!a.cantidad.abierto) return;
+    a.cantidad.valor = valor;
+    aceptar(a);
+}
+
 void eventos_cantidad(App& a, const Evento& e) {
     if (e.tipo != Ev::PEDIR_CANTIDAD) return;
     DialogoCantidad& d = a.cantidad;

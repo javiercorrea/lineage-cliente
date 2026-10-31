@@ -555,6 +555,11 @@ std::string_view nombre_personaje(const App& a);
 void iniciar_login(App& a);                        // pantalla_login.cpp: conectar con cuenta y clave
 void entrar_juego(App& a);                         // pantalla_personajes.cpp: con a.pj_sel
 void enviar_chat(App& a, std::string_view linea);  // pantalla_juego.cpp: como escrita en el chat (comandos "/" incluidos)
+ObjId buscar_item(const App& a, std::string_view texto);    // inventario_ui.cpp: el primero cuyo nombre lo contenga
+u32 buscar_hechizo(const App& a, std::string_view texto);   // hechizos_ui.cpp: uno que sepa, por nombre
+void activar(App& a, std::string_view vinculo, bool es_enlace);  // npc_ui.cpp: un vínculo de la página del NPC
+void responder_pregunta(App& a, bool si);                   // social_ui.cpp: la primera pregunta pendiente
+void aceptar_cantidad(App& a, i32 valor);                   // cantidad_ui.cpp: el diálogo abierto, con ese número
 extern bool g_traza;                               // app.cpp: registrar los paquetes (LIN_TRAZA)
 #if LIN_CONTROL
 // Control en vivo para pruebas (control.cpp; solo en las versiones de desarrollo).

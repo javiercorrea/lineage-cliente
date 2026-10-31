@@ -7,7 +7,8 @@
 // "personaje", "captura") dejan la conexión en espera y responden en el frame en que se cumple o
 // vence el plazo, sin frenar el juego.
 //
-// Comandos: ver ayuda() y docs/analisis/PLAN_CONTROL_VIVO.md. Herramienta: herramientas/lin_ctl.py.
+// Comandos: "ayuda" (AYUDA) y docs/analisis/PLAN_CONTROL_VIVO.md. Herramienta: herramientas/lin_ctl.py.
+// Los textos van en CP949, como los del juego (nombres coreanos incluidos); ASCII es igual.
 // MULTIPLATAFORMA: AF_UNIX existe en Windows 10 1803+ (afunix.h, closesocket, ioctlsocket); falta.
 #include <fcntl.h>
 #include <poll.h>
@@ -43,11 +44,12 @@ const char* nombre_pantalla(Pantalla p) {
 
 // Lo que una conexión espera para responder.
 struct Espera {
-    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES } tipo = NADA;
+    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES, VENTANA, CHAT } tipo = NADA;
     Pantalla pantalla = Pantalla::LOGIN;
     Srv paquete = Srv::DESCONOCIDO;
     std::string texto;
     bool visto = false;  // el paquete llegó
+    u32 chat_desde = 0;  // líneas de chat que ya había al empezar a esperar
     u64 vence_ms = 0, frame = 0;
 };
 
@@ -72,6 +74,8 @@ struct Control {
     std::deque<std::string> textos;  // un SDL_EVENT_TEXT_INPUT por frame
     std::string texto_actual;        // el que SDL está por leer (tiene que seguir vivo)
     bool ctrl = false;               // "ctrl on": Ctrl mantenido (forzar ataque)
+    Srv recientes[64] = {};          // los últimos paquetes recibidos ("paquetes")
+    u32 n_recientes = 0;
 };
 Control g;
 
@@ -140,6 +144,96 @@ bool tecla(std::string_view nombre) {
     return true;
 }
 
+// Objeto a la vista: el id (solo dígitos), "#gfx" o el más cercano cuyo nombre lo contenga.
+Slot buscar_objeto(const App& a, std::string_view q, bool solo_npc = false) {
+    const TablaObjetos& o = a.mundo.objetos;
+    const Slot yo = o.buscar(a.mundo.jugador.id);
+    if (yo == SIN_SLOT || q.empty()) return SIN_SLOT;
+    if (q.find_first_not_of("0123456789") == std::string_view::npos) return o.buscar(static_cast<ObjId>(std::strtoul(std::string(q).c_str(), nullptr, 10)));
+    const int gfx = q[0] == '#' ? std::atoi(std::string(q.substr(1)).c_str()) : -1;
+    Slot mejor = SIN_SLOT;
+    int mejor_d = 1 << 30;
+    for (Slot s = 0; s < o.tamano(); ++s) {
+        if (s == yo || (solo_npc && !es_npc(a, s))) continue;
+        if (gfx >= 0 ? o.col<O_GFX>()[s] != gfx : a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(q) == std::string_view::npos)
+            continue;
+        const int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
+        if (d < mejor_d) mejor_d = d, mejor = s;
+    }
+    return mejor;
+}
+
+// Las ventanas que se abren con "abrir"/"cerrar" y se esperan con "esperar ventana=".
+bool* ventana(App& a, std::string_view n) {
+    if (n == "inventario") return &a.ventana_inventario;
+    if (n == "estado") return &a.ventana_estado;
+    if (n == "hechizos") return &a.ventana_hechizos;
+    if (n == "opciones") return &a.ventana_opciones;
+    if (n == "social") return &a.ventana_social;
+    if (n == "salida") return &a.ventana_salida;
+    if (n == "teclas") return &a.ayuda_teclas;
+    return nullptr;
+}
+// Las que se abren solas (con su nombre para "ventanas" y "esperar ventana=").
+bool abierta(const App& a, std::string_view n) {
+    if (n == "npc") return a.npc != 0;
+    if (n == "tienda") return a.tienda != TipoTienda::NINGUNA;
+    if (n == "tablon") return a.tablon.id != 0;
+    if (n == "correo") return a.correo.abierto;
+    if (n == "subastas") return a.subastas.tablon != 0;
+    if (n == "mapa-casa") return a.subastas.mapa != 0;
+    if (n == "intercambio") return a.intercambio.abierto;
+    if (n == "pregunta") return !a.preguntas.empty();
+    if (n == "cantidad") return a.cantidad.abierto;
+    if (bool* v = ventana(const_cast<App&>(a), n)) return *v;
+    return false;
+}
+constexpr const char* VENTANAS[] = {"inventario", "estado", "hechizos", "opciones", "social", "salida", "teclas", "npc", "tienda",
+                                    "tablon", "correo", "subastas", "mapa-casa", "intercambio", "pregunta", "cantidad"};
+
+void objetos(App& a, Conexion& c, int radio) {
+    const TablaObjetos& o = a.mundo.objetos;
+    const Slot yo = o.buscar(a.mundo.jugador.id);
+    if (yo == SIN_SLOT) return;
+    char l[320];
+    for (Slot s = 0; s < o.tamano(); ++s) {
+        const int x = o.col<O_X>()[s], y = o.col<O_Y>()[s];
+        if (std::max(std::abs(x - o.col<O_X>()[yo]), std::abs(y - o.col<O_Y>()[yo])) > radio) continue;
+        const ObjId id = o.ids()[s];
+        const std::string_view n = a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s]));
+        int px = -1, py = -1;  // centro en pantalla (coordenadas de "clic"), si se dibujó
+        for (const App::ObjetoEnPantalla& r : a.en_pantalla)
+            if (r.id == id) px = static_cast<int>((r.x0 + r.x1) / 2), py = static_cast<int>((r.y0 + r.y1) / 2);
+        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" gfx=%u tipo=%u x=%d y=%d pantalla=%d,%d%s", id, static_cast<int>(n.size()), n.data(),
+                      static_cast<unsigned>(o.col<O_GFX>()[s]), static_cast<unsigned>(tipo_objeto(a, s)), x, y, px, py,
+                      o.col<O_ESTADO>()[s] == ESTADO_MUERTO ? " muerto" : s == yo ? " yo" : "");
+        responder(c, l);
+    }
+}
+
+void inventario(App& a, Conexion& c) {
+    const Inventario& inv = a.mundo.inventario;
+    const TablaItems& t = inv.items;
+    char nombre[256], l[320];
+    for (Slot s = 0; s < t.tamano(); ++s) {
+        const size_t n = expandir_desc(a.desc, nombre_item(inv, s), nombre, sizeof nombre);
+        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" cantidad=%u gfx=%u%s", t.ids()[s], static_cast<int>(n), nombre,
+                      t.col<I_CANTIDAD>()[s], static_cast<unsigned>(t.col<I_GFX>()[s]), item_equipado(nombre_item(inv, s)) ? " equipado" : "");
+        responder(c, l);
+    }
+}
+
+void html(App& a, Conexion& c) {
+    if (!a.npc) return;
+    responder(c, "pagina=" + a.npc_pagina + " npc=" + std::to_string(a.npc));
+    for (const ElementoHtml& el : a.npc_html.elementos) {
+        const std::string_view v = a.npc_html.vinculo(el);
+        if (v.empty()) continue;
+        const std::string_view t(a.npc_html.textos.data() + el.texto_ofs, el.texto_len);
+        responder(c, std::string(el.es_enlace ? "enlace=" : "accion=") + std::string(v) + " texto=\"" + std::string(t) + "\"");
+    }
+}
+
 void estado(App& a, Conexion& c) {
     char l[256];
     const Servidor& sv = servidor_elegido(a.cfg);
@@ -160,12 +254,18 @@ void estado(App& a, Conexion& c) {
 }
 
 const char* AYUDA[] = {
-    "estado",
+    "consultas: estado | objetos [radio] | inventario | html | ventanas | chat [n] | paquetes [n]",
     "login <cuenta> <clave> [servidor]   (espera la lista de personajes)",
     "personaje <nombre>                  (espera estar en el juego)",
     "decir \"texto\"                       (como escrito en el chat; también /comandos)",
-    "clic <x> <y> [der|medio]   tecla <nombre>   texto \"...\"   ctrl on|off",
-    "esperar pantalla=<login|personajes|juego> | paquete=<NOMBRE> | html=<página> | frames=<n>  [plazo=ms]",
+    "objeto = id | #gfx | parte del nombre (el más cercano)",
+    "hablar <objeto>   atacar <objeto>   parar   clic-objeto <objeto> [der]",
+    "accion <vínculo de la página>   responder si|no|\"texto\"   cantidad <n>",
+    "usar <ítem> [sobre <ítem>]   soltar <ítem>   dar <ítem> <objeto>   borrar <ítem>   lanzar <hechizo> [objeto]",
+    "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
+    "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>",
+    "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
+    "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   salir",
 };
 
@@ -217,6 +317,109 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
         if (p.size() < 2) return error("uso: decir \"texto\"");
         enviar_chat(a, p[1]);
+    } else if (cmd == "objetos") {
+        objetos(a, c, p.size() > 1 ? std::atoi(p[1].c_str()) : 20);
+    } else if (cmd == "inventario") {
+        inventario(a, c);
+    } else if (cmd == "html") {
+        html(a, c);
+    } else if (cmd == "ventanas") {
+        std::string l = "abiertas=";
+        for (const char* v : VENTANAS)
+            if (abierta(a, v)) (l += v) += ',';
+        responder(c, l);
+    } else if (cmd == "chat") {
+        const u32 n = std::min<u32>(p.size() > 1 ? static_cast<u32>(std::atoi(p[1].c_str())) : 10, a.chat.cantidad());
+        for (u32 i = n; i-- > 0;) responder(c, std::string(a.chat.texto(a.chat.reciente(i))));
+    } else if (cmd == "paquetes") {
+        const u32 n = std::min<u32>({p.size() > 1 ? static_cast<u32>(std::atoi(p[1].c_str())) : 20, g.n_recientes, 64u});
+        std::string l;
+        for (u32 i = n; i-- > 0;) (l += nombre_srv(g.recientes[(g.n_recientes - 1 - i) % 64])) += ' ';
+        responder(c, l);
+    } else if (cmd == "hablar" || cmd == "atacar" || cmd == "clic-objeto") {
+        if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
+        if (p.size() < 2) return error("uso: " + cmd + " <objeto>");
+        const Slot s = buscar_objeto(a, p[1], cmd == "hablar");
+        if (s == SIN_SLOT) return error("no hay un \"" + p[1] + "\" a la vista");
+        const ObjId id = a.mundo.objetos.ids()[s];
+        if (cmd == "clic-objeto") {
+            const App::ObjetoEnPantalla* r = nullptr;
+            for (const App::ObjetoEnPantalla& e : a.en_pantalla)
+                if (e.id == id) r = &e;
+            if (!r) return error("no se está dibujando");
+            clic(static_cast<int>((r->x0 + r->x1) / 2), static_cast<int>((r->y0 + r->y1) / 2), p.size() > 2 && p[2] == "der" ? 1 : 0);
+        } else {
+            // Como un clic sobre él: se camina hasta el NPC y se le habla, o se lo ataca hasta que muera
+            // (el ataque sostenido de la tecla A).
+            a.objetivo = id;
+            a.objetivo_fijo = true;
+            a.hablar_objetivo = cmd == "hablar";
+            a.ataque_sostenido = cmd == "atacar";
+        }
+    } else if (cmd == "parar") {
+        a.objetivo = 0;
+        a.objetivo_fijo = a.hablar_objetivo = a.ataque_sostenido = false;
+    } else if (cmd == "accion") {
+        if (!a.npc) return error("no hay una página abierta");
+        if (p.size() < 2) return error("uso: accion <vínculo>");
+        bool enlace = false;
+        for (const ElementoHtml& el : a.npc_html.elementos)
+            if (a.npc_html.vinculo(el) == p[1]) enlace = el.es_enlace;
+        activar(a, p[1], enlace);
+    } else if (cmd == "responder") {
+        if (a.preguntas.empty()) return error("no hay una pregunta");
+        if (p.size() < 2) return error("uso: responder si|no|\"texto\"");
+        if (a.preguntas.front().tipo == PREGUNTA_NOMBRE_CASA) a.preguntas.front().respuesta = p[1];
+        responder_pregunta(a, p[1] != "no");
+    } else if (cmd == "cantidad") {
+        if (!a.cantidad.abierto) return error("no hay un diálogo de cantidad");
+        if (p.size() < 2) return error("uso: cantidad <n>");
+        aceptar_cantidad(a, std::atoi(p[1].c_str()));
+    } else if (cmd == "usar" || cmd == "soltar" || cmd == "dar" || cmd == "borrar") {
+        if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
+        if (p.size() < 2) return error("uso: " + cmd + " <ítem>");
+        const ObjId item = buscar_item(a, p[1]);
+        if (!item) return error("no hay un ítem \"" + p[1] + "\"");
+        if (cmd == "soltar") {
+            soltar_item(a, item);
+        } else if (cmd == "borrar") {
+            borrar_item(a, item);  // abre el diálogo: "cantidad N" lo confirma
+        } else if (cmd == "dar") {
+            const Slot s = p.size() > 2 ? buscar_objeto(a, p[2]) : SIN_SLOT;
+            if (s == SIN_SLOT) return error("uso: dar <ítem> <objeto a la vista>");
+            dar_item(a, a.mundo.objetos.ids()[s], item);
+        } else if (p.size() > 3 && p[2] == "sobre") {
+            const ObjId objetivo = buscar_item(a, p[3]);
+            if (!objetivo) return error("no hay un ítem \"" + p[3] + "\"");
+            enviar(a, cmd::usar_item_sobre(a.op, item, objetivo));
+        } else {
+            usar_item(a, item);
+        }
+    } else if (cmd == "lanzar") {
+        if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
+        if (p.size() < 2) return error("uso: lanzar <hechizo> [objeto]");
+        const u32 id = buscar_hechizo(a, p[1]);
+        if (!id) return error("no sabe \"" + p[1] + "\"");
+        const Slot s = p.size() > 2 ? buscar_objeto(a, p[2]) : SIN_SLOT;
+        if (p.size() > 2 && s == SIN_SLOT) return error("no hay un \"" + p[2] + "\" a la vista");
+        pedir_hechizo(a, id, s == SIN_SLOT ? 0 : a.mundo.objetos.ids()[s]);
+    } else if (cmd == "abrir" || cmd == "cerrar") {
+        bool* v = p.size() > 1 ? ventana(a, p[1]) : nullptr;
+        if (!v) return error("ventana desconocida");
+        *v = cmd == "abrir";
+    } else if (cmd == "arrastrar") {
+        if (p.size() < 5) return error("uso: arrastrar <x1> <y1> <x2> <y2>");
+        const int x1 = std::atoi(p[1].c_str()), y1 = std::atoi(p[2].c_str()), x2 = std::atoi(p[3].c_str()), y2 = std::atoi(p[4].c_str());
+        constexpr int PASOS = 20;
+        g.mouse.push_back({x1, y1, 0, true, false});
+        for (int i = 1; i <= PASOS; ++i)
+            g.mouse.push_back({x1 + (x2 - x1) * i / PASOS, y1 + (y2 - y1) * i / PASOS, 0, true, false});
+        g.mouse.push_back({x2, y2, 0, false, true});
+    } else if (cmd == "mantener") {
+        if (p.size() < 4) return error("uso: mantener <x> <y> <frames>");
+        const int x = std::atoi(p[1].c_str()), y = std::atoi(p[2].c_str());
+        for (int i = std::max(1, std::atoi(p[3].c_str())); i-- > 0;) g.mouse.push_back({x, y, 0, true, false});
+        g.mouse.push_back({x, y, 0, false, true});
     } else if (cmd == "clic") {
         if (p.size() < 3) return error("uso: clic <x> <y> [der|medio]");
         clic(std::atoi(p[1].c_str()), std::atoi(p[2].c_str()), p.size() > 3 ? (p[3] == "der" ? 1 : p[3] == "medio" ? 2 : 0) : 0);
@@ -248,11 +451,21 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         } else if (std::string_view v = opcion(p, "html"); !v.empty()) {
             es.tipo = Espera::HTML;
             es.texto = v;
+        } else if (std::string_view v = opcion(p, "ventana"); !v.empty()) {
+            es.tipo = Espera::VENTANA;
+            es.texto = v;
+        } else if (std::string_view v = opcion(p, "dialogo"); !v.empty()) {
+            es.tipo = Espera::VENTANA;  // "pregunta" o "cantidad": son ventanas que se abren solas
+            es.texto = v;
+        } else if (std::string_view v = opcion(p, "chat"); !v.empty()) {
+            es.tipo = Espera::CHAT;
+            es.texto = v;
+            es.chat_desde = a.chat.total;
         } else if (std::string_view v = opcion(p, "frames"); !v.empty()) {
             es.tipo = Espera::FRAMES;
             es.frame = a.frame + std::strtoull(std::string(v).c_str(), nullptr, 10);
         } else {
-            return error("uso: esperar pantalla=|paquete=|html=|frames= [plazo=ms]");
+            return error("uso: esperar pantalla=|paquete=|html=|ventana=|dialogo=|chat=|frames= [plazo=ms]");
         }
         return false;
     } else if (cmd == "salir") {
@@ -277,6 +490,11 @@ void revisar_espera(App& a, Conexion& c) {
     case Espera::PAQUETE: listo = es.visto; break;
     case Espera::HTML: listo = a.npc && a.npc_pagina == es.texto; break;
     case Espera::FRAMES: listo = a.frame >= es.frame; break;
+    case Espera::VENTANA: listo = abierta(a, es.texto); break;
+    case Espera::CHAT:  // una línea nueva que contenga el texto
+        for (u32 i = 0; !listo && i < std::min(a.chat.total - es.chat_desde, a.chat.cantidad()); ++i)
+            listo = a.chat.texto(a.chat.reciente(i)).find(es.texto) != std::string_view::npos;
+        break;
     case Espera::LOGIN:
         if (a.mostrando_noticias) {  // las noticias del servidor se aceptan solas
             a.mostrando_noticias = false;
@@ -406,6 +624,7 @@ void control_entrada(App& a) {
 }
 
 void control_paquete(Srv s) {
+    g.recientes[g.n_recientes++ % 64] = s;
     for (Conexion& c : g.conexiones)
         if (c.espera.tipo == Espera::PAQUETE && c.espera.texto == nombre_srv(s)) c.espera.visto = true;
 }

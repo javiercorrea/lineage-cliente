@@ -39,6 +39,8 @@ int celda_bajo_puntero(const App& a, int x0, int y0) {
     return i < static_cast<int>(a.mundo.inventario.items.tamano()) ? i : -1;
 }
 
+}  // namespace
+
 // Primer ítem del inventario cuyo nombre (con "$N" resueltos) contenga `texto`; 0 si no hay.
 ObjId buscar_item(const App& a, std::string_view texto) {
     const TablaItems& t = a.mundo.inventario.items;
@@ -49,6 +51,8 @@ ObjId buscar_item(const App& a, std::string_view texto) {
     }
     return 0;
 }
+
+namespace {
 
 }  // namespace
 

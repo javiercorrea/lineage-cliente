@@ -58,7 +58,7 @@ class Control:
     def __call__(self, linea, plazo=60):
         """Manda un comando y devuelve las líneas de la respuesta."""
         self.sock.settimeout(plazo)
-        self.sock.sendall(linea.encode() + b"\n")
+        self.sock.sendall(linea.encode("cp949", errors="replace") + b"\n")  # el cliente habla CP949
         lineas = []
         while True:
             while b"\n" not in self.resto:
@@ -67,7 +67,7 @@ class Control:
                     raise ErrorControl("el cliente cerró la conexión")
                 self.resto += datos
             l, self.resto = self.resto.split(b"\n", 1)
-            l = l.decode(errors="replace")
+            l = l.decode("cp949", errors="replace")
             if l == "ok":
                 return lineas
             if l.startswith("error"):

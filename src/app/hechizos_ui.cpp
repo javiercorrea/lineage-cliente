@@ -46,6 +46,8 @@ void guardar_atajos(App& a) {
     guardar_config(a.cfg);
 }
 
+}  // namespace
+
 // Primer hechizo sabido cuyo nombre contenga `texto` (sin distinguir mayúsculas); 0 si no hay.
 u32 buscar_hechizo(const App& a, std::string_view texto) {
     auto minuscula = [](char c) { return static_cast<char>(c >= 'A' && c <= 'Z' ? c + 32 : c); };
@@ -60,6 +62,8 @@ u32 buscar_hechizo(const App& a, std::string_view texto) {
     }
     return 0;
 }
+
+namespace {
 
 int distancia(const TablaObjetos& o, Slot a, Slot b) {
     return std::max(std::abs(o.col<O_X>()[a] - o.col<O_X>()[b]), std::abs(o.col<O_Y>()[a] - o.col<O_Y>()[b]));

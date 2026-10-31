@@ -37,6 +37,8 @@ ObjId buscar_por_nombre(const App& a, std::string_view nombre) {
 
 void aviso(App& a, std::string_view t) { a.chat.agregar(t, rgba(255, 230, 120), CHAT_SISTEMA); }
 
+}  // namespace
+
 void responder_pregunta(App& a, bool si) {
     if (a.preguntas.empty()) return;
     const Pregunta& p = a.preguntas.front();
@@ -47,6 +49,8 @@ void responder_pregunta(App& a, bool si) {
     }
     a.preguntas.erase(a.preguntas.begin());
 }
+
+namespace {
 
 // Recuadro con título para las ventanas de este módulo; true al cerrar.
 bool marco(App& a, Rect r, std::string_view titulo, bool con_cierre = true) {
