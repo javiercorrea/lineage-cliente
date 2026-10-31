@@ -926,6 +926,41 @@ Plan: [docs/analisis/PLAN_CASTILLOS_CASAS.md](docs/analisis/PLAN_CASTILLOS_CASAS
 - mercenarios: el servidor no los implementa;
 - muebles de la casa.
 
+## Sin parámetros: servidores en el login y control en vivo
+
+![Login con servidores](docs/capturas/login_servidores_simple.png) ![Menú abierto](docs/capturas/login_menu_servidores.png) ![Interfaz original](docs/capturas/login_servidores_original.png)
+
+Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
+
+- **El cliente no tiene parámetros:**
+  - se quitaron los 53 `--algo`, la estructura `Automatizacion` y sus ~114 usos en 16 archivos;
+  - también `LINEAGE_DIR` y la regla de pasar cualquier clave de `settings.ini` como `--clave=valor`.
+- **Servidores** (`plataforma/rutas.*`):
+  - una línea por servidor en `settings.ini`: `servidor=Nombre|host|puerto|protocolo|cuenta`, y `servidor_elegido=`;
+  - el formato anterior se convierte solo;
+  - la clave ya no se lee ni se guarda; la cuenta se recuerda por servidor al entrar bien;
+  - la tabla de opcodes se elige al conectar, con el protocolo del servidor elegido (un protocolo desconocido es un aviso en el login, no un cierre);
+  - `leer_config` y `escribir_config` trabajan sobre texto, con su test (`tests/test_core.cpp`).
+- **Login:** `ui::desplegable` con los servidores, en la UI simple (una fila "Server" arriba de la cuenta) y en la original (arriba del recuadro), con `host:puerto protocolo` debajo.
+- **Tamaño de la ventana:** se guarda al cerrar (`ventana=AxB`).
+- **Control en vivo** (`app/control.cpp`, solo con la opción de CMake `LIN_CONTROL`, encendida en `debug` y `debug-asan`):
+  - **El socket:** de archivo, `0600`; se revisa una vez por frame en el hilo principal, sin hilos.
+  - **Los comandos:** usan las mismas funciones que la interfaz. Se hicieron públicas `iniciar_login`, `entrar_juego`, `enviar_chat`, `buscar_item`, `buscar_hechizo`, `activar`, `responder_pregunta`, `aceptar_cantidad` y `crear_personaje_rapido`.
+  - **Las esperas** responden cuando se cumplen.
+  - **La versión final:** `release` lo deja afuera, y `cmake/sin_control.cmake` falla si el ejecutable trae el texto del socket. También `LIN_CONFIG` existe solo con `LIN_CONTROL`.
+- **Herramientas:**
+  - `herramientas/lin_ctl.py` (terminal y módulo; varios clientes a la vez);
+  - `herramientas/pruebas/subastas.py`, la primera prueba en vivo como script.
+- **Verificado:**
+  - login malo (el motivo vuelve como error), login, personaje, `estado` y captura del menú abierto con clic y Esc;
+  - la prueba de subastas completa (lista, una casa, su mapa y la vuelta de Charla a su lugar), sin contar frames;
+  - dos clientes a la vez (Charla y Prueba);
+  - `release` sin el control.
+- **Pendiente:**
+  - pasar a scripts las demás pruebas en vivo, a medida que se vuelvan a necesitar;
+  - el socket en Windows (`afunix.h`, MULTIPLATAFORMA);
+  - editar la lista de servidores desde el login.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

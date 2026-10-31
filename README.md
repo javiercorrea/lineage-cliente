@@ -60,11 +60,24 @@ personaje y entrada al juego, e imprime cada paquete. Sirve para depurar el serv
 ## Ejecutar
 
 ```sh
-build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] [--usuario=X]
+build/debug/lineage
 ```
 
-- La configuración se guarda en `~/Library/Application Support/Lineage/LineageCliente/settings.ini`.
-- Si no se indica la carpeta del juego, en el primer arranque se abre el diálogo nativo para elegirla.
+- **Sin parámetros:** todo sale de `settings.ini`
+  (`~/Library/Application Support/Lineage/LineageCliente/settings.ini`) y de la interfaz.
+- **Carpeta del juego:** en el primer arranque se elige con el diálogo nativo y queda guardada
+  (`juego=`).
+- **Servidores:** se eligen en el menú del login. Hay uno por línea en `settings.ini`:
+
+  ```ini
+  servidor=Local de pruebas|127.0.0.1|2000|jp363|cuenta
+  servidor=Otro|play.ejemplo.com|2000|s3ep1|
+  servidor_elegido=Local de pruebas
+  ```
+
+  Los campos son nombre, host, puerto, versión de protocolo y la última cuenta usada en ese servidor.
+  La clave no se guarda. Un `settings.ini` viejo (`host=`, `puerto=`...) se convierte solo.
+- **El tamaño de la ventana** se guarda al cerrar (`ventana=AxB`).
 - **Controles en el juego:** mantener el clic izquierdo para caminar hacia el puntero, o las flechas
   (combinadas dan las diagonales).
 - **Atacar:** mantener el clic sobre un monstruo (o cualquier personaje). Si está lejos, el personaje camina hacia él; al lado, ataca con el ritmo de su animación de ataque. Soltar el clic deja de atacar. El objetivo se marca con el nombre en amarillo.
@@ -97,9 +110,9 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Vista del juego:** se adapta a la ventana. Si la agrandas o la estiras se ve más mapa, y el panel queda centrado abajo. Las pantallas de login y personajes siguen en 640×480.
 - **Ctrl/⌘ + y Ctrl/⌘ −:** acercan y alejan el zoom (escala entera; alejarlo muestra más mapa).
 - **Ctrl/⌘ 0:** vuelve al zoom automático, el mayor con el que entran 640×480.
-- **Zoom guardado:** queda en `settings.ini` (`zoom=`, 0 = automático) y también se puede pasar como `--zoom=N`.
-- **F2:** cambia la UI del juego entre la simple (por defecto: franja de texto con chat, entrada y barras ASCII, y ventana de estado de texto) y el panel original con sus imágenes. Se guarda en `settings.ini` (`ui_simple=1/0`); también `--ui_simple=0`. También vale para el login, la selección y la creación de personaje: con la UI simple son recuadros de texto (la lista de todos los personajes con sus datos, borrar pide confirmación).
-- **Logo propio en el login (UI simple):** `logo=mi_logo.png` en `settings.ini` (o `--logo=...`): un PNG con transparencia de hasta 2048×2048, ruta absoluta o relativa a la carpeta de `settings.ini`. Se achica para entrar en 560×190 (mejor darlo de ese tamaño, porque se escala sin suavizado). Sin logo, o si no se puede leer, se muestra el título en texto.
+- **Zoom guardado:** queda en `settings.ini` (`zoom=`, 0 = automático).
+- **F2:** cambia la UI del juego entre la simple (por defecto: franja de texto con chat, entrada y barras ASCII, y ventana de estado de texto) y el panel original con sus imágenes. Se guarda en `settings.ini` (`ui_simple=1/0`). También vale para el login, la selección y la creación de personaje: con la UI simple son recuadros de texto (la lista de todos los personajes con sus datos, borrar pide confirmación).
+- **Logo propio en el login (UI simple):** `logo=mi_logo.png` en `settings.ini`: un PNG con transparencia de hasta 2048×2048, ruta absoluta o relativa a la carpeta de `settings.ini`. Se achica para entrar en 560×190 (mejor darlo de ese tamaño, porque se escala sin suavizado). Sin logo, o si no se puede leer, se muestra el título en texto.
 - **F3:** fps, CPU por frame (promedio, peor frame y decodificación), allocations del peor frame, instancias, llamadas de dibujo, objetos y posición.
 - **F4:** cambia la cámara entre "suave" (por defecto: sigue la posición continua y el personaje queda centrado) y "a saltos" (como el original: sigue los frames de caminar, de a ¼ de celda). Se guarda en `settings.ini` (`camara_a_saltos=0/1`).
 - **1..0 (o Alt+1..Alt+0):** barra de atajos (abajo al centro). Se arrastra un hechizo (desde Alt+S) o un ítem (desde Alt+I) a un casillero; clic, el número o Alt+número lo usa, clic derecho lo vacía, arrastrar entre casilleros los mueve. Clic del medio (rueda) sobre un casillero lo elige (marco dorado) y el botón del medio sobre un personaje o monstruo usa ahí el hechizo elegido; mantenido, lo repite cada vez que termina la espera (un ítem, cada medio segundo). Los casilleros de hechizos (barra y F5–F12) muestran la espera hasta el próximo hechizo: una sombra que se vacía y los segundos que faltan. Se guarda por personaje (`barra=` en `settings.ini`).
@@ -122,66 +135,44 @@ build/debug/lineage --juego="/ruta/al/juego" [--host=127.0.0.1] [--puerto=2000] 
 - **Shift+F12:** guarda `captura.bmp`.
 - **Esc:** en el login, sale.
 
-### Automatización (pruebas y capturas)
+### Control en vivo (pruebas y capturas; solo en desarrollo)
 
-| Argumento | Efecto |
+Las versiones `debug` y `debug-asan` (opción de CMake `LIN_CONTROL`) abren un socket de archivo
+(Unix domain socket) y reciben comandos de a una línea. La versión `release` no lo incluye: un paso
+de CMake (`cmake/sin_control.cmake`) falla si se cuela.
+
+- **Socket:** `$LIN_CONTROL`, o `$TMPDIR/lineage-control-<pid>.sock`. Al arrancar, la ruta se escribe
+  en la salida.
+- **Respuestas:** cada respuesta termina con `ok` o `error <motivo>`.
+- **Esperas:** los comandos que esperan algo (`login`, `personaje`, `esperar`, `captura`) responden
+  cuando se cumple o vence el plazo, sin frenar el juego.
+- **Codificación:** el texto va en CP949, como el del juego.
+- **`LIN_CONFIG=/tmp/x.ini`** (solo en desarrollo): usa otro `settings.ini`, para no pisar el del
+  usuario y correr varios clientes a la vez.
+
+| Comandos | Qué hacen |
 |---|---|
-| `--auto` | Hace login con `--usuario`/`--clave`, acepta las noticias y entra con el personaje |
-| `--personaje=Nombre` | Personaje a elegir (por defecto, el primero) |
-| `--crear` | Crea `--personaje` (príncipe, puntos repartidos en orden) si no existe |
-| `--pasos=N` | Al entrar, camina N pasos solo |
-| `--captura=x.bmp --captura-pantalla=login\|personajes\|crear\|juego --captura-espera=F` | Guarda una captura F frames después de llegar a esa pantalla |
-| `--salir` | Sale después de la captura |
-| `--depuracion` | Muestra el overlay de F3 desde el inicio |
-| `--perf` | Una línea por segundo en el registro: fps, CPU promedio y peor frame, decodificación, allocations, páginas del atlas, reemplazos y precargas en curso |
-| `LIN_ATLAS_PAGINAS=4 LIN_ATLAS_TAM=1024` (variables de entorno) | Achican el atlas para probar el reemplazo de páginas |
-| `--decir=texto` | Al entrar, escribe esa línea en el chat (se puede repetir; una por segundo, con prefijos) |
-| `--estado` | Abre la ventana de estado al entrar |
-| `--ventana=1600x900` | Tamaño inicial de la ventana, en puntos |
-| `--ruta=355` | Al entrar, camina esas direcciones (dígitos 0–7, una por paso) |
-| `--atacar=Rabbit` | Ataca al personaje vivo más cercano cuyo nombre contenga ese texto, uno tras otro |
-| `--reiniciar` | Al morir, reinicia solo después de 5 s |
-| `--usar=Potion` / `--soltar=Adena` | Usa o suelta el primer ítem cuyo nombre lo contenga (se pueden repetir; una acción cada 2 s) |
-| `--recoger` | Camina hasta el ítem del suelo más cercano y lo recoge |
-| `--inventario` | Abre el inventario al entrar |
-| `--hechizos` | Abre la ventana de hechizos al entrar |
-| `--hablar=Fraoun` | Camina hasta el NPC más cercano cuyo nombre lo contenga y le habla |
-| `--npc-accion=buy` | En la página del NPC, sigue ese vínculo (o manda la acción); se puede repetir, uno cada 2 s |
-| `--tienda="Healing:3"` / `--tienda="#0:2"` | En la próxima lista de tienda o almacén, elige esa cantidad (por nombre o por fila) y confirma |
-| `--forma="death knight"` | Polymorph: cuando se abre el diálogo (pergamino o Shape Change), elige ese monstruo |
-| `--subir=str` | En la página RaiseAttr (nivel 51+), sube ese atributo (`str`, `dex`, `con`, `int`, `wis`, `cha`) |
-| `--salida` | Abre la ventana Exit (Restart / Quit) al entrar |
-| `--opciones` | Abre la ventana de opciones al entrar |
-| `--captura-proyectil=x.bmp` | Guarda una captura cuando el primer proyectil (flecha o hechizo) va por la mitad del vuelo, y sale |
-| `--arrastrar=x1,y1,x2,y2` | Simula arrastrar el mouse (coordenadas lógicas) desde el frame 300 del juego: apretar, mover en 30 frames y soltar. Se puede repetir: cada uno empieza 180 frames después del anterior |
-| `--alt=3` | Como apretar Alt+3 (barra de atajos); se puede repetir, uno cada 3 s. La barra se puede precargar con `--barra="Nombre:h3,i80:0,..."` |
-| `--lanzar="Energy Bolt@Goblin"` / `--lanzar=Shield` | Lanza ese hechizo (sobre el más cercano cuyo nombre contenga lo que sigue a `@`); se puede repetir, uno cada 3 s |
-| `--aceptar` | Responde que sí a toda pregunta del servidor (grupo, intercambio, clan) y da OK en el intercambio cuando el otro ya ofreció algo |
-| `--girar=2` | Mira hacia esa dirección (0–7) en el frame 200 del juego: para quedar frente a otro personaje (intercambio, `/join`) |
-| `--ofrecer=Healing` | Cuando se abre un intercambio, ofrece todo el primer ítem que lo contenga y da OK 1,5 s después |
-| `--social` | Abre la ventana Social al entrar |
-| `--mudo` | El audio corre sin volumen (pruebas automáticas); `--perf` muestra efectos tocados y música |
-| `--teclas` | Abre la ayuda de teclas (F1) al entrar |
-| `--medio=x,y,N` | Mantiene el botón del medio en (x, y) desde el frame 300 del juego durante N frames (usar el casillero elegido de la barra) |
-| `--pulsar=1#hola#` | Desde el frame 300 del juego (o del login o la selección de personaje), inyecta esas teclas una cada 10 frames como eventos de teclado (`#` Enter, `~` Esc) |
-| `--cantidad=N` | En el próximo diálogo de cantidad (del servidor, o al dar una pila a un NPC o mascota), elige N y acepta |
-| `--dar="Ítem@Nombre"` | Da ese ítem al más cercano con ese nombre (con `--cantidad` si es una pila); se puede repetir, uno cada 2 s, en la misma cola que `--usar` |
-| `--destino=Nombre` | En el diálogo de teleport, elige el marcador con ese nombre (`Random`: al azar) |
-| `--mantener=x,y,N` / `--mantener-sobre=Nombre,N` | Mantiene el botón izquierdo N frames desde el frame 300 del juego, en (x, y) o en el punto de pantalla donde está en ese momento el objeto con ese nombre (el punto queda fijo) |
-| `--ctrl` | Ctrl mantenido todo el tiempo (forzar ataque) |
-| `--borrar=Nombre` | Elimina (basurero) el primer ítem cuyo nombre lo contenga; con `--cantidad=N`, N de la pila (si no, pregunta) |
-| `--usar-sobre=Pergamino@Ítem` | Usa el primer ítem cuyo nombre contenga "Pergamino" sobre el primero que contenga "Ítem" (identificar, encantar) |
-| `--reiniciar-atributos` | En el reinicio de atributos (Lolo + Candle of Reminiscence), reparte los puntos en orden, sube de nivel y termina solo |
-| `--tienda-propia=Ítem@precio@título` | A los 300 frames abre la tienda propia con el primer ítem cuyo nombre lo contenga (toda la pila) a ese precio. Con `--cantidad=N`, comprar o venderle a una tienda acepta N sin preguntar |
-| `LIN_CONFIG=/tmp/x.ini` (variable de entorno) | Usa ese `settings.ini` en lugar del del usuario (pruebas en paralelo) |
-| `LIN_HTML=1` (variable de entorno) | Registra cada página HTML que se abre, con sus datos |
-| `LIN_TRAZA=1` (variable de entorno) | Registra cada paquete enviado y recibido, con sus primeros 16 bytes |
+| `ayuda` | Lista los comandos |
+| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `chat [n]`, `paquetes [n]` | Consultas: pantalla y personaje, objetos cercanos (id, nombre, gfx, celda y posición en pantalla), ítems, la página del NPC con sus vínculos, ventanas abiertas, el chat, los últimos paquetes |
+| `login <cuenta> <clave> [servidor]`, `personaje <nombre>`, `crear <nombre> <clase>` | Entrar (esperan la lista de personajes o estar en el juego) |
+| `decir "texto"` | Como escrito en el chat (comandos `/` y `.` del GM incluidos) |
+| `hablar <obj>`, `atacar <obj>`, `parar`, `clic-objeto <obj> [der]` | `<obj>`: id, `#gfx` o parte del nombre (el más cercano) |
+| `accion <vínculo>`, `responder si\|no\|"texto"`, `cantidad <n>` | Página del NPC, preguntas del servidor, diálogo de cantidad |
+| `usar <ítem> [sobre <ítem>]`, `soltar`, `dar <ítem> <obj>`, `borrar`, `lanzar <hechizo> [obj]` | Ítems y hechizos |
+| `girar <0-7>`, `ofrecer <ítem>`, `aceptar-intercambio` | Intercambio entre dos clientes |
+| `abrir\|cerrar inventario\|estado\|hechizos\|opciones\|social\|salida\|teclas` | Ventanas |
+| `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <nombre>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Entrada cruda (coordenadas lógicas) |
+| `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames= [plazo=ms]` | Esperar algo en vez de contar frames |
+| `captura <ruta.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Capturas y depuración |
 
-Ejemplo, la captura del entregable 3:
+`herramientas/lin_ctl.py` lo usa desde la terminal (`lin_ctl.py <socket> estado`, o interactivo) o
+como módulo para escribir pruebas. Por ejemplo, `herramientas/pruebas/subastas.py`:
 
-```sh
-build/release/lineage --juego="$LINEAGE_DIR" --usuario=prueba --clave=prueba --auto \
-    --personaje=Prueba --pasos=20 --depuracion --captura=juego.bmp --captura-espera=600 --salir
+```python
+c = Control.arrancar(config="/tmp/prueba.ini")
+c("mudo on"); c("login prueba2 prueba2"); c("personaje Charla")
+c("hablar Auction"); c("esperar ventana=subastas")
+c("captura /tmp/subastas.bmp"); c.cerrar()
 ```
 
 ### Explorador de recursos

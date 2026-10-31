@@ -373,19 +373,23 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 
 ## 7. Probar
 
-- **Solo el servidor local**, con `--mudo` y `LIN_CONFIG` propio (reglas en [AGENTS.md](../AGENTS.md)).
-- **Automatización:** la tabla de opciones está en el [README](../README.md). Para lo que necesita
-  mouse o teclado: `--arrastrar` (repetible), `--mantener`, `--mantener-sobre=Nombre,N` (el punto
-  queda fijo donde estaba el objeto: el caso de la cámara que se mueve), `--medio`, `--ctrl`,
-  `--pulsar` (teclas como eventos de SDL, también en el login), `--cantidad`, `--dar`, `--destino`.
-- **Las ventanas se acomodan solas** (lugar libre): antes de un clic simulado, sacar una captura para
-  ver dónde quedaron.
-- **Trazas:** `LIN_TRAZA=1` (paquetes con sus primeros bytes), `LIN_HTML=1` (páginas), `--perf`.
+- **Solo el servidor local**, con `mudo on` y `LIN_CONFIG` propio (reglas en [AGENTS.md](../AGENTS.md)).
+- **Control en vivo** (el cliente no tiene parámetros): comandos por un socket, tabla en el
+  [README](../README.md) y `herramientas/lin_ctl.py`.
+  - Se espera lo que importa (`esperar pantalla=`, `paquete=`, `html=`, `ventana=`, `chat=`) en
+    lugar de contar frames: a 60 o 120 fps los frames no son tiempo, y un clic antes de tiempo
+    arruinaba las pruebas viejas.
+  - `objetos` da la posición en pantalla de cada objeto y `clic-objeto` hace clic ahí, en el
+    mismo frame: sirve aunque la cámara se mueva.
+- **Las ventanas se acomodan solas** (lugar libre): antes de un clic simulado, consultar `ventanas`
+  o sacar una captura para ver dónde quedaron.
+- **Trazas:** `traza on` (paquetes con sus primeros bytes), `traza-html on` (páginas), `perf on`,
+  `paquetes` (los últimos recibidos).
 - **Comandos de GM útiles:** `.move x y mapa`, `.item id n`, `.spawn npc n alcance`, `.summon npc`,
   `.level n`, `.ress` (cura), `.addskill`, `.buff me id seg`, `.weather n`.
 - **Lecciones:**
-  - un objeto que camina no está donde estaba en la captura anterior: ubicarlo en la misma corrida
-    (`--mantener-sobre`, `--dar`, `--atacar`);
+  - un objeto que camina no está donde estaba en la captura anterior: ubicarlo en el momento
+    (`objetos`, `clic-objeto`, `dar`, `atacar`);
   - las invocaciones y monstruos de pruebas anteriores siguen ahí (cambian a quién elige "el más
     cercano");
   - los personajes de la cuenta `prueba2` son GM (no mueren, no gastan MP), y Hermione y Mago son

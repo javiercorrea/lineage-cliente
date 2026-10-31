@@ -33,6 +33,8 @@ class ErrorControl(Exception):
 
 
 class Control:
+    lanzados = 0
+
     def __init__(self, ruta, proceso=None):
         self.ruta = ruta
         self.proceso = proceso
@@ -43,7 +45,8 @@ class Control:
     @classmethod
     def arrancar(cls, config, binario=BINARIO, plazo=30, entorno=None):
         """Lanza el cliente con su propio settings.ini y socket, y se conecta."""
-        ruta = os.path.join(tempfile.gettempdir(), "lineage-control-py-%d.sock" % os.getpid())
+        cls.lanzados += 1  # varios clientes desde el mismo script: un socket cada uno
+        ruta = os.path.join(tempfile.gettempdir(), "lineage-control-py-%d-%d.sock" % (os.getpid(), cls.lanzados))
         env = dict(os.environ, LIN_CONFIG=config, LIN_CONTROL=ruta, **(entorno or {}))
         if os.path.exists(ruta):
             os.unlink(ruta)

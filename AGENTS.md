@@ -47,9 +47,12 @@ export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con S
 LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 62 casos; sin LINEAGE_DIR se saltan 7
 ```
 
-- **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en
+- **Ejecutable:** `build/<preset>/lineage`, sin parámetros (la carpeta del juego y los servidores
+  salen de `settings.ini`). La configuración del usuario está en
   `~/Library/Application Support/Lineage/LineageCliente/settings.ini`.
-- **No pisar esa configuración en las pruebas:** usar `LIN_CONFIG=/ruta/propia.ini` (sección 5).
+- **No pisar esa configuración en las pruebas:** usar `LIN_CONFIG=/ruta/propia.ini` (sección 5; solo
+  en `debug`). Ese `.ini` necesita `juego=` y, para el servidor local, nada más: sin `servidor=` se
+  usa `127.0.0.1:2000 jp363`.
 - **Cuentas:** se crean solas en el primer login (usuario = clave).
 - **Personajes de prueba existentes** (en la base local de la máquina original, no en el repo):
   - cuenta `prueba`: Prueba (príncipe nivel 1), Maga (maga), Caballero (caballero), Exploradora;
@@ -111,7 +114,7 @@ Hechos que conviene saber:
    de `TABLA[]`**, en la misma posición que en el enum.
 3. `eventos.h`: el valor de `Ev` y los índices de `v[]` que haga falta.
 4. Aplicarlo en `mundo.cpp` (estado del juego) o en el manejador de la app que corresponda.
-5. Test de decodificación en `tests/test_proto.cpp`, con bytes reales, que se pueden sacar con `LIN_TRAZA=1`.
+5. Test de decodificación en `tests/test_proto.cpp`, con bytes reales, que se pueden sacar con el comando `traza on` del control en vivo.
 
 ### Receta: agregar un comando del cliente
 
@@ -133,26 +136,26 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 
 - **Tests:** `cmake --build --preset debug && LINEAGE_DIR=... build/debug/lin_tests`. Antes de un push
   grande, también `debug-asan`.
-- **Probar contra el servidor:** el cliente tiene automatización completa (tabla en el README):
-  - `--auto --usuario= --clave= --personaje=` entran solos;
-  - `--decir`, `--ruta`, `--atacar`, `--usar`, `--hablar`, `--lanzar`, `--ofrecer`... actúan;
-  - `--captura=x.bmp --captura-espera=N --salir` sacan una captura y salen;
-  - `--mudo` es obligatorio en las pruebas automáticas: si no, se escucha en la máquina del usuario.
-  - **Siempre poner `--salir`**, o el proceso queda colgado.
-- **Control en vivo** (preferido; los parámetros de arriba se van a quitar, ver
-  `docs/analisis/PLAN_CONTROL_VIVO.md`): en `debug` el cliente abre un socket (`LIN_CONTROL=/ruta` o
-  `$TMPDIR/lineage-control-<pid>.sock`) y recibe comandos de a una línea (`ayuda` los lista).
-  - Desde Python: `herramientas/lin_ctl.py` (`Control.arrancar(config=...)`, después `c("login ...")`,
-    `c("personaje ...")`, `c("esperar ...")`, `c("captura ...")`, `c.cerrar()`).
-  - Desde la terminal: `herramientas/lin_ctl.py <socket> estado`.
-  - Empezar con `mudo on`. Usar `esperar` (pantalla, paquete, html) en lugar de contar frames.
-  - `release` no lo compila: un paso de CMake (`cmake/sin_control.cmake`) falla si se cuela.
-- **Trazas:**
-  - `LIN_TRAZA=1`: cada paquete enviado y recibido, con sus primeros 16 bytes;
-  - `LIN_HTML=1`: las páginas HTML con sus datos;
-  - `--perf`: rendimiento.
-- **Dos clientes a la vez** (grupo, intercambio, clan): uno en segundo plano y otro en primer plano,
-  con `--girar=` para que queden frente a frente. Ejemplo en ENTREGABLES.md, entregable 9.
+- **Probar contra el servidor: control en vivo.** El cliente no tiene parámetros. En `debug` abre un
+  socket (`LIN_CONTROL=/ruta` o `$TMPDIR/lineage-control-<pid>.sock`) y recibe comandos de a una
+  línea (`ayuda` los lista; tabla en el README).
+  - **Desde Python:** `herramientas/lin_ctl.py`: `c = Control.arrancar(config=...)`, después
+    `c("login ...")`, `c("personaje ...")`, `c("esperar ...")`, `c("captura ...")`, `c.cerrar()`.
+    Ejemplo: `herramientas/pruebas/subastas.py`.
+  - **Desde la terminal:** `herramientas/lin_ctl.py <socket> estado`, o interactivo.
+  - **Empezar siempre con `mudo on`:** si no, se escucha en la máquina del usuario.
+  - **Terminar siempre con `c.cerrar()`** (o el comando `salir`), o el proceso queda abierto.
+  - **Usar `esperar`** (pantalla, paquete, html, ventana, diálogo, chat) en lugar de contar frames.
+  - **Para hacer clic sobre algo,** consultar primero dónde está: `objetos` da la posición en
+    pantalla; `clic-objeto` la usa directo.
+  - **`release` no lo compila:** un paso de CMake (`cmake/sin_control.cmake`) falla si se cuela.
+- **Trazas** (comandos del control):
+  - `traza on`: cada paquete enviado y recibido, con sus primeros 16 bytes;
+  - `traza-html on`: las páginas HTML con sus datos;
+  - `perf on`: rendimiento;
+  - `paquetes`: los últimos recibidos, sin traza.
+- **Dos clientes a la vez** (grupo, intercambio, clan): dos `Control.arrancar` con distinto `config`.
+  Con `girar <0-7>` quedan frente a frente.
 - **Base de datos:** para verificar el efecto real (ítems, adena), consultar por el socket de arriba.
 - **Evidencia:** cada entregable deja capturas en `docs/capturas/<n>_<tema>.png` (PNG, convertidas con
   `sips -s format png x.bmp --out y.png`) y una sección en ENTREGABLES.md con: qué hace, cómo se

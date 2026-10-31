@@ -1,6 +1,8 @@
 # Plan: sin parámetros, servidores en el login y control en vivo para pruebas
 
-**Estado:** pasos 1 (servidores en `settings.ini` y en el login) y 2 (control en vivo base) hechos.
+**Estado:** hecho (2026-10-31), salvo pasar el resto de las pruebas en vivo a scripts (paso 4: está
+`herramientas/pruebas/subastas.py`). Detalle en `ENTREGABLES.md`, en la sección "Sin parámetros:
+servidores en el login y control en vivo".
 
 Objetivos:
 1. El cliente se usa sin parámetros `--algo`, tampoco para el servidor. Todo sale de
