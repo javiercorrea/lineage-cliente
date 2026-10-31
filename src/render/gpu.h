@@ -77,6 +77,7 @@ public:
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
     void nivel_ventana(u32 nivel) { nivel_ventana_ = nivel; }
+    u32 nivel_ventana() const { return nivel_ventana_; }
 
     // Ordena la lista del frame (lo hace presentar si no se llamó antes; separado para medirlo
     // aparte de la espera del vsync).

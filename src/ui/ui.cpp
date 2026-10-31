@@ -77,6 +77,10 @@ bool desplegable(Graficos& g, EntradaFrame& e, std::span<const std::string> opci
     g.texto("v", x + ancho - 6, y, clave_orden(CAPA_UI_TEXTO, 0), rgba(214, 190, 140));
     bool cambio = false;
     if (abierto) {
+        // La lista va en un nivel de ventana propio, encima de todo: si no, el texto de los
+        // controles de abajo (que va en CAPA_UI_TEXTO) se vería a través de ella.
+        const u32 nivel_antes = g.gpu().nivel_ventana();
+        g.gpu().nivel_ventana(31);
         const u64 kf = clave_orden(CAPA_UI, 200), kt = clave_orden(CAPA_UI_TEXTO, 200);
         const int ly = y - 4 + fila, lh = fila * static_cast<int>(opciones.size());
         g.gpu().rectangulo(x - 5, ly - 1, ancho + 10, lh + 2, kf, rgba(150, 130, 90));
@@ -91,6 +95,7 @@ bool desplegable(Graficos& g, EntradaFrame& e, std::span<const std::string> opci
                 elegido = i;
             }
         }
+        g.gpu().nivel_ventana(nivel_antes);
         if (e.clic || e.escape) abierto = false;  // eligió, o tocó afuera
         e.clic = e.escape = false;
     } else if (sobre_caja && e.clic) {
