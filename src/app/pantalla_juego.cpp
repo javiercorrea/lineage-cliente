@@ -95,8 +95,9 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     const u8 accion = o.col<O_ACCION>()[s];
     u8 arma = muerto ? 0 : o.col<O_ESTADO>()[s];
     AccionVisible v;
-    // Puerta: la última de abrir o cerrar, detenida en su último frame (el estado la recuerda).
-    if (a.sprites.tipo(gfx) == TIPO_PUERTA && (o.col<O_ESTADO>()[s] == ACC_ABRIR || o.col<O_ESTADO>()[s] == ACC_CERRAR)) {
+    // Puerta o estructura de castillo: la última de abrir, cerrar o dañarse, detenida en su último
+    // frame (el estado la recuerda).
+    if (accion_fija(a.sprites.tipo(gfx), o.col<O_ESTADO>()[s]) && a.sprites.accion(gfx, o.col<O_ESTADO>()[s])) {
         v.rango = a.sprites.accion(gfx, o.col<O_ESTADO>()[s]);
         v.inicio = o.col<O_TACCION>()[s];
         v.bucle = false;
@@ -129,6 +130,11 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_QUIETO);
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
+    // Sin quieto ni caminar (la torre de guardia sana, la corona): su primera acción, quieta.
+    for (int k = 0; !v.rango && k < 64; ++k) {
+        v.rango = a.sprites.accion(gfx, static_cast<u8>(k));
+        v.bucle = false;
+    }
     return v;
 }
 
@@ -536,14 +542,18 @@ int direccion_teclas(const EntradaFrame& e) {
     return -1;
 }
 
-// Prueba automática (--atacar=texto): el objeto vivo más cercano cuyo nombre contenga el texto.
+// Prueba automática (--atacar=texto): el objeto vivo más cercano cuyo nombre contenga el texto
+// ("#N": con el gfx N, para los que tienen nombre en coreano, como la torre del asedio).
 ObjId objetivo_automatico(const App& a, Slot yo) {
     const TablaObjetos& o = a.mundo.objetos;
+    const int gfx = a.aut.atacar.size() > 1 && a.aut.atacar[0] == '#' ? std::atoi(a.aut.atacar.c_str() + 1) : -1;
     ObjId mejor = 0;
     int mejor_d = 1 << 30;
     for (Slot s = 0; s < o.tamano(); ++s) {
         if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || tipo_objeto(a, s) == TIPO_ITEM) continue;
-        if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos) continue;
+        if (gfx >= 0 ? o.col<O_GFX>()[s] != gfx
+                     : a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos)
+            continue;
         if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
         int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
         if (d < mejor_d) {

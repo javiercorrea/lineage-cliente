@@ -274,6 +274,9 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 - **Usar un ítem sobre otro:** con los usos 7 (identificar), 14, 26 y 27 (encantar) `C_UseItem` lleva
   el id del objetivo después del del pergamino. `S_IdentifyDesc` es un `S_ServerMessage` (mensajes
   134–138) con un h (la descripción del ítem) adelante.
+- **Estructuras de los castillos:** portones y torres tienen tipo 11 en la tabla de sprites (las
+  puertas, 8). Portones: 28/29 y daño 32–36, destruido 37; torre: grietas 32–34 y destruida 35, sin
+  acción quieta. La corona del asedio (1482, tipo 10) solo tiene la acción 3.
 - **Campos que el servidor no usa** pero hay que mandar: x, y de `C_GiveItem` y de `C_Door`, el tipo
   de `C_SelectTarget`.
 
@@ -301,6 +304,19 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   (pendiente).
 - **Teleport:** `S_Teleport` espera la respuesta `C_Teleport` antes de mover; tras un teleport el
   original espera `S_Paralysis` 7 para soltar el bloqueo.
+- **Casas:** el tablón de subastas (`L1AuctionBoard`) tiene el gfx 1544 de los tablones de los
+  pueblos y responde `C_Board` con `S_HouseList`. `HouseTable.updateHouse` (y `CastleTable`) guardan
+  fechas con `DateFormat` del idioma por defecto: con el JVM en inglés MariaDB las rechaza y no se
+  guarda la casa; `arrancar.sh` usa formato japonés.
+- **Asedio:** `castles.war_time` y la vida de torres y portones se leen solo al arrancar. Un
+  personaje que entra dentro del área de un castillo en guerra aparece afuera (salvo los del clan
+  dueño). La corona aparece al caer la torre; se toma "atacándola" (`C_Attack`) a una celda, siendo
+  príncipe líder y sin transformar. Un castillo sin dueño no necesita declaración de guerra.
+- **`S_WarTime`:** la fecha va en unidades de 182 minutos desde 1997-01-01 17:00 (hora del
+  servidor) menos 1200 minutos; comparte el opcode 150 con `S_MapID`. "Declare next siege time"
+  del chambelán (acción "asktime") no lo atiende el servidor: el cliente manda `C_ChangeWarTime`, que
+  solo devuelve la fecha.
+- **Permisos de GM:** los comandos "." miran `characters.access_level`, no el de la cuenta.
 - **Lo que el servidor envía y el cliente no implementa:** [analisis/OPCODES_PENDIENTES.md](analisis/OPCODES_PENDIENTES.md).
 
 ---

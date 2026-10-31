@@ -72,8 +72,10 @@ void cerrar(App& a) {
     a.tienda_filas.clear();
 }
 
-// Adena en el inventario (el ítem "$4").
-u32 adena(const App& a) {
+}  // namespace
+
+// Adena en el inventario (el ítem "$4"; no "$40...").
+u32 adena_inventario(const App& a) {
     const TablaItems& t = a.mundo.inventario.items;
     for (Slot s = 0; s < t.tamano(); ++s) {
         std::string_view n = nombre_item(a.mundo.inventario, s);
@@ -81,6 +83,8 @@ u32 adena(const App& a) {
     }
     return 0;
 }
+
+namespace {
 
 void abrir_tienda(App& a, ObjId npc, TipoTienda tipo) {
     a.tienda = tipo;
@@ -118,6 +122,8 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
     } else if (vinculo.substr(0, 6) == "raise-") {  // RaiseAttr: subir un atributo (C_Attr 479)
         enviar(a, cmd::subir_atributo(a.op, vinculo.substr(6)));
         cerrar(a);
+    } else if (vinculo == "asktime") {  // chambelán: la fecha del próximo asedio (castillos_ui.cpp)
+        enviar(a, cmd::fecha_asedio(a.op));
     } else if (a.npc_casa && (vinculo == "map" || vinculo == "apply")) {  // tablón de subastas: con la casa
         enviar(a, cmd::accion_npc(a.op, a.npc, vinculo, std::to_string(a.npc_casa)));
     } else {
@@ -339,7 +345,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
             break;
         }
         [[fallthrough]];
-    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena(a)); break;
+    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena_inventario(a)); break;
     case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
     case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
     case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
@@ -363,6 +369,10 @@ u8 tipo_objeto(const App& a, Slot s) {
         s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
         a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s])).find('^') == std::string_view::npos)
         return TIPO_MONSTRUO;
+    // Asedio: los portones son puertas; la torre de guardia y la corona se atacan con un clic (la
+    // corona se toma "atacándola": C_Attack y el servidor llama a su onAction).
+    if (tipo == TIPO_ESTRUCTURA) return a.sprites.accion(gfx, ACC_ABRIR) ? TIPO_PUERTA : TIPO_MONSTRUO;
+    if (gfx == GFX_CORONA) return TIPO_MONSTRUO;
     return tipo;
 }
 

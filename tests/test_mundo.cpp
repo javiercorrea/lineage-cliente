@@ -383,3 +383,12 @@ TEST_CASE("Inventario: atributos de un ítem identificado (getStatusBytes) en te
     n = describir_atributos({reinterpret_cast<const char*>(arma), sizeof arma}, buf, 8);
     CHECK(n < 8);
 }
+
+TEST_CASE("Puertas y estructuras de castillo: acciones que se quedan en su último frame") {
+    CHECK(accion_fija(TIPO_PUERTA, ACC_ABRIR));
+    CHECK(accion_fija(TIPO_ESTRUCTURA, 35));  // torre destruida
+    CHECK(accion_fija(TIPO_ESTRUCTURA, 37));  // portón destruido
+    CHECK_FALSE(accion_fija(TIPO_ESTRUCTURA, 0));
+    CHECK_FALSE(accion_fija(TIPO_ESTRUCTURA, 38));
+    CHECK_FALSE(accion_fija(0, ACC_ABRIR));  // un personaje no se queda quieto al "abrir"
+}

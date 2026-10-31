@@ -653,6 +653,7 @@ void dibujar_castillos(App& a);
 bool comando_castillos(App& a, std::string_view orden, std::string_view resto);
 u8 castillo_de(const App& a, ObjId id);
 void dibujar_corona(Graficos& g, float x, float y, u64 k);  // el señor del castillo, junto al nombre  // el castillo del que es señor (0 = ninguno)
+u32 adena_inventario(const App& a);  // npc_ui.cpp
 void abrir_cantidad_castillo(App& a, int tipo, ObjId personaje, i32 min, i32 max, i32 inicial);
 const char* nombre_castillo(int castillo);
 void procesar_social(App& a, u64 ahora);  // prueba automática

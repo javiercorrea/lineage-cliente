@@ -862,6 +862,70 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 - **Verificado** con Charla: casco, capa, camiseta, armadura, guantes, arco, botas y AC −13 en sus recuadros.
 - **Pendiente:** qué parte va en cada recuadro se dedujo de dónde cae sobre la silueta (casco en la cabeza, aro al costado, botas en los pies): conviene compararlo con el original; los talismanes y patrones (usos 43–48) no se muestran; la página "Status" sigue con el marco propio (la 982 del original queda para después).
 
+## Casas y castillos
+
+![Subasta](docs/capturas/casas_subasta.png) ![Mapa de la casa](docs/capturas/casas_mapa.png) ![Nombre de la casa](docs/capturas/casas_nombre.png) ![Puerta](docs/capturas/casas_puerta.png)
+![Torre](docs/capturas/asedio_torre.png) ![Corona](docs/capturas/asedio_corona.png) ![Castillo tomado](docs/capturas/asedio_tomado.png) ![Impuesto](docs/capturas/castillo_impuesto.png) ![Fecha del asedio](docs/capturas/castillo_fecha.png)
+![Guerra declarada](docs/capturas/guerra_declarada.png) ![Al entrar](docs/capturas/guerra_al_entrar.png) ![Rendición](docs/capturas/guerra_rendicion.png)
+
+Plan: [docs/analisis/PLAN_CASTILLOS_CASAS.md](docs/analisis/PLAN_CASTILLOS_CASAS.md).
+
+**Protocolo** (tests de bytes en `tests/test_proto.cpp`):
+- `S_HouseList`, `S_HouseMap`, `S_War`, `S_CastleMaster`, `S_TaxRate`, `S_Deposit`, `S_Drawal`;
+- `S_WarTime` comparte el opcode 150 con `S_MapID` y se distingue por el largo;
+- `S_PacketBox` 0–4 (el asedio);
+- `C_War`, `C_TaxRate`, `C_Deposit`, `C_Drawal`, `C_ChangeWarTime` y `C_Attr` con texto;
+- la página "agsel" trae la casa antes de los datos.
+
+**Casas** (`app/casas_ui.cpp`):
+- **Tablón de subastas:** tiene el mismo gfx que los tablones de los pueblos (1544): el clic ya mandaba `C_Board` y el servidor respondía `S_HouseList`, que se perdía.
+  - Ahora es una ventana con cada casa: "Giran house N" (los nombres de la base vienen en coreano), área, cierre y puja; se desplaza con la rueda.
+  - Un clic manda "select" + casa. La página "agsel" va al diálogo del NPC y la lista se corre a la derecha. Sus acciones "map" y "apply" llevan la casa.
+- **Mapa de la casa:** la imagen del original no se encontró en `Sprite.pak`. El mapa es propio: los terrenos de las casas del pueblo, sacados de `L1HouseLocation.java` del servidor (62 casas: Giran, Heine y Gludin; las de Aden no tienen coordenadas en el servidor). Va en isométrico, con la casa resaltada y el personaje.
+- **Pujar:** "apply" abre el diálogo de cantidad ("agapply").
+- **Mayordomo:** todo es HTML.
+  - "name" pregunta el nombre (`S_MessageYN` 512). El diálogo de preguntas ahora tiene una caja de texto para esa pregunta y responde `C_Attr` con el texto.
+  - Los datos "$N" de las páginas (el nombre del mayordomo en "agpay") se traducen con `desc-e.tbl`.
+
+**Castillos** (`app/castillos_ui.cpp`):
+- **Señor del castillo** (`S_CastleMaster`): una corona dibujada a la izquierda del nombre (y del emblema). No se encontró la del original.
+- **Asedio:**
+  - avisos en el chat y un cartel arriba mientras dura;
+  - los portones (gfx de tipo 11 con 28/29) son puertas;
+  - el daño de portones y torres (`S_DoActionGFX` 32–37) se queda en el último frame, como abrir y cerrar;
+  - la torre sana (sin acción quieta) se dibuja con su primera acción;
+  - la torre y la corona (gfx 1482) se atacan con un clic: tomar la corona es "atacarla" (`C_Attack` → `onAction`).
+- **Chambelán:**
+  - "tax" (`S_TaxRate`), "cdeposit" (`S_Deposit`) y "withdrawal" (`S_Drawal`) abren el diálogo de cantidad, que responde `C_TaxRate`, `C_Deposit` o `C_Drawal`;
+  - "Declare next siege time" (acción "asktime", que el servidor no atiende) manda `C_ChangeWarTime` y los 6 horarios de `S_WarTime` van al chat. El servidor no deja elegir uno.
+- **Guerras de clanes:** `/war`, `/surrender` y `/ceasefire` + clan (`C_War` 0, 2, 3). `S_War` va al chat y se lleva la lista de clanes enemigos.
+
+**Servidor:**
+- `HouseTable.updateHouse` guarda fechas con el `DateFormat` del idioma. En inglés MariaDB las rechazaba y no se guardaban ni el dueño ni el nombre de la casa. `arrancar.sh` usa ahora formato japonés (`user.language.format=ja`).
+- Scripts solo para pruebas en `servidor_local/pruebas/`:
+  - `subasta_cerrar.sql` cierra ya la subasta de Giran 1;
+  - `asedio_kent.sql` empieza el asedio de Kent y baja la vida de la torre y del portón (se leen al arrancar);
+  - `restaurar.sql` deja todo como estaba.
+
+**Verificado contra el servidor local** (Charla: príncipe nivel 81, GM, líder de Prueberos):
+- **Casa:**
+  1. Lista de Giran, "agsel" de Giran 1 y su mapa.
+  2. Puja de 100.000; con la subasta cerrada, Prueberos ganó la casa.
+  3. Mayordomo Emma: "Casa Prueba" quedó en la base; la puerta se abre ("open": acción 28 y `S_Door` pasable); "pay" muestra el impuesto.
+- **Asedio de Kent:**
+  1. Cartel y aviso.
+  2. Grietas 32, 33, 34 y la torre destruida (35).
+  3. Aparece la corona; Charla la toma: `S_CastleMaster` 1 y Prueberos queda con `castle_id` 1. La corona sale junto a su nombre.
+- **Chambelán Ishmael:** impuesto al 20 % (en la base), depósito de 1000 (fondos 1000), retiro de los fondos y la fecha del próximo asedio. La primera fecha queda a menos de 182 minutos de la real: el servidor redondea a esa unidad.
+- **Guerra:** Prueba (subida a nivel 30 con permisos de GM temporales) fundó "Rivales" y declaró la guerra a Prueberos. Charla, al entrar, ve "Your pledge is at war with the Rivales pledge"; después Prueba se rindió.
+- **Restauración:** todo se restauró: casa, castillo, clanes, Prueba, y la adena y las flechas de Charla.
+
+**Pendiente:**
+- el daño del portón no se vio en vivo: con arco, el servidor exige línea de vista hasta la celda del portón, que está bloqueada; hace falta un arma cuerpo a cuerpo;
+- el fin del asedio (`S_PacketBox` 1) no se esperó;
+- mercenarios: el servidor no los implementa;
+- muebles de la casa.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

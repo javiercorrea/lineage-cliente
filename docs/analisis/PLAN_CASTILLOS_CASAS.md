@@ -1,5 +1,8 @@
 # Plan: castillos y casas (agit)
 
+**Estado:** implementado (2026-10-31). Lo que se hizo, lo verificado y lo pendiente están en
+`ENTREGABLES.md`, en la sección "Casas y castillos".
+
 Objetivo: jugar con el cliente lo que el servidor L1J-JP 3.63c ya tiene de casas de clan y de
 castillos:
 - subastar y comprar una casa, entrar y usar su mayordomo;

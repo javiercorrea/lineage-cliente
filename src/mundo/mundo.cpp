@@ -238,8 +238,9 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             if (e.id == m.jugador.id && o.col<O_ACCION>()[s] == e.v[0] && ahora - o.col<O_TACCION>()[s] < 500) break;
             o.col<O_ACCION>()[s] = static_cast<u8>(e.v[0]);
             o.col<O_TACCION>()[s] = ahora;
-            // Una puerta queda abierta o cerrada: el estado guarda la última (ver elegir_accion).
-            if ((e.v[0] == ACC_ABRIR || e.v[0] == ACC_CERRAR) && m.sprites && m.sprites->tipo(o.col<O_GFX>()[s]) == TIPO_PUERTA) {
+            // Una puerta queda abierta o cerrada (un portón o una torre, dañados): el estado guarda la
+            // última (ver elegir_accion).
+            if (m.sprites && accion_fija(m.sprites->tipo(o.col<O_GFX>()[s]), static_cast<u8>(e.v[0]))) {
                 o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
                 o.col<O_ACCION>()[s] = 0xFF;
             }

@@ -90,7 +90,14 @@ enum Paralisis : u8 {
 // de perder ahí); se sale con C_ExitGhost.
 constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8, FLAG_FANTASMA = 128;
 // Tipo de gfx de las puertas (atributo 102): sus acciones son abrir (28) y cerrar (29).
-constexpr u8 TIPO_PUERTA = 8, ACC_ABRIR = 28, ACC_CERRAR = 29;
+// Estructuras de los castillos (tipo 11): portones (28, 29 y daño 32–36, destruido 37) y torres de
+// guardia (grietas 32–34, destruida 35). La corona del asedio (gfx 1482) solo tiene la acción 3.
+constexpr u8 TIPO_PUERTA = 8, TIPO_ESTRUCTURA = 11, ACC_ABRIR = 28, ACC_CERRAR = 29;
+constexpr GfxId GFX_CORONA = 1482;
+// Acciones que dejan a una puerta o estructura quieta en su último frame (abierta, dañada...).
+inline bool accion_fija(u8 tipo, u8 accion) {
+    return (tipo == TIPO_PUERTA || tipo == TIPO_ESTRUCTURA) && (accion == ACC_ABRIR || accion == ACC_CERRAR || (accion >= 32 && accion <= 37));
+}
 
 // Gráfico de un hechizo en el mundo: sobre un objeto (lo sigue), en una celda, o un proyectil que
 // vuela de (x0, y0) a (x1, y1) durante vuelo_ms. Se dibuja la acción 0 del gfx una vez (el

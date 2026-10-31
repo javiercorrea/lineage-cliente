@@ -7,8 +7,9 @@
 //  - Asedio (S_PacketBox 0–4): avisos en el chat y un cartel arriba mientras dura.
 //  - Chambelán (todo HTML): "tax" responde S_TaxRate, "cdeposit" S_Deposit y "withdrawal" S_Drawal;
 //    los tres abren el diálogo de cantidad, que responde C_TaxRate, C_Deposit o C_Drawal.
-//  - "/wartime" (C_ChangeWarTime): el servidor responde S_WarTime con la fecha del próximo asedio
-//    (solo la muestra: no hay paquete para elegir otra).
+//  - "Declare next siege time" (acción "asktime" del chambelán, que el servidor no atiende): el
+//    cliente manda C_ChangeWarTime y el servidor responde S_WarTime con la fecha del próximo asedio
+//    (solo la muestra: no hay paquete para elegir otra). Ver npc_ui.cpp.
 #include <cstdio>
 #include <cstring>
 #include <ctime>
@@ -93,11 +94,7 @@ void eventos_castillos(App& a, const Evento& e) {
         } else if (e.v[CF_TIPO] == CF_RETIRAR) {
             abrir_cantidad_castillo(a, CF_RETIRAR, e.id, 0, e.v[CF_B], e.v[CF_B]);
         } else {
-            u32 adena = 0;
-            const TablaItems& t = a.mundo.inventario.items;
-            for (Slot s = 0; s < t.tamano(); ++s)
-                if (nombre_item(a.mundo.inventario, s).starts_with("$4")) adena = t.col<I_CANTIDAD>()[s];  // $4 = Adena
-            abrir_cantidad_castillo(a, CF_DEPOSITAR, e.id, 0, static_cast<i32>(std::min<u32>(adena, 0x7FFFFFFF)), 0);
+            abrir_cantidad_castillo(a, CF_DEPOSITAR, e.id, 0, static_cast<i32>(std::min<u32>(adena_inventario(a), 0x7FFFFFFF)), 0);
         }
         break;
     case Ev::FECHA_ASEDIO:
@@ -115,10 +112,6 @@ void eventos_castillos(App& a, const Evento& e) {
 }
 
 bool comando_castillos(App& a, std::string_view orden, std::string_view resto) {
-    if (orden == "wartime") {
-        enviar(a, cmd::fecha_asedio(a.op));
-        return true;
-    }
     cmd::TipoGuerra tipo;
     if (orden == "war") tipo = cmd::GUERRA_DECLARAR;
     else if (orden == "surrender") tipo = cmd::GUERRA_RENDIRSE;

@@ -18,12 +18,6 @@ constexpr u32 COSTO_TEMA = 300;
 int x0(const App& a) { return (a.gpu.ancho() - ANCHO) / 2; }
 int y0() { return 50; }
 
-u32 adena(const App& a) {
-    const TablaItems& t = a.mundo.inventario.items;
-    for (Slot s = 0; s < t.tamano(); ++s)
-        if (nombre_item(a.mundo.inventario, s).starts_with("$4")) return t.col<I_CANTIDAD>()[s];  // $4 = Adena
-    return 0;
-}
 
 }  // namespace
 
@@ -100,7 +94,7 @@ void dibujar_tablon(App& a) {
         ui::caja_texto(g, e, t.nuevo_titulo, x + 64, y + 53, ANCHO - 78, t.foco == 0, false, 40);
         ui::caja_texto(g, e, t.nuevo_texto, x + 64, y + 83, ANCHO - 78, t.foco == 1, false, 300);
         texto_ajustado(g, t.nuevo_texto, x + 10, y + 110, ANCHO - 20, kt, rgba(200, 190, 160), 10);
-        const bool alcanza = adena(a) >= COSTO_TEMA;
+        const bool alcanza = adena_inventario(a) >= COSTO_TEMA;
         if (!alcanza) g.texto("Not enough adena.", static_cast<float>(x + 10), static_cast<float>(by + 3), kt, rgba(255, 120, 100));
         if (alcanza && !t.nuevo_titulo.empty() && ui::boton_texto(g, e, "Post", x + ANCHO - 170, by, 76, 20)) {
             enviar(a, cmd::escribir_tablon(a.op, t.id, sin_espacios(t.nuevo_titulo), sin_espacios(t.nuevo_texto)));
