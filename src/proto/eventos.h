@@ -20,6 +20,7 @@ enum class Ev : u8 {
     PREGUNTA, INTERCAMBIO_ABRIR, INTERCAMBIO_ITEM, INTERCAMBIO_FIN, TITULO, EMBLEMA, MAGIA_EN_VENTA,
     PUERTA, PARALISIS, VENENO, CEGUERA, PEDIR_CANTIDAD, MASCOTA, ELEGIR_OBJETIVO_MASCOTA, MARCA_OBJETIVO,
     MARCADOR, INVISIBLE, RESUCITAR, NOMBRE_ROSA, LICOR, ANILLO, REINICIO, GRUPO, BLOQUEADO, SONIDO, TIENDA, TIENDA_LINEA, TABLON, TABLON_TEMA, TABLON_LEER, CORREO,
+    CASAS, CASA, CASA_MAPA, GUERRA, ASEDIO, SENOR_CASTILLO, CASTILLO_FONDOS, FECHA_ASEDIO,
     IGNORADO,
 };
 
@@ -88,6 +89,22 @@ enum : int { GR_TIPO, GR_HP, GR_LIDER };
 // 0x10–0x12 el texto; 0x20/0x21 resultado del envío en CO_OK; 0x30–0x32 y 0x40 borrada o
 // guardada; 0x50 aviso de carta nueva, CO_ENVIADA = es la copia propia). e.id la carta, CO_LEIDA,
 // CO_FECHA (segundos), CO_ENVIADA, s[0] el otro (remitente o destinatario), s[1] el asunto o el texto.
+// CASAS (S_HouseList): e.id el tablón de subastas; una CASA por casa: e.id la casa, s[0] el nombre,
+// CS_AREA, CS_MES y CS_DIA (cierre de la subasta) y CS_PRECIO (puja actual).
+// CASA_MAPA (S_HouseMap): e.id el tablón, v[0] la casa.
+enum : int { CS_AREA, CS_MES, CS_DIA, CS_PRECIO };
+// GUERRA (S_War): GU_TIPO (1 declara, 2 se rinde, 3 termina, 4 gana, 6/7 alianza, 8 "en guerra
+// con"), s[0] y s[1] los clanes. ASEDIO (S_PacketBox 0–4): GU_TIPO (0 empieza, 1 termina, 2 sigue,
+// 3 iniciativa, 4 ocupado) y GU_CASTILLO (1–8; 0 en 3 y 4).
+enum : int { GU_TIPO, GU_CASTILLO };
+// SENOR_CASTILLO (S_CastleMaster): e.id el personaje, v[0] el castillo (0 = ya no es señor).
+// CASTILLO_FONDOS: e.id el personaje; CF_TIPO CF_TASA (S_TaxRate: CF_A mínimo, CF_B máximo),
+// CF_DEPOSITAR (S_Deposit) o CF_RETIRAR (S_Drawal: CF_B los fondos).
+enum : int { CF_TIPO, CF_A, CF_B };
+enum : int { CF_TASA, CF_DEPOSITAR, CF_RETIRAR };
+// FECHA_ASEDIO (S_WarTime): FA_N horarios desde FA_MINUTOS, en minutos desde la época Unix (hora
+// local del servidor); s[0] la zona horaria.
+enum : int { FA_N, FA_MINUTOS };
 enum : int { CO_TIPO, CO_LISTA, CO_LEIDA, CO_FECHA, CO_ENVIADA, CO_OK };
 enum : int { TP_TIPO, TP_ORDEN, TP_CANTIDAD, TP_PRECIO, TP_GFX, TP_BENDICION, TP_ITEM };
 enum : int { GR_VACIAR, GR_MIEMBRO, GR_LIDER_NUEVO };
@@ -101,8 +118,9 @@ enum : int { CF_GFX, CF_ARMA };
 // HTML (S_NPCTalkReturn / S_ShowHTML; id = objeto que la muestra): s[0] = id de la página
 // ("<id>-e.html" en Text.pak; "monlist": lista de formas de Shape Change), s[1] = los datos que
 // reemplazan a <var src="#N">, separados por SEPARADOR_DATOS; HT_DATOS = cuántos son.
+// "agsel" (S_AuctionBoardRead, una casa del tablón de subastas) trae además la casa: HT_CASA.
 constexpr char SEPARADOR_DATOS = '\x01';
-enum : int { HT_DATOS };
+enum : int { HT_DATOS, HT_CASA };
 // TELETRANSPORTE (S_Teleport; id = personaje): el servidor espera C_Teleport para moverlo.
 // LISTA_TIENDA (id = NPC) abre una lista: LT_TIPO (TipoLista) y LT_CANTIDAD; le siguen tantos
 // ITEM_TIENDA (id = índice en la tienda o id del ítem, IT_GFX, TI_PRECIO, IT_CANTIDAD,

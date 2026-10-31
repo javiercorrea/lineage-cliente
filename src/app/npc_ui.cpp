@@ -50,7 +50,16 @@ void abrir_pagina(App& a, ObjId npc, std::string_view id, std::string_view datos
                      datos.data(), static_cast<int>(html.size()), reinterpret_cast<const char*>(html.data()));
     a.npc = npc;
     a.npc_pagina = id;
-    a.npc_datos = datos;
+    // Los datos que son un "$N" (el nombre del mayordomo en "agpay", por ejemplo) van traducidos.
+    // (`datos` puede ser a.npc_datos: los vínculos locales vuelven a pasar los mismos.)
+    std::string traducidos;
+    for (size_t i = 0; i <= datos.size();) {
+        const size_t fin = std::min(datos.find(SEPARADOR_DATOS, i), datos.size());
+        if (i) traducidos += SEPARADOR_DATOS;
+        traducidos += a.desc.resolver(datos.substr(i, fin - i));
+        i = fin + 1;
+    }
+    a.npc_datos = std::move(traducidos);
     a.npc_desplazamiento = 0;
     a.tienda = TipoTienda::NINGUNA;
     maquetar_html({reinterpret_cast<const char*>(html.data()), html.size()}, a.npc_datos, SEPARADOR_DATOS,
@@ -109,6 +118,8 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
     } else if (vinculo.substr(0, 6) == "raise-") {  // RaiseAttr: subir un atributo (C_Attr 479)
         enviar(a, cmd::subir_atributo(a.op, vinculo.substr(6)));
         cerrar(a);
+    } else if (a.npc_casa && (vinculo == "map" || vinculo == "apply")) {  // tablón de subastas: con la casa
+        enviar(a, cmd::accion_npc(a.op, a.npc, vinculo, std::to_string(a.npc_casa)));
     } else {
         enviar(a, cmd::accion_npc(a.op, a.npc, vinculo));
     }
@@ -369,6 +380,7 @@ void eventos_npc(App& a, const Evento& e) {
             break;
         }
         abrir_pagina(a, e.id, e.s[0], e.s[1]);
+        a.npc_casa = static_cast<u32>(e.v[HT_CASA]);
         break;
     case Ev::TELETRANSPORTE:
         if (e.id == a.mundo.jugador.id) {

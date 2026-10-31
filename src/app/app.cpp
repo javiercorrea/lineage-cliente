@@ -66,24 +66,26 @@ void leer_entrada(App& a) {
     e.ntexto = 0;
     e.ahora_ms = SDL_GetTicks();
     // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego (o del
-    // login, para probarlo sin --auto), como
+    // login, para probarlo sin --auto; "#" Enter, "~" Esc, "_" nada), como
     // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
     Automatizacion& au = a.aut;
     if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN || a.pantalla == Pantalla::PERSONAJES) &&
         a.frames_en_pantalla >= 300 &&
         (a.frames_en_pantalla - 300) % 10 == 0) {
         const char c = au.pulsar[au.pulsadas++];
-        SDL_Event k{};
-        k.type = SDL_EVENT_KEY_DOWN;
-        k.key.key = c == '#' ? SDLK_RETURN : c == '~' ? SDLK_ESCAPE : static_cast<SDL_Keycode>(c);
-        SDL_PushEvent(&k);
-        if (c != '#' && c != '~') {
-            static char texto[2];
-            texto[0] = c;
-            SDL_Event t{};
-            t.type = SDL_EVENT_TEXT_INPUT;
-            t.text.text = texto;
-            SDL_PushEvent(&t);
+        if (c != '_') {  // "_": esperar 10 frames
+            SDL_Event k{};
+            k.type = SDL_EVENT_KEY_DOWN;
+            k.key.key = c == '#' ? SDLK_RETURN : c == '~' ? SDLK_ESCAPE : static_cast<SDL_Keycode>(c);
+            SDL_PushEvent(&k);
+            if (c != '#' && c != '~') {
+                static char texto[2];
+                texto[0] = c;
+                SDL_Event t{};
+                t.type = SDL_EVENT_TEXT_INPUT;
+                t.text.text = texto;
+                SDL_PushEvent(&t);
+            }
         }
     }
     SDL_Event ev;
@@ -278,6 +280,8 @@ void procesar_red(App& a) {
         eventos_tienda(a, e);
         eventos_tablon(a, e);
         eventos_correo(a, e);
+        eventos_casas(a, e);
+        eventos_castillos(a, e);
         if (e.tipo == Ev::SONIDO) a.audio.efecto(static_cast<u32>(e.v[0]), 1.0f, a.entrada.ahora_ms);  // S_Sound
         eventos_cantidad(a, e);
         eventos_reinicio(a, e);

@@ -668,3 +668,98 @@ TEST_CASE("Reparar armas, marcadores y cambiar de personaje: decodificar y coman
     igual(cmd::usar_teleport(t, 9, 4, 1), {44, 9, 0, 0, 0, 4, 0, 1, 0, 0, 0});
     igual(cmd::hechizo_teleport(t, 5, 4, 1), {115, 0, 4, 4, 0, 1, 0, 0, 0});
 }
+
+TEST_CASE("Castillos y casas: S_HouseList, S_HouseMap, S_War, S_CastleMaster, fondos, S_WarTime y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(2048);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // S_HouseList: tablón 7, una casa (262145, "Casa", área 78, 11/2, 100000).
+    std::vector<u8> lista = {24, 7, 0, 0, 0, 1, 0, 0x01, 0, 4, 0, 'C', 'a', 's', 'a', 0, 78, 0, 11, 2, 0xa0, 0x86, 1, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::CASAS);
+    CHECK(ev[0].id == 7);
+    CHECK(ev[1].tipo == Ev::CASA);
+    CHECK(ev[1].id == 262145);
+    CHECK(ev[1].s[0] == "Casa");
+    CHECK(ev[1].v[CS_AREA] == 78);
+    CHECK(ev[1].v[CS_MES] == 11);
+    CHECK(ev[1].v[CS_DIA] == 2);
+    CHECK(ev[1].v[CS_PRECIO] == 100000);
+    ev.clear();
+    std::vector<u8> mapa = {44, 7, 0, 0, 0, 0x01, 0, 4, 0};
+    REQUIRE(decodificar(mapa, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::CASA_MAPA);
+    CHECK(ev[0].v[0] == 262145);
+    // S_War 1: "A" declara la guerra a "B". S_CastleMaster: castillo 1, personaje 5.
+    ev.clear();
+    std::vector<u8> war = {123, 1, 'A', 0, 'B', 0, 66, 1, 5, 0, 0, 0};
+    REQUIRE(decodificar(std::span<const u8>(war).first(6), t, arena, ev));
+    REQUIRE(decodificar(std::span<const u8>(war).subspan(6), t, arena, ev));
+    CHECK(ev[0].tipo == Ev::GUERRA);
+    CHECK(ev[0].v[GU_TIPO] == 1);
+    CHECK(ev[0].s[1] == "B");
+    CHECK(ev[1].tipo == Ev::SENOR_CASTILLO);
+    CHECK(ev[1].id == 5);
+    CHECK(ev[1].v[0] == 1);
+    // Asedio: S_PacketBox 0 (empieza, castillo 4) y 4 (ocupado).
+    ev.clear();
+    std::vector<u8> asedio = {40, 0, 4, 0, 0};
+    REQUIRE(decodificar(asedio, t, arena, ev));
+    std::vector<u8> ocupado = {40, 4};
+    REQUIRE(decodificar(ocupado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::ASEDIO);
+    CHECK(ev[0].v[GU_CASTILLO] == 4);
+    CHECK(ev[1].v[GU_TIPO] == 4);
+    // S_TaxRate, S_Deposit y S_Drawal.
+    ev.clear();
+    std::vector<u8> tasa = {72, 5, 0, 0, 0, 10, 50}, dep = {203, 5, 0, 0, 0}, ret = {224, 5, 0, 0, 0, 0x10, 0x27, 0, 0};
+    REQUIRE(decodificar(tasa, t, arena, ev));
+    REQUIRE(decodificar(dep, t, arena, ev));
+    REQUIRE(decodificar(ret, t, arena, ev));
+    CHECK(ev[0].v[CF_TIPO] == CF_TASA);
+    CHECK(ev[0].v[CF_B] == 50);
+    CHECK(ev[1].v[CF_TIPO] == CF_DEPOSITAR);
+    CHECK(ev[2].v[CF_TIPO] == CF_RETIRAR);
+    CHECK(ev[2].v[CF_B] == 10000);
+    // S_WarTime (opcode de S_MapID): 2026-11-01 20:00 con la fórmula del servidor da 86204.
+    ev.clear();
+    std::vector<u8> fecha = {150, 6, 0, 'J', 'S', 'T', 0, 0, 0, 0};
+    for (u32 i = 0; i < 6; ++i) {
+        const u32 v = 86204 + 4 * i;
+        for (int b = 0; b < 4; ++b) fecha.push_back(static_cast<u8>(v >> (8 * b)));
+        fecha.push_back(0);
+    }
+    REQUIRE(decodificar(fecha, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::FECHA_ASEDIO);
+    CHECK(ev[0].v[FA_N] == 6);
+    CHECK(ev[0].s[0] == "JST");
+    CHECK(std::abs(ev[0].v[FA_MINUTOS] - 29892720) < 182);
+    // S_MapID sigue siendo el mapa.
+    ev.clear();
+    std::vector<u8> mapid = {150, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar(mapid, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::MAPA);
+    CHECK(ev[0].v[0] == 4);
+    // Comandos.
+    // "agsel": la casa antes de los datos, sin el h 1.
+    ev.clear();
+    std::vector<u8> agsel = {119, 7, 0, 0, 0, 'a', 'g', 's', 'e', 'l', 0, '2', '6', '2', '1', '4', '5', 0, 2, 0, 'C', 0, 'G', 0};
+    REQUIRE(decodificar(agsel, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::HTML);
+    CHECK(ev[0].v[HT_CASA] == 262145);
+    CHECK(ev[0].v[HT_DATOS] == 2);
+    CHECK(ev[0].s[1] == "C\x01G");
+    igual(cmd::accion_npc(t, 7, "map", "262145"), {37, 7, 0, 0, 0, 'm', 'a', 'p', 0, '2', '6', '2', '1', '4', '5', 0});
+    igual(cmd::guerra(t, cmd::GUERRA_DECLARAR, "B"), {235, 0, 'B', 0});
+    igual(cmd::tasa_castillo(t, 5, 20), {200, 5, 0, 0, 0, 20});
+    igual(cmd::fondos_castillo(t, true, 5, 100), {35, 5, 0, 0, 0, 100, 0, 0, 0});
+    igual(cmd::fondos_castillo(t, false, 5, 100), {192, 5, 0, 0, 0, 100, 0, 0, 0});
+    igual(cmd::fecha_asedio(t), {4});
+    igual(cmd::responder_texto(t, 3, 512, "Casa"), {61, 0, 0, 3, 0, 0, 0, 0, 2, 1, 0, 'C', 'a', 's', 'a', 0});
+}

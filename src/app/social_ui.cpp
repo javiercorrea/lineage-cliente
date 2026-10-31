@@ -40,7 +40,11 @@ void aviso(App& a, std::string_view t) { a.chat.agregar(t, rgba(255, 230, 120), 
 void responder_pregunta(App& a, bool si) {
     if (a.preguntas.empty()) return;
     const Pregunta& p = a.preguntas.front();
-    enviar(a, cmd::responder(a.op, p.numero, p.tipo, si));
+    if (p.tipo == PREGUNTA_NOMBRE_CASA) {  // se responde con el texto (o no se responde: el servidor no lo espera)
+        if (si && !p.respuesta.empty()) enviar(a, cmd::responder_texto(a.op, p.numero, p.tipo, p.respuesta));
+    } else {
+        enviar(a, cmd::responder(a.op, p.numero, p.tipo, si));
+    }
     a.preguntas.erase(a.preguntas.begin());
 }
 
@@ -120,7 +124,7 @@ void eventos_social(App& a, const Evento& e) {
         size_t n = formatear_mensaje(a.mensajes, a.desc, m, buf, sizeof buf, color);
         p.texto.assign(buf, n);
         a.preguntas.push_back(std::move(p));
-        if (a.aut.aceptar) responder_pregunta(a, true);  // prueba automática
+        if (a.aut.aceptar && p.tipo != PREGUNTA_NOMBRE_CASA) responder_pregunta(a, true);  // prueba automática
         break;
     }
     case Ev::INTERCAMBIO_ABRIR:
@@ -160,6 +164,7 @@ bool comando_social(App& a, std::string_view linea) {
     if (comando_marcador(a, orden, arg)) return true;
     if (comando_tienda(a, orden, arg)) return true;
     if (comando_correo(a, orden)) return true;
+    if (comando_castillos(a, orden, arg)) return true;
     if (igual_sin_mayusculas(orden, "pk")) {  // modo PK (del cliente): atacar jugadores con un clic
         a.modo_pk = !a.modo_pk;
         aviso(a, a.modo_pk ? "PK mode ON: clicking another player attacks them. /pk to turn it off."
@@ -270,11 +275,18 @@ void dibujar_pregunta(App& a) {
         n[linea] += m;
         i = fin == std::string::npos ? t.size() : fin + 1;
     }
-    for (int k = 0; k < 2; ++k)
+    Pregunta& p = a.preguntas.front();
+    const bool con_texto = p.tipo == PREGUNTA_NOMBRE_CASA;
+    for (int k = 0; k < (con_texto ? 1 : 2); ++k)
         g.texto({lineas[k], n[k]}, static_cast<float>(r.x + 10), static_cast<float>(r.y + 28 + k * 15),
                 clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
-    bool si = ui::boton_texto(g, e, "Yes", r.x + r.w / 2 - 90, r.y + r.h - 26, 80, 18) || e.enter;
-    bool no = ui::boton_texto(g, e, "No", r.x + r.w / 2 + 10, r.y + r.h - 26, 80, 18) || e.escape;
+    if (con_texto) {  // el nombre: hasta 16 caracteres (C_Attr 512)
+        g.gpu().rectangulo(r.x + 10, r.y + 42, r.w - 20, 18, clave_orden(CAPA_UI, 11), rgba(40, 32, 25, 255));
+        ui::caja_texto(g, e, p.respuesta, r.x + 13, r.y + 45, r.w - 26, true, false, 16);
+        e.ntexto = 0;
+    }
+    bool si = ui::boton_texto(g, e, con_texto ? "OK" : "Yes", r.x + r.w / 2 - 90, r.y + r.h - 26, 80, 18) || e.enter;
+    bool no = ui::boton_texto(g, e, con_texto ? "Cancel" : "No", r.x + r.w / 2 + 10, r.y + r.h - 26, 80, 18) || e.escape;
     if (si || no) {
         responder_pregunta(a, si);
         e.enter = e.escape = false;  // no van al chat

@@ -1,6 +1,7 @@
 // Formatos tomados de las clases S_*.java de L1J-JP 3.63c y verificados contra el servidor local
 // con herramientas/prueba_login.py.
 #include "proto/decodificar.h"
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -80,8 +81,31 @@ bool estado(Lector& l, Evento& e) {
     e.v[EP_LEGAL] = static_cast<i16>(l.h());
     return true;
 }
-// S_MapID: h mapa, c bajo el agua
-bool mapa(Lector& l, Evento& e) { e.tipo = Ev::MAPA; e.v[0] = l.h(); e.v[1] = l.c(); return true; }
+// S_MapID: h mapa, c bajo el agua (y 8 bytes en 0).
+// S_WarTime usa el mismo opcode (150): h 6, s zona horaria, c c c, 6 × (d tiempo, c 0). Se nota por
+// el largo (S_MapID trae 11 bytes). El tiempo: minutos desde 1997-01-01 17:00 (hora local), menos
+// 1200, divididos por 182 (S_WarTime.java); se devuelve en minutos desde 1970-01-01 00:00.
+constexpr i32 MINUTOS_1997 = 9862 * 1440 + 17 * 60;  // 1997-01-01 17:00 desde 1970
+bool mapa(Lector& l, Evento& e) {
+    if (l.quedan(30)) {
+        e.tipo = Ev::FECHA_ASEDIO;
+        const int n = std::min<int>(l.h(), 6);
+        e.s[0] = l.s();
+        l.c();
+        l.c();
+        l.c();
+        e.v[FA_N] = n;
+        for (int i = 0; i < n; ++i) {
+            e.v[FA_MINUTOS + i] = MINUTOS_1997 + 1200 + static_cast<i32>(l.d()) * 182;
+            l.c();
+        }
+        return true;
+    }
+    e.tipo = Ev::MAPA;
+    e.v[0] = l.h();
+    e.v[1] = l.c();
+    return true;
+}
 // S_*Pack (personajes, NPCs, puertas...): h x, h y, d id, h gfx, c estado/arma, c dirección,
 // c luz, c velocidad, d exp, h legal, s nombre, s título, c flags, d clan, s clan, s ?, c ?, c hp%
 bool poner(Lector& l, Evento& e) {
@@ -180,7 +204,7 @@ bool atributos(Lector& l, Evento& e) {
 //  - íconos de efectos: S_SkillIconAura (0x16: c índice del hechizo, h segundos) y los de
 //    S_SkillIconGFX que manda L1J para efectos con duración (34 poción azul, 40 Immune to Harm:
 //    h segundos).
-// El resto (grupo, mensajes de guerra...) llega en entregables posteriores.
+//  - asedio (0–4): ver abajo.
 constexpr int CAJA_AURA = 0x16, CAJA_POCION_AZUL = 34, CAJA_INMUNE = 40;
 bool caja(Lector& l, Evento& e) {
     int sub = l.c();
@@ -197,6 +221,11 @@ bool caja(Lector& l, Evento& e) {
         e.v[IE_CLASE] = IE_ICONO;
         e.v[IE_TIPO] = sub;
         e.v[IE_SEG] = l.h();
+    } else if (sub <= 4) {
+        // Asedio: 0 empieza, 1 termina, 2 sigue (c castillo, h 0); 3 iniciativa y 4 ocupado (nada más).
+        e.tipo = Ev::ASEDIO;
+        e.v[GU_TIPO] = sub;
+        if (sub <= 2) e.v[GU_CASTILLO] = l.c();
     } else {
         e.tipo = Ev::IGNORADO;
     }
@@ -291,8 +320,17 @@ bool html(Lector& l, Evento& e) {
     e.id = l.d();
     e.s[0] = l.s();
     // S_Party / S_Pledge mandan h 1 o 2 y la cantidad de datos; sin datos, h 0, h 0.
-    if (l.quedan(4) && l.h() != 0) {
-        int n = std::min<int>(l.h(), 16);
+    // S_AuctionBoardRead ("agsel"): s casa, h 9 y los datos, sin el h 1.
+    int n = -1;
+    if (e.s[0] == "agsel" && l.quedan(3)) {
+        const std::string_view casa = l.s();
+        for (char c : casa) e.v[HT_CASA] = e.v[HT_CASA] * 10 + (c - '0');
+        n = l.h();
+    } else if (l.quedan(4) && l.h() != 0) {
+        n = l.h();
+    }
+    if (n >= 0) {
+        n = std::min(n, 16);
         std::string_view datos[16];
         size_t total = 0;
         for (int i = 0; i < n; ++i) {
@@ -649,6 +687,41 @@ bool resucitar(Lector& l, Evento& e) { e.tipo = Ev::RESUCITAR; e.id = l.d(); ret
 bool item_quitar(Lector& l, Evento& e) { e.tipo = Ev::ITEM_QUITAR; e.id = l.d(); return true; }
 bool item_bendicion(Lector& l, Evento& e) { e.tipo = Ev::ITEM_BENDICION; e.id = l.d(); e.v[IT_BENDICION] = l.c(); return true; }
 
+// S_HouseMap: d tablón, d casa.
+bool casa_mapa(Lector& l, Evento& e) { e.tipo = Ev::CASA_MAPA; e.id = l.d(); e.v[0] = static_cast<i32>(l.d()); return true; }
+// S_War: c tipo, s clan 1, s clan 2.
+bool guerra(Lector& l, Evento& e) {
+    e.tipo = Ev::GUERRA;
+    e.v[GU_TIPO] = l.c();
+    e.s[0] = l.s();
+    e.s[1] = l.s();
+    return true;
+}
+// S_CastleMaster: c castillo (0 = ya no), d personaje.
+bool senor_castillo(Lector& l, Evento& e) {
+    e.tipo = Ev::SENOR_CASTILLO;
+    e.v[0] = l.c();
+    e.id = l.d();
+    return true;
+}
+// S_TaxRate: d personaje, c mínimo (10), c máximo (50). S_Deposit: d personaje. S_Drawal: d
+// personaje, d fondos del castillo.
+bool fondos_castillo(Lector& l, Evento& e) {
+    e.tipo = Ev::CASTILLO_FONDOS;
+    e.id = l.d();
+    if (e.origen == Srv::TAXRATE) {
+        e.v[CF_TIPO] = CF_TASA;
+        e.v[CF_A] = l.c();
+        e.v[CF_B] = l.c();
+    } else if (e.origen == Srv::DRAWAL) {
+        e.v[CF_TIPO] = CF_RETIRAR;
+        e.v[CF_B] = static_cast<i32>(l.d());
+    } else {
+        e.v[CF_TIPO] = CF_DEPOSITAR;
+    }
+    return true;
+}
+
 constexpr Decodificador TABLA[] = {
     ignorar,     // DESCONOCIDO
     ignorar,     // INITPACKET (lo procesa el hilo de red)
@@ -720,6 +793,13 @@ constexpr Decodificador TABLA[] = {
     ignorar,        // BOARD (varios eventos: ver decodificar)
     tablon_leer,    // BOARDREAD
     correo,         // MAIL (las listas, en decodificar)
+    ignorar,        // HOUSELIST (varios eventos: ver decodificar)
+    casa_mapa,      // HOUSEMAP
+    guerra,         // WAR
+    senor_castillo, // CASTLEMASTER
+    fondos_castillo,  // TAXRATE
+    fondos_castillo,  // DEPOSIT
+    fondos_castillo,  // DRAWAL
 };
 static_assert(sizeof(TABLA) / sizeof(TABLA[0]) == static_cast<size_t>(Srv::CANTIDAD));
 
@@ -893,6 +973,27 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
             if (!l.error) salida.push_back(t);
         }
         return true;
+    }
+    if (e.origen == Srv::HOUSELIST) {
+        // S_HouseList: d tablón, h n, n × (d casa, s nombre, h área, c mes, c día, d precio).
+        Evento cab = e;
+        cab.tipo = Ev::CASAS;
+        cab.id = l.d();
+        const int n = l.h();
+        if (l.error) return false;
+        salida.push_back(cab);
+        for (int i = 0; i < n && !l.error; ++i) {
+            Evento c = e;
+            c.tipo = Ev::CASA;
+            c.id = l.d();
+            c.s[0] = l.s();
+            c.v[CS_AREA] = l.h();
+            c.v[CS_MES] = l.c();
+            c.v[CS_DIA] = l.c();
+            c.v[CS_PRECIO] = static_cast<i32>(l.d());
+            if (!l.error) salida.push_back(c);
+        }
+        return !l.error;
     }
     if (e.origen == Srv::MAIL && l.quedan(1) && l.datos[0] <= 2) {
         // S_Mail lista (tipo 0 normal, 1 clan, 2 guardadas): c tipo, h n, n × (d carta, c leída,

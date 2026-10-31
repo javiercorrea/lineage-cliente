@@ -430,6 +430,9 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
                 g.texto_sombra("V", sx + 24 - 3, top - 28, clave_orden(CAPA_EFECTOS, 0), rgba(255, 80, 60));
                 if (wm) g.texto_sombra(a.marca_texto, sx + 24 - wm / 2, top - 42, clave_orden(CAPA_EFECTOS, 0), rgba(255, 160, 140));
             }
+            // El señor de un castillo: una corona a la izquierda (del emblema, si tiene).
+            if (castillo_de(a, o.ids()[s]))
+                dibujar_corona(g, sx + 24 - w / 2 - (o.col<O_CLAN>()[s] ? 19 : 0) - 16, top - 12, clave_orden(CAPA_EFECTOS, 0));
             // Emblema del clan a la izquierda del nombre (se pide una vez por clan).
             if (u32 clan = o.col<O_CLAN>()[s]) {
                 const RegionAtlas& em = g.emblema(clan);
@@ -630,7 +633,7 @@ void mover_jugador(App& a, u64 ahora) {
     const EntradaFrame& e = a.entrada;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_tablon(a) || sobre_correo(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_tablon(a) || sobre_correo(a) || sobre_casas(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
                        a.arrastrando_atajo >= 0;
     // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
     // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
@@ -1259,7 +1262,9 @@ void frame_juego(App& a) {
     dibujar_tienda(a);
     dibujar_tablon(a);
     dibujar_correo(a);
+    dibujar_casas(a);
     a.gpu.nivel_ventana(0);
+    dibujar_castillos(a);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);

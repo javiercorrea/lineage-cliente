@@ -124,9 +124,11 @@ inline Escritor usar_item_texto(const TablaOpcodes& t, u32 item, std::string_vie
     return e;
 }
 // C_NPCAction: d objeto, s acción. Shape Change responde así a la lista "monlist" (con el propio id).
-inline Escritor accion_npc(const TablaOpcodes& t, u32 objeto, std::string_view accion) {
+// El tablón de subastas lleva además la casa: "select", "map" y "apply" + s número.
+inline Escritor accion_npc(const TablaOpcodes& t, u32 objeto, std::string_view accion, std::string_view casa = {}) {
     Escritor e(t, Cli::NPCACTION);
     e.d(objeto).s(accion);
+    if (!casa.empty()) e.s(casa);
     return e;
 }
 // C_NPCTalk: d NPC. El servidor responde con su página (S_NPCTalkReturn).
@@ -157,6 +159,34 @@ inline Escritor responder(const TablaOpcodes& t, u32 numero, u16 tipo, bool si) 
     e.h(0).d(numero).h(tipo).h(si ? 1 : 0);
     return e;
 }
+// C_Attr con texto (S_MessageYN que pide un nombre: 512 el de la casa): h 0, d número, h tipo, h 1,
+// s texto.
+inline Escritor responder_texto(const TablaOpcodes& t, u32 numero, u16 tipo, std::string_view texto) {
+    Escritor e(t, Cli::ATTR);
+    e.h(0).d(numero).h(tipo).h(1).s(texto);
+    return e;
+}
+// Castillos. C_War: c tipo (0 declarar, 2 rendirse, 3 terminar), s clan.
+enum TipoGuerra : u8 { GUERRA_DECLARAR = 0, GUERRA_RENDIRSE = 2, GUERRA_TERMINAR = 3 };
+inline Escritor guerra(const TablaOpcodes& t, TipoGuerra tipo, std::string_view clan) {
+    Escritor e(t, Cli::WAR);
+    e.c(tipo).s(clan);
+    return e;
+}
+// C_TaxRate: d personaje, c tasa (10–50).
+inline Escritor tasa_castillo(const TablaOpcodes& t, u32 personaje, u8 tasa) {
+    Escritor e(t, Cli::TAXRATE);
+    e.d(personaje).c(tasa);
+    return e;
+}
+// C_Deposit / C_Drawal: d personaje, d cantidad (poner en o sacar de los fondos del castillo).
+inline Escritor fondos_castillo(const TablaOpcodes& t, bool depositar, u32 personaje, u32 cantidad) {
+    Escritor e(t, depositar ? Cli::DEPOSIT : Cli::DRAWAL);
+    e.d(personaje).d(cantidad);
+    return e;
+}
+// C_ChangeWarTime: sin datos; el servidor responde S_WarTime con la fecha del próximo asedio.
+inline Escritor fecha_asedio(const TablaOpcodes& t) { return Escritor(t, Cli::CHANGEWARTIME); }
 // Grupo. C_CreateParty: c 0 (reparto normal; 1 automático), d personaje invitado.
 inline Escritor invitar_grupo(const TablaOpcodes& t, u32 personaje) {
     Escritor e(t, Cli::CREATEPARTY);

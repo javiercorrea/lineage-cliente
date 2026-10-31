@@ -174,6 +174,30 @@ struct Correo {
     int foco = 0;
     int nuevas = 0;  // sin leer en la bandeja normal: el sobre de aviso
 };
+// Casas (casas_ui.cpp): el tablón de subastas abierto con sus casas, y el mapa de una.
+struct CasaSubasta {
+    u32 id = 0;
+    std::string nombre;
+    u16 area = 0;
+    u8 mes = 0, dia = 0;
+    u32 precio = 0;
+};
+struct Subastas {
+    ObjId tablon = 0;  // 0 = cerrado
+    std::vector<CasaSubasta> casas;
+    int desplazamiento = 0;  // filas
+    u32 mapa = 0;            // casa cuyo mapa se muestra (0 = ninguno)
+};
+// Castillos (castillos_ui.cpp): señores (S_CastleMaster), asedios en curso y guerras del clan.
+struct SenorCastillo {
+    ObjId id = 0;
+    u8 castillo = 0;
+};
+struct Castillos {
+    std::vector<SenorCastillo> senores;
+    bool asedio[9] = {};                // castillos 1–8 en asedio (S_PacketBox 0/2 hasta el 1)
+    std::vector<std::string> enemigos;  // clanes en guerra con el propio (S_War)
+};
 
 // Grupo (S_PacketBox 104–106; social_ui.cpp): los miembros con su vida (S_HpMeter) y el líder.
 struct MiembroGrupo {
@@ -215,6 +239,7 @@ struct DialogoCantidad {
     bool dar = false;         // true: C_GiveItem del `item` a `objeto`; false: C_Amount a `objeto`
     bool borrar = false;      // true: C_DeleteInventoryItem del `item` (el basurero)
     u8 tienda = 0;            // tienda de jugadores (tienda_ui.cpp): 1 comprar, 2 venderle, 3 precio al armar
+    u8 castillo = 0;          // castillos_ui.cpp: CF_TASA + 1 impuesto, CF_DEPOSITAR + 1 poner, CF_RETIRAR + 1 sacar
     bool escribiendo = false; // ya se escribió un número (el siguiente se agrega en vez de reemplazar)
     ObjId objeto = 0, item = 0;
     i32 valor = 1, min = 1, max = 1, precio = 0;
@@ -235,7 +260,9 @@ struct Pregunta {
     u32 numero = 0;
     u16 tipo = 0;
     std::string texto;
+    std::string respuesta;  // las que piden un texto (PREGUNTA_NOMBRE_CASA)
 };
+constexpr u16 PREGUNTA_NOMBRE_CASA = 512;  // el mayordomo: "¿nombre de la casa?" (C_Attr con el texto)
 struct ItemIntercambio {
     u16 gfx = 0;
     u8 bendicion = 0;
@@ -365,6 +392,7 @@ struct App {
     // NPC (npc_ui.cpp): diálogo con la página HTML, y tienda o almacén en la misma ventana.
     ObjId npc = 0;
     std::string npc_pagina, npc_datos;
+    u32 npc_casa = 0;  // página "agsel" del tablón de subastas: la casa ("map" y "apply" la llevan)
     PaginaHtml npc_html;
     int npc_desplazamiento = 0;  // px
     TipoTienda tienda = TipoTienda::NINGUNA;
@@ -392,6 +420,8 @@ struct App {
     TiendaJugadores tienda_pj;
     Tablon tablon;
     Correo correo;
+    Subastas subastas;
+    Castillos castillos;
     std::vector<std::string> bloqueados;  // C_Exclude: el servidor no le pasa sus mensajes
     std::vector<Marcador> marcadores;
     ElegirDestino destino;
@@ -601,7 +631,10 @@ bool comando_tienda(App& a, std::string_view orden, std::string_view arg);
 bool clic_item_tienda(App& a, ObjId item);              // inventario: agregar a la propia mientras se arma
 void aceptar_cantidad_tienda(App& a);
 // Una ventana con un campo de texto tiene el teclado: los atajos (1–0, A, Enter del chat) no actúan.
-inline bool escribiendo_en_ventana(const App& a) { return a.ventana_forma || a.tablon.escribiendo || a.correo.escribiendo; }
+inline bool escribiendo_en_ventana(const App& a) {
+    return a.ventana_forma || a.tablon.escribiendo || a.correo.escribiendo ||
+           (!a.preguntas.empty() && a.preguntas.front().tipo == PREGUNTA_NOMBRE_CASA);
+}
 // Tablón de los pueblos (tablon_ui.cpp) y correo (correo_ui.cpp).
 bool es_tablon(GfxId gfx);
 void eventos_tablon(App& a, const Evento& e);
@@ -611,6 +644,17 @@ void eventos_correo(App& a, const Evento& e);
 void dibujar_correo(App& a);
 bool sobre_correo(const App& a);
 bool comando_correo(App& a, std::string_view orden);
+// Casas (casas_ui.cpp) y castillos (castillos_ui.cpp).
+void eventos_casas(App& a, const Evento& e);
+void dibujar_casas(App& a);
+bool sobre_casas(const App& a);
+void eventos_castillos(App& a, const Evento& e);
+void dibujar_castillos(App& a);
+bool comando_castillos(App& a, std::string_view orden, std::string_view resto);
+u8 castillo_de(const App& a, ObjId id);
+void dibujar_corona(Graficos& g, float x, float y, u64 k);  // el señor del castillo, junto al nombre  // el castillo del que es señor (0 = ninguno)
+void abrir_cantidad_castillo(App& a, int tipo, ObjId personaje, i32 min, i32 max, i32 inicial);
+const char* nombre_castillo(int castillo);
 void procesar_social(App& a, u64 ahora);  // prueba automática
 Rect rect_social(const App& a);
 Rect rect_intercambio(const App& a);
