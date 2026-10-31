@@ -1,4 +1,5 @@
 #include <doctest/doctest.h>
+#include "plataforma/rutas.h"
 #include <random>
 #include <unordered_map>
 #include "core/anillo.h"
@@ -80,4 +81,37 @@ TEST_CASE("Arena: alineación, copia y reset") {
     CHECK(a.reservar(1000) == nullptr);
     a.resetear();
     CHECK(a.usado() == 0);
+}
+
+TEST_CASE("settings.ini: servidores, el elegido, migración del formato anterior y la clave") {
+    // Formato anterior: un solo servidor con host/puerto/protocolo/usuario; la clave no se lee.
+    Config v = leer_config("juego=/j/\nhost=10.0.0.5\npuerto=2001\nprotocolo=jp363\nusuario=ana\nclave=secreta\n");
+    REQUIRE(v.servidores.size() == 1);
+    CHECK(v.servidores[0].nombre == "Servidor");
+    CHECK(v.servidores[0].host == "10.0.0.5");
+    CHECK(v.servidores[0].puerto == 2001);
+    CHECK(v.servidores[0].usuario == "ana");
+    CHECK(v.clave.empty());
+    // Sin nada: el local de pruebas.
+    Config vacio = leer_config("");
+    REQUIRE(vacio.servidores.size() == 1);
+    CHECK(vacio.servidores[0].host == "127.0.0.1");
+    CHECK(vacio.servidores[0].puerto == 2000);
+    // Varios, el elegido por nombre, y la vuelta por escribir_config.
+    Config c = leer_config("servidor=Local|127.0.0.1|2000|jp363|\nservidor=Otro de prueba|h.ejemplo|2100|s3ep1|bob\n"
+                           "servidor_elegido=Otro de prueba\nui_simple=0\n");
+    REQUIRE(c.servidores.size() == 2);
+    CHECK(c.servidor == 1);
+    CHECK(servidor_elegido(c).protocolo == "s3ep1");
+    CHECK(servidor_elegido(c).usuario == "bob");
+    CHECK_FALSE(c.ui_simple);
+    const std::string texto = escribir_config(c);
+    CHECK(texto.find("host=") == std::string::npos);
+    CHECK(texto.find("clave") == std::string::npos);
+    Config d = leer_config(texto);
+    REQUIRE(d.servidores.size() == 2);
+    CHECK(d.servidor == 1);
+    CHECK(d.servidores[1].nombre == "Otro de prueba");
+    CHECK(d.servidores[1].puerto == 2100);
+    CHECK_FALSE(d.ui_simple);
 }

@@ -2,17 +2,25 @@
 #pragma once
 #include <string>
 #include <string_view>
+#include <vector>
 #include "core/tipos.h"
 
 namespace lin {
 
-struct Config {
-    std::string carpeta_juego;     // donde están Sprite*.pak, Tile.pak, map/, font/...
-    std::string host = "127.0.0.1";
+// Un servidor del menú del login: "servidor=Nombre|host|puerto|protocolo|cuenta" en settings.ini
+// (la cuenta es la última usada en ese servidor; opcional).
+struct Servidor {
+    std::string nombre, host;
     u16 puerto = 2000;
     std::string protocolo = "jp363";
-    std::string usuario;           // prellenado de la pantalla de login (opcional)
-    std::string clave;
+    std::string usuario;
+};
+
+struct Config {
+    std::string carpeta_juego;     // donde están Sprite*.pak, Tile.pak, map/, font/...
+    std::vector<Servidor> servidores;  // al menos uno (ver leer_config)
+    size_t servidor = 0;           // el elegido ("servidor_elegido=Nombre")
+    std::string clave;             // solo de --clave= (pruebas); de settings.ini no se lee ni se guarda
     int zoom = 0;                  // escala en el juego (píxeles reales por píxel lógico); 0 = automática
     bool camara_a_saltos = false;  // la cámara sigue los frames de caminar, como el original (F4)
     bool ui_simple = true;         // UI de texto (estilo ASCII) en el juego; false = panel original (F2)
@@ -44,10 +52,16 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
 // MULTIPLATAFORMA: SDL_GetPrefPath ya devuelve %APPDATA% en Windows y ~/.local/share en Linux.
 std::string ruta_configuracion();
 
-// Carga settings.ini; las variables de entorno LINEAGE_DIR, LINEAGE_HOST y LINEAGE_PORT y los
-// argumentos --juego=, --host=, --puerto= tienen prioridad.
+// Carga settings.ini; la variable de entorno LINEAGE_DIR y los argumentos --clave=valor tienen
+// prioridad.
 Config cargar_config(int argc, char** argv);
 bool guardar_config(const Config& c);
+// El texto de settings.ini, sin archivos (para los tests). leer_config migra el formato anterior
+// (host=, puerto=, protocolo=, usuario=: un servidor "Servidor") y, sin ninguno, agrega el local.
+Config leer_config(std::string_view texto);
+std::string escribir_config(const Config& c);
+inline Servidor& servidor_elegido(Config& c) { return c.servidores[c.servidor]; }
+inline const Servidor& servidor_elegido(const Config& c) { return c.servidores[c.servidor]; }
 
 // Comprueba que la carpeta tenga los archivos mínimos del juego.
 bool carpeta_juego_valida(const std::string& carpeta);

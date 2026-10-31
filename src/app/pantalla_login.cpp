@@ -1,6 +1,8 @@
 // Entregable 1: pantalla de login. Posiciones e imágenes de drawmode/draw_login.cpp de
 // l1j-client: fondo 814.png, recuadro 59.img, botones 53/65/55/57 (+1 = resaltado). Con la UI
 // simple (F2), un recuadro de texto bajo el logo propio (opción "logo" de settings.ini).
+// Arriba de la cuenta, el menú de servidores de settings.ini ("servidor="); la tabla de opcodes se
+// elige al conectar, con el protocolo del elegido. La cuenta se recuerda por servidor; la clave no.
 #include <algorithm>
 #include "app/app.h"
 
@@ -23,9 +25,14 @@ const char* motivo_login(int codigo) {
 
 void iniciar_login(App& a) {
     if (a.usuario.empty() || a.clave.empty() || a.esperando) return;
+    const Servidor& sv = servidor_elegido(a.cfg);
+    if (!tabla_opcodes(sv.protocolo, a.op)) {
+        a.aviso = "Unknown protocol version: " + sv.protocolo;
+        return;
+    }
     a.aviso.clear();
     a.esperando = true;
-    a.red.iniciar(a.cfg.host, a.cfg.puerto, a.op);  // al conectar se envían versión y login
+    a.red.iniciar(sv.host, sv.puerto, a.op);  // al conectar se envían versión y login
     a.estado_red_previo = EstadoRed::CONECTANDO;
 }
 
@@ -52,6 +59,10 @@ void dibujar_logo(App& a, int x, int y, int w, int h) {
 void eventos_login(App& a, const Evento& e) {
     switch (e.tipo) {
     case Ev::RESULTADO_LOGIN:
+        if (e.v[0] == 0 && servidor_elegido(a.cfg).usuario != a.usuario) {  // la cuenta queda para la próxima vez
+            servidor_elegido(a.cfg).usuario = a.usuario;
+            guardar_config(a.cfg);
+        }
         if (e.v[0] != 0) {
             a.aviso = motivo_login(e.v[0]);
             a.esperando = false;
@@ -78,27 +89,46 @@ void frame_login(App& a) {
     // Cajas de usuario y clave: las del recuadro 59.img o las de la UI simple.
     const int x_cajas = simple ? 290 : X_CAJAS, y_usuario = simple ? 266 : Y_USUARIO, y_clave = simple ? 294 : Y_CLAVE;
     const int ancho_caja = simple ? 130 : ANCHO_CAJA;
+    const int y_servidor = simple ? 238 : Y_USUARIO - 58, x_servidor = simple ? x_cajas : X_CAJAS - 30;
+    const Servidor& sv = servidor_elegido(a.cfg);
+    char pie[160];
+    std::snprintf(pie, sizeof pie, "%s:%u  %s", sv.host.c_str(), sv.puerto, sv.protocolo.c_str());
     if (simple) {
         g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
         dibujar_logo(a, 40, 24, 560, 190);
-        ui::recuadro(g, 190, 240, 260, 120);
+        ui::recuadro(g, 190, 222, 260, 138);
+        g.texto("Server", 206, y_servidor, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
         g.texto("Account", 206, y_usuario, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
         g.texto("Password", 206, y_clave, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        char pie[96];
-        std::snprintf(pie, sizeof pie, "%s:%u  -  F2: original interface", a.cfg.host.c_str(), a.cfg.puerto);
-        ui::texto_centrado(g, pie, 0, 456, 640, rgba(120, 110, 90));
+        ui::texto_centrado(g, pie, 0, 440, 640, rgba(120, 110, 90));
+        ui::texto_centrado(g, "F2: original interface", 0, 456, 640, rgba(120, 110, 90));
     } else {
         g.gpu().dibujar(g.png(814), 0, 0, clave_orden(CAPA_FONDO, 0));
         // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda.
         for (size_t i = 0; i < a.intro.cantidad() && i < 18; ++i)
             g.texto(a.intro.linea(i), 34, 59 + 12 * static_cast<int>(i), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
         ui::imagen(g, 59, 0x1a9, 0x138);
+        g.texto_sombra("Server", static_cast<float>(x_servidor - 46), static_cast<float>(y_servidor), clave_orden(CAPA_UI_TEXTO, 0),
+                       rgba(214, 190, 140));
+        g.texto_sombra(pie, static_cast<float>(x_servidor), static_cast<float>(y_servidor + 17), clave_orden(CAPA_UI_TEXTO, 0),
+                       rgba(200, 190, 160));
+    }
+    // El menú de servidores va primero: abierto, el clic y Escape son suyos.
+    bool bloqueado = a.esperando || a.mostrando_noticias;
+    if (!bloqueado) {
+        std::vector<std::string> nombres;
+        for (const Servidor& s : a.cfg.servidores) nombres.push_back(s.nombre);
+        if (ui::desplegable(g, e, nombres, a.cfg.servidor, a.menu_servidores, x_servidor, y_servidor, simple ? ancho_caja : ancho_caja + 30)) {
+            a.usuario = servidor_elegido(a.cfg).usuario;  // la cuenta de ese servidor
+            a.clave.clear();
+            a.aviso.clear();
+            guardar_config(a.cfg);
+        }
     }
 
     if (e.clic && ui::sobre(e, x_cajas - 4, y_usuario - 4, ancho_caja + 8, 20)) a.foco = 0;
     if (e.clic && ui::sobre(e, x_cajas - 4, y_clave - 4, ancho_caja + 8, 20)) a.foco = 1;
     if (e.tab) a.foco ^= 1;
-    bool bloqueado = a.esperando || a.mostrando_noticias;
     EntradaFrame sin_texto = e;
     sin_texto.ntexto = 0;
     sin_texto.retroceso = false;

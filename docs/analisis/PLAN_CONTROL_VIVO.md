@@ -1,5 +1,7 @@
 # Plan: sin parámetros, servidores en el login y control en vivo para pruebas
 
+**Estado:** paso 1 hecho (servidores en `settings.ini` y en el login).
+
 Objetivos:
 1. El cliente se usa sin parámetros `--algo`, tampoco para el servidor. Todo sale de
    `settings.ini` y de la propia interfaz.
@@ -83,16 +85,11 @@ protocol version" en lugar de cerrar el cliente.
     Esc para cerrar.
   - Debajo del menú, en chico, `host:puerto · protocolo` del elegido. Hoy eso va en el pie de la
     UI simple.
-- **"Reducida":** se interpreta como una pantalla con solo lo necesario: **servidor, cuenta, clave
-  y "Login"**, y nada más en el centro.
-  - En la UI simple el logo queda arriba.
-  - En la original, las mismas tres cosas sobre el fondo del juego (el recuadro 59.img trae solo
-    cuenta y clave: el menú va encima).
-  - **A confirmar:** si "reducida" quería decir otra cosa (por ejemplo, una ventana de login más
-    chica).
-- **La clave guardada:** hoy `clave=` en `settings.ini` se guarda en texto plano y prellena el login.
-  Propuesta: en la versión final no se lee ni se guarda. El usuario sí se recuerda (por servidor).
-  En desarrollo, el control en vivo hace el login (§3) y tampoco hace falta.
+- **"Reducida" = la UI simplificada** (confirmado). El menú va en las dos: en la simple, una fila
+  "Server" arriba de la cuenta; en la original, arriba del recuadro 59.img, con `host:puerto
+  protocolo` debajo.
+- **La clave** (confirmado): `clave=` de `settings.ini` ya no se lee ni se guarda. La cuenta se
+  recuerda por servidor (quinto campo de `servidor=`) al entrar bien.
 - **Editar la lista de servidores** queda fuera de este plan: se hace editando `settings.ini`. Si
   hace falta después, "Add / Edit" en el mismo login.
 
@@ -270,8 +267,7 @@ Cada paso compila, pasa los tests y deja el cliente usable.
 
 ## 6. Riesgos y decisiones abiertas
 
-1. **"Login reducido":** ver §2. Confirmar qué se quería.
-2. **La clave en `settings.ini`:** propuesta de no guardarla en la versión final. Confirmar.
+1. ~~"Login reducido"~~ y ~~la clave~~: confirmados (§2).
 3. **Agentes en paralelo:** `AGENTS.md` describe pruebas con parámetros que usan otras sesiones (por
    ejemplo, la rama 3D).
    - Mientras dure la migración, los parámetros y el control conviven (paso 5 al final).

@@ -320,6 +320,7 @@ struct App {
     int foco = 0;
     bool confirmar_borrado = false;  // selección de personaje (UI simple): el próximo "Delete" borra
     bool esperando = false, mostrando_noticias = false;
+    bool menu_servidores = false;  // el desplegable de servidores del login, abierto
 
     // Selección de personaje
     int cantidad_pj = 0, max_pj = 0;

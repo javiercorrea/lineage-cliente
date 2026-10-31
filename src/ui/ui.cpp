@@ -67,6 +67,39 @@ bool campo(Graficos& g, const EntradaFrame& e, std::string& valor, int x, int y,
     return caja_texto(g, e, valor, x, y, ancho, foco, es_clave, maximo);
 }
 
+bool desplegable(Graficos& g, EntradaFrame& e, std::span<const std::string> opciones, size_t& elegido, bool& abierto, int x,
+                 int y, int ancho) {
+    const int fila = ALTO_GLIFO + 8;
+    const bool sobre_caja = sobre(e, x - 4, y - 4, ancho + 8, fila);
+    g.gpu().rectangulo(x - 4, y - 4, ancho + 8, fila, clave_orden(CAPA_UI, 3), abierto || sobre_caja ? rgba(60, 48, 30, 255) : rgba(30, 24, 16, 255));
+    g.gpu().rectangulo(x - 4, y + ALTO_GLIFO + 3, ancho + 8, 1, clave_orden(CAPA_UI, 4), rgba(150, 130, 90));
+    if (elegido < opciones.size()) g.texto(opciones[elegido], x, y, clave_orden(CAPA_UI_TEXTO, 0), COLOR_TEXTO);
+    g.texto("v", x + ancho - 6, y, clave_orden(CAPA_UI_TEXTO, 0), rgba(214, 190, 140));
+    bool cambio = false;
+    if (abierto) {
+        const u64 kf = clave_orden(CAPA_UI, 200), kt = clave_orden(CAPA_UI_TEXTO, 200);
+        const int ly = y - 4 + fila, lh = fila * static_cast<int>(opciones.size());
+        g.gpu().rectangulo(x - 5, ly - 1, ancho + 10, lh + 2, kf, rgba(150, 130, 90));
+        for (size_t i = 0; i < opciones.size(); ++i) {
+            const int fy = ly + fila * static_cast<int>(i);
+            const bool encima = sobre(e, x - 4, fy, ancho + 8, fila);
+            g.gpu().rectangulo(x - 4, fy, ancho + 8, fila, kf + (1ull << 24),
+                               encima ? rgba(90, 70, 40, 255) : i == elegido ? rgba(50, 40, 26, 255) : rgba(20, 16, 11, 255));
+            g.texto(opciones[i], x, fy + 4, kt, COLOR_TEXTO);
+            if (encima && e.clic) {
+                cambio = i != elegido;
+                elegido = i;
+            }
+        }
+        if (e.clic || e.escape) abierto = false;  // eligió, o tocó afuera
+        e.clic = e.escape = false;
+    } else if (sobre_caja && e.clic) {
+        abierto = true;
+        e.clic = false;
+    }
+    return cambio;
+}
+
 void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 color) {
     g.texto(t, static_cast<float>(x + (w - ancho_texto(t.data(), t.size())) / 2), static_cast<float>(y),
             clave_orden(CAPA_UI_TEXTO, 0), color);

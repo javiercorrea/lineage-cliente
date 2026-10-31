@@ -400,12 +400,8 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s.rfind("--alt=", 0) == 0) a.aut.alt.push_back(std::atoi(valor("--alt=").c_str()));
         else if (s.rfind("--ventana=", 0) == 0) std::sscanf(s.c_str() + 10, "%dx%d", &vw, &vh);
     }
-    a.usuario = a.cfg.usuario;
+    a.usuario = servidor_elegido(a.cfg).usuario;
     a.clave = a.cfg.clave;
-    if (!tabla_opcodes(a.cfg.protocolo, a.op)) {
-        LIN_LOG("Versión de protocolo desconocida: %s", a.cfg.protocolo.c_str());
-        return false;
-    }
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         LIN_LOG("SDL_Init: %s", SDL_GetError());
         return false;

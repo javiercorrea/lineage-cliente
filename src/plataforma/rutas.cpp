@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <cstdio>
 #include <cstdlib>
 #include <string_view>
 #include <vector>
@@ -16,13 +17,39 @@ std::string ruta_configuracion() {
     return r;
 }
 
-static void aplicar(Config& c, std::string_view clave, std::string_view valor) {
+namespace {
+
+// Lo que viene del formato anterior (un solo servidor) o de --usuario= en las pruebas.
+struct Anterior {
+    std::string host, protocolo, usuario;
+    int puerto = 0;
+    std::string elegido;  // servidor_elegido=
+};
+
+Servidor leer_servidor(std::string_view v) {
+    Servidor sv;
+    std::string_view campos[5];
+    for (int i = 0; i < 5 && !v.empty(); ++i) {
+        const size_t b = v.find('|');
+        campos[i] = v.substr(0, b);
+        v = b == std::string_view::npos ? std::string_view{} : v.substr(b + 1);
+    }
+    sv.nombre = campos[0];
+    sv.host = campos[1];
+    if (!campos[2].empty()) sv.puerto = static_cast<u16>(std::atoi(std::string(campos[2]).c_str()));
+    if (!campos[3].empty()) sv.protocolo = campos[3];
+    sv.usuario = campos[4];
+    return sv;
+}
+
+void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view valor) {
     if (clave == "juego") c.carpeta_juego = valor;
-    else if (clave == "host") c.host = valor;
-    else if (clave == "puerto") c.puerto = static_cast<u16>(std::atoi(std::string(valor).c_str()));
-    else if (clave == "protocolo") c.protocolo = valor;
-    else if (clave == "usuario") c.usuario = valor;
-    else if (clave == "clave") c.clave = valor;
+    else if (clave == "servidor") c.servidores.push_back(leer_servidor(valor));
+    else if (clave == "servidor_elegido") ant.elegido = valor;
+    else if (clave == "host") ant.host = valor;
+    else if (clave == "puerto") ant.puerto = std::atoi(std::string(valor).c_str());
+    else if (clave == "protocolo") ant.protocolo = valor;
+    else if (clave == "usuario") ant.usuario = valor;
     else if (clave == "zoom") c.zoom = std::atoi(std::string(valor).c_str());
     else if (clave == "camara_a_saltos") c.camara_a_saltos = valor == "1";
     else if (clave == "ui_simple") c.ui_simple = valor != "0";
@@ -37,30 +64,57 @@ static void aplicar(Config& c, std::string_view clave, std::string_view valor) {
     else if (clave == "chat_con_enter") c.chat_con_enter = valor != "0";
 }
 
-Config cargar_config(int argc, char** argv) {
-    Config c;
-    std::vector<u8> ini;
-    if (leer_archivo(ruta_configuracion(), ini)) {
-        std::string_view t(reinterpret_cast<const char*>(ini.data()), ini.size());
-        while (!t.empty()) {
-            size_t fin = t.find('\n');
-            std::string_view linea = t.substr(0, fin);
-            t = fin == std::string_view::npos ? std::string_view{} : t.substr(fin + 1);
-            while (!linea.empty() && (linea.back() == '\r' || linea.back() == ' ')) linea.remove_suffix(1);
-            size_t igual = linea.find('=');
-            if (linea.empty() || linea[0] == '#' || igual == std::string_view::npos) continue;
-            aplicar(c, linea.substr(0, igual), linea.substr(igual + 1));
-        }
+// Después de leer: migra el formato anterior, garantiza un servidor y elige el guardado.
+void completar(Config& c, const Anterior& ant) {
+    if (c.servidores.empty()) {
+        Servidor sv;
+        sv.nombre = ant.host.empty() ? "Local" : "Servidor";
+        sv.host = ant.host.empty() ? "127.0.0.1" : ant.host;
+        if (ant.puerto) sv.puerto = static_cast<u16>(ant.puerto);
+        if (!ant.protocolo.empty()) sv.protocolo = ant.protocolo;
+        c.servidores.push_back(std::move(sv));
     }
+    c.servidor = 0;
+    for (size_t i = 0; i < c.servidores.size(); ++i)
+        if (c.servidores[i].nombre == ant.elegido) c.servidor = i;
+    if (!ant.usuario.empty()) c.servidores[c.servidor].usuario = ant.usuario;
+}
+
+}  // namespace
+
+Config leer_config(std::string_view t) {
+    Config c;
+    Anterior ant;
+    while (!t.empty()) {
+        size_t fin = t.find('\n');
+        std::string_view linea = t.substr(0, fin);
+        t = fin == std::string_view::npos ? std::string_view{} : t.substr(fin + 1);
+        while (!linea.empty() && (linea.back() == '\r' || linea.back() == ' ')) linea.remove_suffix(1);
+        size_t igual = linea.find('=');
+        if (linea.empty() || linea[0] == '#' || igual == std::string_view::npos) continue;
+        aplicar(c, ant, linea.substr(0, igual), linea.substr(igual + 1));  // "clave=" de un settings.ini viejo: se ignora
+    }
+    completar(c, ant);
+    return c;
+}
+
+Config cargar_config(int argc, char** argv) {
+    std::vector<u8> ini;
+    Config c = leer_archivo(ruta_configuracion(), ini)
+                   ? leer_config({reinterpret_cast<const char*>(ini.data()), ini.size()})
+                   : leer_config({});
     if (const char* e = std::getenv("LINEAGE_DIR")) c.carpeta_juego = e;
-    if (const char* e = std::getenv("LINEAGE_HOST")) c.host = e;
-    if (const char* e = std::getenv("LINEAGE_PORT")) c.puerto = static_cast<u16>(std::atoi(e));
+    // Pruebas (se quitan con el control en vivo): --juego=, --usuario=, --clave= y demás claves.
+    Anterior ant;
     for (int i = 1; i < argc; ++i) {
         std::string_view a = argv[i];
         if (a.substr(0, 2) != "--") continue;
         size_t igual = a.find('=');
-        if (igual != std::string_view::npos) aplicar(c, a.substr(2, igual - 2), a.substr(igual + 1));
+        if (igual == std::string_view::npos) continue;
+        if (a.substr(2, igual - 2) == "clave") c.clave = a.substr(igual + 1);
+        else aplicar(c, ant, a.substr(2, igual - 2), a.substr(igual + 1));
     }
+    if (!ant.usuario.empty()) servidor_elegido(c).usuario = ant.usuario;
     if (!c.carpeta_juego.empty() && c.carpeta_juego.back() != '/') c.carpeta_juego += '/';
     return c;
 }
@@ -87,15 +141,40 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
     opcion = std::move(nuevo);
 }
 
+std::string escribir_config(const Config& c) {
+    std::string t = "# Configuración del cliente Lineage\n";
+    auto linea = [&](const char* clave, std::string_view valor) {
+        t += clave;
+        t += '=';
+        t += valor;
+        t += '\n';
+    };
+    linea("juego", c.carpeta_juego);
+    // Servidores: nombre|host|puerto|protocolo|cuenta (la última usada en ese servidor).
+    for (const Servidor& sv : c.servidores)
+        linea("servidor", sv.nombre + '|' + sv.host + '|' + std::to_string(sv.puerto) + '|' + sv.protocolo + '|' + sv.usuario);
+    linea("servidor_elegido", servidor_elegido(c).nombre);
+    linea("zoom", std::to_string(c.zoom));
+    linea("camara_a_saltos", c.camara_a_saltos ? "1" : "0");
+    linea("ui_simple", c.ui_simple ? "1" : "0");
+    linea("sombra_personajes", c.sombra_personajes ? "1" : "0");
+    linea("atajos", c.atajos);
+    linea("barra", c.barra);
+    linea("ventanas", c.ventanas);
+    linea("opacidad_ventanas", std::to_string(c.opacidad_ventanas));
+    linea("volumen_musica", std::to_string(c.volumen_musica));
+    linea("volumen_efectos", std::to_string(c.volumen_efectos));
+    linea("logo", c.logo);
+    linea("chat_con_enter", c.chat_con_enter ? "1" : "0");
+    return t;
+}
+
 bool guardar_config(const Config& c) {
     FILE* f = std::fopen(ruta_configuracion().c_str(), "wb");
     if (!f) return false;
-    std::fprintf(f, "# Configuración del cliente Lineage\njuego=%s\nhost=%s\npuerto=%u\nprotocolo=%s\nusuario=%s\nzoom=%d\ncamara_a_saltos=%d\nui_simple=%d\nsombra_personajes=%d\natajos=%s\nbarra=%s\nventanas=%s\nopacidad_ventanas=%d\nvolumen_musica=%d\nvolumen_efectos=%d\nlogo=%s\nchat_con_enter=%d\n",
-                 c.carpeta_juego.c_str(), c.host.c_str(), c.puerto, c.protocolo.c_str(), c.usuario.c_str(), c.zoom,
-                 c.camara_a_saltos ? 1 : 0, c.ui_simple ? 1 : 0, c.sombra_personajes ? 1 : 0, c.atajos.c_str(), c.barra.c_str(), c.ventanas.c_str(),
-                 c.opacidad_ventanas, c.volumen_musica, c.volumen_efectos, c.logo.c_str(), c.chat_con_enter ? 1 : 0);
-    std::fclose(f);
-    return true;
+    const std::string t = escribir_config(c);
+    const bool ok = std::fwrite(t.data(), 1, t.size(), f) == t.size();
+    return std::fclose(f) == 0 && ok;
 }
 
 bool carpeta_juego_valida(const std::string& carpeta) {

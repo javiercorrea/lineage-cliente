@@ -2,6 +2,7 @@
 // en la lista del renderer y devuelven la interacción. El estado de cada pantalla es una struct
 // plana (foco, textos); no hay árbol de widgets.
 #pragma once
+#include <span>
 #include <string>
 #include "render/graficos.h"
 
@@ -55,6 +56,12 @@ constexpr u32 COLOR_FONDO_SIMPLE = 0xFF080A0Cu, COLOR_TITULO = 0xFF8CBED6u, COLO
 void recuadro(Graficos& g, int x, int y, int w, int h, u8 opacidad = 235);
 bool campo(Graficos& g, const EntradaFrame& e, std::string& valor, int x, int y, int ancho, bool foco, bool es_clave,
            size_t maximo);
+// Menú desplegable (con el aspecto de `campo`): el elegido y "v"; abierto, la lista debajo, encima de
+// todo. Un clic lo abre o lo cierra; uno en una opción la elige y devuelve true. Mientras está
+// abierto, el clic y Escape son suyos: quita `clic` y `escape` de `e` para los controles que se
+// dibujan después.
+bool desplegable(Graficos& g, EntradaFrame& e, std::span<const std::string> opciones, size_t& elegido, bool& abierto, int x,
+                 int y, int ancho);
 // Texto centrado horizontalmente en [x, x + w).
 void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 color = COLOR_TEXTO);
 
