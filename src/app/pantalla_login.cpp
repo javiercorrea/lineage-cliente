@@ -23,6 +23,8 @@ const char* motivo_login(int codigo) {
     }
 }
 
+}  // namespace
+
 void iniciar_login(App& a) {
     if (a.usuario.empty() || a.clave.empty() || a.esperando) return;
     const Servidor& sv = servidor_elegido(a.cfg);
@@ -35,6 +37,8 @@ void iniciar_login(App& a) {
     a.red.iniciar(sv.host, sv.puerto, a.op);  // al conectar se envían versión y login
     a.estado_red_previo = EstadoRed::CONECTANDO;
 }
+
+namespace {
 
 // Logo de la UI simple: el PNG de la opción "logo" achicado para entrar en el recuadro, o el
 // título en texto.

@@ -41,7 +41,6 @@ struct Automatizacion {
     Pantalla pantalla_captura = Pantalla::JUEGO;
     int espera_frames = 120;        // frames en esa pantalla antes de capturar
     bool salir_tras_captura = false;
-    bool mudo = false;              // --mudo: el audio corre (y cuenta) pero sin volumen
     int pasos = 0;                  // pasos de prueba al entrar al juego (hacia la derecha)
     std::string ruta;               // pasos de prueba con dirección fija: dígitos 0–7
     std::string atacar;             // atacar al más cercano cuyo nombre contenga esto
@@ -321,6 +320,7 @@ struct App {
     bool confirmar_borrado = false;  // selección de personaje (UI simple): el próximo "Delete" borra
     bool esperando = false, mostrando_noticias = false;
     bool menu_servidores = false;  // el desplegable de servidores del login, abierto
+    bool mudo = false;             // el audio corre (y cuenta) pero sin volumen (pruebas: --mudo o "mudo on")
 
     // Selección de personaje
     int cantidad_pj = 0, max_pj = 0;
@@ -551,6 +551,19 @@ size_t nombre_efecto_activo(const App& a, const EfectoActivo& ef, char* buf, siz
 
 // Barra de atajos (barra_ui.cpp), abajo al centro sobre el panel.
 std::string_view nombre_personaje(const App& a);
+// Acciones de la interfaz que también usa el control en vivo (control.cpp).
+void iniciar_login(App& a);                        // pantalla_login.cpp: conectar con cuenta y clave
+void entrar_juego(App& a);                         // pantalla_personajes.cpp: con a.pj_sel
+void enviar_chat(App& a, std::string_view linea);  // pantalla_juego.cpp: como escrita en el chat (comandos "/" incluidos)
+extern bool g_traza;                               // app.cpp: registrar los paquetes (LIN_TRAZA)
+#if LIN_CONTROL
+// Control en vivo para pruebas (control.cpp; solo en las versiones de desarrollo).
+void control_iniciar(App& a);
+void control_frame(App& a);    // antes de leer la entrada
+void control_entrada(App& a);  // después: el mouse inyectado
+void control_paquete(Srv s);   // cada paquete recibido
+void control_cerrar();
+#endif
 // Casillero bajo el puntero, -1 si no hay.
 int casillero_bajo_puntero(const App& a);
 bool sobre_barra(const App& a);

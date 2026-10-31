@@ -9,6 +9,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(LIN_ASAN "Compilar con AddressSanitizer y UBSan" OFF)
 option(LIN_TESTS "Compilar los tests" ON)
+# Control en vivo para pruebas (src/app/control.cpp): ON en los presets de desarrollo, OFF en release.
+option(LIN_CONTROL "Compilar el control en vivo (socket de pruebas)" OFF)
 
 # Dependencias antes de las opciones de advertencias: estas aplican solo a nuestro código.
 include(cmake/dependencias.cmake)
@@ -115,6 +117,16 @@ add_executable(lineage
     src/app/marcadores_ui.cpp
     src/core/asignaciones.cpp)  # operator new instrumentado (ver core/asignaciones.h)
 target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
+if(LIN_CONTROL)
+    target_sources(lineage PRIVATE src/app/control.cpp)
+    target_compile_definitions(lineage PRIVATE LIN_CONTROL=1)
+else()
+    target_compile_definitions(lineage PRIVATE LIN_CONTROL=0)
+    # La versión final no debe llevar el control: ni el código ni el texto del socket.
+    add_custom_command(TARGET lineage POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -DBIN=$<TARGET_FILE:lineage> -P ${CMAKE_SOURCE_DIR}/cmake/sin_control.cmake
+        COMMENT "Comprobando que el ejecutable no incluya el control en vivo")
+endif()
 if(APPLE)
     # MULTIPLATAFORMA: en macOS se compila como ejecutable de consola para depurar;
     # el empaquetado .app (MACOSX_BUNDLE, Info.plist, icono) queda para el entregable 11.

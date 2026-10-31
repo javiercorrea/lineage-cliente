@@ -891,6 +891,8 @@ void dibujar_panel_simple(App& a) {
     campo("Food ", t);
 }
 
+}  // namespace
+
 void enviar_chat(App& a, std::string_view linea) {
     if (comando_social(a, linea)) return;
     EntradaChat c;
@@ -898,6 +900,8 @@ void enviar_chat(App& a, std::string_view linea) {
     if (c.susurro) enviar(a, cmd::susurrar(a.op, c.destino, c.texto));
     else enviar(a, cmd::chat(a.op, c.tipo, c.texto));
 }
+
+namespace {
 
 // Dónde va el chat: registro (x, y, ancho; CHAT_FILAS filas), caja de entrada y zona en la que
 // la rueda del mouse lo desplaza.

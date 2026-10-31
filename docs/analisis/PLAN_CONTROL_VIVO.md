@@ -1,6 +1,6 @@
 # Plan: sin parámetros, servidores en el login y control en vivo para pruebas
 
-**Estado:** paso 1 hecho (servidores en `settings.ini` y en el login).
+**Estado:** pasos 1 (servidores en `settings.ini` y en el login) y 2 (control en vivo base) hechos.
 
 Objetivos:
 1. El cliente se usa sin parámetros `--algo`, tampoco para el servidor. Todo sale de

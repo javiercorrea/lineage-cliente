@@ -5,8 +5,8 @@
 
 namespace lin {
 
-// LIN_TRAZA=1 registra cada paquete enviado y recibido (depuración del protocolo).
-static const bool TRAZA = std::getenv("LIN_TRAZA") != nullptr;
+// LIN_TRAZA=1 (o "traza on" del control en vivo) registra cada paquete enviado y recibido.
+bool g_traza = std::getenv("LIN_TRAZA") != nullptr;
 
 namespace {
 
@@ -263,7 +263,10 @@ void procesar_red(App& a) {
     }
     a.eventos.clear();
     while (a.red.sacar(a.paquete)) {
-        if (TRAZA) {
+#if LIN_CONTROL
+        control_paquete(a.op.srv(a.paquete[0]));
+#endif
+        if (g_traza) {
             char hex[3 * 16 + 1] = {};
             for (size_t i = 1; i < a.paquete.size() && i <= 16; ++i) std::snprintf(hex + 3 * (i - 1), 4, "%02x ", a.paquete[i]);
             LIN_LOG("[%llu] <- %3u %-16s %s", static_cast<unsigned long long>(SDL_GetTicks()), a.paquete[0],
@@ -313,7 +316,7 @@ void frame_elegir_carpeta(App& a) {
 
 void enviar(App& a, Escritor e) {
     Bytes b = e.cuerpo();
-    if (TRAZA) {
+    if (g_traza) {
         char hex[3 * 16 + 1] = {};
         for (size_t i = 0; i < b.size() && i < 16; ++i) std::snprintf(hex + 3 * i, 4, "%02x ", b[i]);
         LIN_LOG("[%llu] -> %3u %s", static_cast<unsigned long long>(SDL_GetTicks()), b[0], hex);
@@ -343,7 +346,7 @@ bool iniciar_app(App& a, int argc, char** argv) {
         else if (s == "--salir") a.aut.salir_tras_captura = true;
         else if (s == "--depuracion") a.depuracion = true;
         else if (s == "--perf") a.perf = true;
-        else if (s == "--mudo") a.aut.mudo = true;
+        else if (s == "--mudo") a.mudo = true;
         else if (s.rfind("--pasos=", 0) == 0) a.aut.pasos = std::atoi(valor("--pasos=").c_str());
         else if (s.rfind("--decir=", 0) == 0) a.aut.decir.push_back(valor("--decir="));
         else if (s == "--estado") a.aut.estado = true;
@@ -417,6 +420,9 @@ bool iniciar_app(App& a, int argc, char** argv) {
         cambiar_pantalla(a, Pantalla::ELEGIR_CARPETA);
         SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, a.ventana, nullptr, false);
     }
+#if LIN_CONTROL
+    control_iniciar(a);
+#endif
     return true;
 }
 
@@ -448,7 +454,13 @@ void bucle_app(App& a) {
         if (a.g) a.g->nuevo_frame();
         // Dentro del juego la vista se amplía con la ventana (y el zoom); el resto, 640×480.
         a.gpu.ajustar_vista(a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO, a.cfg.zoom);
+#if LIN_CONTROL
+        control_frame(a);  // comandos del socket: antes de leer la entrada (las teclas van como eventos de SDL)
+#endif
         leer_entrada(a);
+#if LIN_CONTROL
+        control_entrada(a);  // el mouse inyectado
+#endif
         procesar_red(a);
         switch (a.pantalla) {
         case Pantalla::ELEGIR_CARPETA: frame_elegir_carpeta(a); break;
@@ -484,6 +496,9 @@ void bucle_app(App& a) {
 }
 
 void cerrar_app(App& a) {
+#if LIN_CONTROL
+    control_cerrar();
+#endif
     // Como el cliente original, avisar la salida: sin C_QuitGame el servidor no guarda la posición.
     if (a.mundo.en_juego && a.red.estado() == EstadoRed::CONECTADA) {
         enviar(a, Escritor(a.op, Cli::QUITGAME));

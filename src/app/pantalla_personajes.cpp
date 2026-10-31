@@ -34,10 +34,14 @@ const AnimRanura& anim_de(const PersonajeLista* p) {
 
 bool hay_elegido(const App& a) { return a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()); }
 
+}  // namespace
+
 void entrar_juego(App& a) {
     enviar(a, cmd::entrar(a.op, a.pjs[a.pj_sel].nombre));
     cambiar_pantalla(a, Pantalla::CARGANDO);
 }
+
+namespace {
 
 void volver_login(App& a) {
     // Como el original, avisar (C_ReturnToLogin: el servidor cierra la sesión de la cuenta) y no solo

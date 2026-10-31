@@ -34,7 +34,7 @@ void cargar_sonidos(App& a) {
 }
 
 void aplicar_volumenes(App& a) {
-    if (a.aut.mudo) a.audio.volumenes(0, 0);
+    if (a.mudo) a.audio.volumenes(0, 0);
     else a.audio.volumenes(a.cfg.volumen_musica, a.cfg.volumen_efectos);
 }
 

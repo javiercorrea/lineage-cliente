@@ -139,6 +139,14 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
   - `--captura=x.bmp --captura-espera=N --salir` sacan una captura y salen;
   - `--mudo` es obligatorio en las pruebas automáticas: si no, se escucha en la máquina del usuario.
   - **Siempre poner `--salir`**, o el proceso queda colgado.
+- **Control en vivo** (preferido; los parámetros de arriba se van a quitar, ver
+  `docs/analisis/PLAN_CONTROL_VIVO.md`): en `debug` el cliente abre un socket (`LIN_CONTROL=/ruta` o
+  `$TMPDIR/lineage-control-<pid>.sock`) y recibe comandos de a una línea (`ayuda` los lista).
+  - Desde Python: `herramientas/lin_ctl.py` (`Control.arrancar(config=...)`, después `c("login ...")`,
+    `c("personaje ...")`, `c("esperar ...")`, `c("captura ...")`, `c.cerrar()`).
+  - Desde la terminal: `herramientas/lin_ctl.py <socket> estado`.
+  - Empezar con `mudo on`. Usar `esperar` (pantalla, paquete, html) en lugar de contar frames.
+  - `release` no lo compila: un paso de CMake (`cmake/sin_control.cmake`) falla si se cuela.
 - **Trazas:**
   - `LIN_TRAZA=1`: cada paquete enviado y recibido, con sus primeros 16 bytes;
   - `LIN_HTML=1`: las páginas HTML con sus datos;
