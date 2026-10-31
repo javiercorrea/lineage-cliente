@@ -153,20 +153,35 @@ de CMake (`cmake/sin_control.cmake`) falla si se cuela.
 | Comandos | Qué hacen |
 |---|---|
 | `ayuda` | Lista los comandos |
-| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `chat [n]`, `paquetes [n]` | Consultas: pantalla y personaje, objetos cercanos (id, nombre, gfx, celda y posición en pantalla), ítems, la página del NPC con sus vínculos, ventanas abiertas, el chat, los últimos paquetes |
+| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `grupo`, `chat [n]`, `paquetes [n]` | Consultas: pantalla, vista y personaje (y asedios), objetos cercanos (id, nombre, gfx, celda y posición en pantalla), ítems, la página del NPC con sus vínculos, ventanas abiertas (y dónde están las móviles), el grupo, el chat, los últimos paquetes |
 | `login <cuenta> <clave> [servidor]`, `personaje <nombre>`, `crear <nombre> <clase>` | Entrar (esperan la lista de personajes o estar en el juego) |
 | `decir "texto"` | Como escrito en el chat (comandos `/` y `.` del GM incluidos) |
 | `hablar <obj>`, `atacar <obj>`, `parar`, `clic-objeto <obj> [der]` | `<obj>`: id, `#gfx` o parte del nombre (el más cercano) |
 | `accion <vínculo>`, `responder si\|no\|"texto"`, `cantidad <n>` | Página del NPC, preguntas del servidor, diálogo de cantidad |
 | `usar <ítem> [sobre <ítem>]`, `soltar`, `dar <ítem> <obj>`, `borrar`, `lanzar <hechizo> [obj]` | Ítems y hechizos |
-| `girar <0-7>`, `ofrecer <ítem>`, `aceptar-intercambio` | Intercambio entre dos clientes |
+| `girar <0-7>`, `ofrecer <ítem>`, `aceptar-intercambio`, `cancelar-intercambio` | Intercambio entre dos clientes |
 | `abrir\|cerrar inventario\|estado\|hechizos\|opciones\|social\|salida\|teclas` | Ventanas |
 | `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <nombre>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Entrada cruda (coordenadas lógicas) |
-| `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames= [plazo=ms]` | Esperar algo en vez de contar frames |
+| `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Esperar algo en vez de contar frames (`paquete=` y `chat=` cuentan también lo llegado desde el comando anterior) |
 | `captura <ruta.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Capturas y depuración |
 
 `herramientas/lin_ctl.py` lo usa desde la terminal (`lin_ctl.py <socket> estado`, o interactivo) o
-como módulo para escribir pruebas. Por ejemplo, `herramientas/pruebas/subastas.py`:
+como módulo para escribir pruebas.
+
+**Pruebas en vivo** (`herramientas/pruebas/`):
+- una por tema: login, moverse, chat y estado, combate y hechizos, inventario, equipo, NPC, tablón y
+  correo, subastas, social (dos clientes);
+- **las que modifican y reinician el servidor local:** casas, castillos y guerra. Las restauran solas
+  con `herramientas/pruebas/servidor.py`.
+
+```sh
+herramientas/pruebas/todas.py /tmp/prueba.ini /tmp/capturas              # las que no dejan cambios
+herramientas/pruebas/todas.py /tmp/prueba.ini /tmp/capturas --servidor   # todas
+herramientas/pruebas/npc.py /tmp/prueba.ini /tmp/capturas                # una sola
+```
+
+El `settings.ini` de prueba necesita `juego=`. Cada prueba deja a los personajes donde estaban y
+cierra sus clientes aunque falle. Por ejemplo, el comienzo de `subastas.py`:
 
 ```python
 c = Control.arrancar(config="/tmp/prueba.ini")

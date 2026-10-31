@@ -74,7 +74,7 @@ class Control:
             if l == "ok":
                 return lineas
             if l.startswith("error"):
-                raise ErrorControl(l[6:] or "error")
+                raise ErrorControl("%s (%s)" % (l[6:] or "error", linea))
             lineas.append(l)
 
     def cerrar(self):

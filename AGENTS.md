@@ -141,7 +141,11 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
   línea (`ayuda` los lista; tabla en el README).
   - **Desde Python:** `herramientas/lin_ctl.py`: `c = Control.arrancar(config=...)`, después
     `c("login ...")`, `c("personaje ...")`, `c("esperar ...")`, `c("captura ...")`, `c.cerrar()`.
-    Ejemplo: `herramientas/pruebas/subastas.py`.
+    Las pruebas en vivo ya escritas están en `herramientas/pruebas/` (`comun.py` arranca, entra,
+    devuelve a los personajes a su lugar y cierra; `servidor.py` reinicia el servidor y restaura la
+    base para las que lo modifican). `todas.py` las corre todas; con `--servidor`, también casas,
+    castillos y guerra. **Antes de un push grande, `todas.py` (y `--servidor` si se tocó algo de
+    eso).** Una prueba nueva: copiar la más parecida.
   - **Desde la terminal:** `herramientas/lin_ctl.py <socket> estado`, o interactivo.
   - **Empezar siempre con `mudo on`:** si no, se escucha en la máquina del usuario.
   - **Terminar siempre con `c.cerrar()`** (o el comando `salir`), o el proceso queda abierto.

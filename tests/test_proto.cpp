@@ -465,7 +465,7 @@ TEST_CASE("Social: preguntas, intercambio, título, emblema, página del clan y 
     CHECK(ev[0].s[1] == std::string_view("Clan\x01" "0\x01\x01" "2\x01" "Ana Beto "));
 
     Escritor r = cmd::responder(t, 7, 953, true);
-    const u8 er[] = {61, 0, 0, 7, 0, 0, 0, 0xB9, 0x03, 1, 0};
+    const u8 er[] = {61, 0xB9, 0x03, 7, 0, 0, 0, 0xB9, 0x03, 1, 0};
     Bytes br = r.cuerpo();
     REQUIRE(br.size() >= sizeof er);
     CHECK(std::memcmp(br.data(), er, sizeof er) == 0);
@@ -761,5 +761,5 @@ TEST_CASE("Castillos y casas: S_HouseList, S_HouseMap, S_War, S_CastleMaster, fo
     igual(cmd::fondos_castillo(t, true, 5, 100), {35, 5, 0, 0, 0, 100, 0, 0, 0});
     igual(cmd::fondos_castillo(t, false, 5, 100), {192, 5, 0, 0, 0, 100, 0, 0, 0});
     igual(cmd::fecha_asedio(t), {4});
-    igual(cmd::responder_texto(t, 3, 512, "Casa"), {61, 0, 0, 3, 0, 0, 0, 0, 2, 1, 0, 'C', 'a', 's', 'a', 0});
+    igual(cmd::responder_texto(t, 3, 512, "Casa"), {61, 0, 2, 3, 0, 0, 0, 0, 2, 1, 0, 'C', 'a', 's', 'a', 0});
 }

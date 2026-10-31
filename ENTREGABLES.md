@@ -941,7 +941,7 @@ Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
   - la clave ya no se lee ni se guarda; la cuenta se recuerda por servidor al entrar bien;
   - la tabla de opcodes se elige al conectar, con el protocolo del servidor elegido (un protocolo desconocido es un aviso en el login, no un cierre);
   - `leer_config` y `escribir_config` trabajan sobre texto, con su test (`tests/test_core.cpp`).
-- **Login:** `ui::desplegable` con los servidores, en la UI simple (una fila "Server" arriba de la cuenta) y en la original (arriba del recuadro), con `host:puerto protocolo` debajo.
+- **Login:** `ui::desplegable` con los servidores (la lista abierta va en su propio nivel de ventana, encima de todo), en la UI simple (una fila "Server" arriba de la cuenta) y en la original (arriba del recuadro), con `host:puerto protocolo` debajo.
 - **Tamaño de la ventana:** se guarda al cerrar (`ventana=AxB`).
 - **Control en vivo** (`app/control.cpp`, solo con la opción de CMake `LIN_CONTROL`, encendida en `debug` y `debug-asan`):
   - **El socket:** de archivo, `0600`; se revisa una vez por frame en el hilo principal, sin hilos.
@@ -956,8 +956,14 @@ Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
   - la prueba de subastas completa (lista, una casa, su mapa y la vuelta de Charla a su lugar), sin contar frames;
   - dos clientes a la vez (Charla y Prueba);
   - `release` sin el control.
+- **Pruebas en vivo como scripts** (`herramientas/pruebas/`, `todas.py`):
+  - las 13 pasan juntas contra el servidor local: login, moverse, chat_estado, combate_hechizos, inventario, equipo, npc, tablon_correo, subastas, social; y con `--servidor`, casas, castillos y guerra;
+  - estas tres últimas reinician el servidor y restauran la base solas (`servidor.py`: respaldo de las filas de los personajes, su inventario y los clanes).
+  - Pasarlas a scripts encontró:
+    - **un error del cliente:** `C_Attr` mandaba 0 en el primer campo, así que aceptar una guerra o una rendición no hacía nada (ver DESCUBRIMIENTOS);
+    - **una carrera en el control:** la respuesta a un comando podía llegar antes del `esperar` que lo sigue. Ahora `esperar paquete=`/`chat=` cuentan también lo llegado desde el comando anterior;
+    - **`esperar ms=`:** hacía falta para el servidor, que ignora un cambio de equipo justo después de otro.
 - **Pendiente:**
-  - pasar a scripts las demás pruebas en vivo, a medida que se vuelvan a necesitar;
   - el socket en Windows (`afunix.h`, MULTIPLATAFORMA);
   - editar la lista de servidores desde el login.
 

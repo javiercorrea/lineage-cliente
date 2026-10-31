@@ -317,6 +317,13 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   del chambelán (acción "asktime") no lo atiende el servidor: el cliente manda `C_ChangeWarTime`, que
   solo devuelve la fecha.
 - **Permisos de GM:** los comandos "." miran `characters.access_level`, no el de la cuenta.
+- **`C_Attr`** (respuesta a `S_MessageYN`): h tipo, d número, h tipo, h sí/no. El servidor elige la
+  pregunta por el segundo tipo, pero las de guerra (217 aceptar, 221 rendición, 222 fin) comparan
+  con el primero: con 0 ahí, aceptar una guerra no hacía nada.
+- **Guerras sin castillo:** declararla y rendirse le preguntan al líder del otro clan (217 y 221);
+  contra el dueño de un castillo, en el horario del asedio, no.
+- **Cambiar de equipo** dos veces seguidas: el servidor ignora el segundo cambio si llega enseguida
+  (alrededor de un segundo).
 - **Lo que el servidor envía y el cliente no implementa:** [analisis/OPCODES_PENDIENTES.md](analisis/OPCODES_PENDIENTES.md).
 
 ---

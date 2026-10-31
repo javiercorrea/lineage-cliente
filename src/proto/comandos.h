@@ -153,17 +153,19 @@ inline Escritor subir_atributo(const TablaOpcodes& t, std::string_view atributo)
     e.h(ATTR_SUBIR_ATRIBUTO).c(1).s(atributo);
     return e;
 }
-// C_Attr como respuesta a S_MessageYN: h 0, d número, h tipo, h 1 sí / 0 no.
+// C_Attr como respuesta a S_MessageYN: h tipo, d número, h tipo, h 1 sí / 0 no. El tipo va dos
+// veces: C_Attr mira el segundo para elegir la pregunta, pero las de guerra (217 aceptar, 221
+// rendición, 222 fin) comparan con el primero; con 0 ahí, aceptar una guerra no hacía nada.
 inline Escritor responder(const TablaOpcodes& t, u32 numero, u16 tipo, bool si) {
     Escritor e(t, Cli::ATTR);
-    e.h(0).d(numero).h(tipo).h(si ? 1 : 0);
+    e.h(tipo).d(numero).h(tipo).h(si ? 1 : 0);
     return e;
 }
-// C_Attr con texto (S_MessageYN que pide un nombre: 512 el de la casa): h 0, d número, h tipo, h 1,
-// s texto.
+// C_Attr con texto (S_MessageYN que pide un nombre: 512 el de la casa): h tipo, d número, h tipo,
+// h 1, s texto.
 inline Escritor responder_texto(const TablaOpcodes& t, u32 numero, u16 tipo, std::string_view texto) {
     Escritor e(t, Cli::ATTR);
-    e.h(0).d(numero).h(tipo).h(1).s(texto);
+    e.h(tipo).d(numero).h(tipo).h(1).s(texto);
     return e;
 }
 // Castillos. C_War: c tipo (0 declarar, 2 rendirse, 3 terminar), s clan.

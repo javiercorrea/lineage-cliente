@@ -5,7 +5,9 @@
 // "error <motivo>". Se revisa una vez por frame en el hilo principal (sin hilos ni locks): los
 // comandos llaman a las mismas funciones que la interfaz. Los que esperan algo ("esperar", "login",
 // "personaje", "captura") dejan la conexión en espera y responden en el frame en que se cumple o
-// vence el plazo, sin frenar el juego.
+// vence el plazo, sin frenar el juego. "esperar paquete=" y "esperar chat=" cuentan también lo que
+// llegó desde que empezó el comando anterior de esa conexión (la respuesta a un "usar" puede llegar
+// antes del "esperar" que lo sigue).
 //
 // Comandos: "ayuda" (AYUDA) y docs/analisis/PLAN_CONTROL_VIVO.md. Herramienta: herramientas/lin_ctl.py.
 // Los textos van en CP949, como los del juego (nombres coreanos incluidos); ASCII es igual.
@@ -44,7 +46,7 @@ const char* nombre_pantalla(Pantalla p) {
 
 // Lo que una conexión espera para responder.
 struct Espera {
-    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES, VENTANA, CHAT, CREAR } tipo = NADA;
+    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES, MS, VENTANA, CHAT, CREAR } tipo = NADA;
     Pantalla pantalla = Pantalla::LOGIN;
     Srv paquete = Srv::DESCONOCIDO;
     std::string texto;
@@ -57,6 +59,10 @@ struct Conexion {
     int fd = -1;
     std::string entrada, salida;
     Espera espera;
+    // Paquetes recibidos y líneas de chat al empezar el comando anterior y el actual: "esperar
+    // paquete=" y "esperar chat=" cuentan también lo que llegó desde el comando anterior (la
+    // respuesta a un "usar" puede llegar antes de que empiece el "esperar" que la sigue).
+    u32 paquetes_antes = 0, paquetes_ahora = 0, chat_antes = 0, chat_ahora = 0;
 };
 
 // Un paso de mouse inyectado: se aplica en un frame (después de leer la entrada real).
@@ -74,7 +80,8 @@ struct Control {
     std::deque<std::string> textos;  // un SDL_EVENT_TEXT_INPUT por frame
     std::string texto_actual;        // el que SDL está por leer (tiene que seguir vivo)
     bool ctrl = false;               // "ctrl on": Ctrl mantenido (forzar ataque)
-    Srv recientes[64] = {};          // los últimos paquetes recibidos ("paquetes")
+    static constexpr u32 RECIENTES = 256;
+    Srv recientes[RECIENTES] = {};   // los últimos paquetes recibidos ("paquetes", "esperar paquete=")
     u32 n_recientes = 0;
 };
 Control g;
@@ -91,15 +98,14 @@ std::vector<std::string> palabras(std::string_view l) {
     while (i < l.size()) {
         while (i < l.size() && l[i] == ' ') ++i;
         if (i >= l.size()) break;
-        if (l[i] == '"') {
-            const size_t fin = l.find('"', i + 1);
-            v.emplace_back(l.substr(i + 1, (fin == std::string_view::npos ? l.size() : fin) - i - 1));
-            i = fin == std::string_view::npos ? l.size() : fin + 1;
-        } else {
-            const size_t fin = std::min(l.find(' ', i), l.size());
-            v.emplace_back(l.substr(i, fin - i));
-            i = fin;
+        // Hasta el próximo espacio fuera de comillas; las comillas se quitan ("a b" y clave="a b").
+        std::string w;
+        bool comillas = false;
+        for (; i < l.size() && (comillas || l[i] != ' '); ++i) {
+            if (l[i] == '"') comillas = !comillas;
+            else w += l[i];
         }
+        v.push_back(std::move(w));
     }
     return v;
 }
@@ -185,11 +191,13 @@ bool abierta(const App& a, std::string_view n) {
     if (n == "intercambio") return a.intercambio.abierto;
     if (n == "pregunta") return !a.preguntas.empty();
     if (n == "cantidad") return a.cantidad.abierto;
+    if (n == "menu-servidores") return a.menu_servidores;
     if (bool* v = ventana(const_cast<App&>(a), n)) return *v;
     return false;
 }
 constexpr const char* VENTANAS[] = {"inventario", "estado", "hechizos", "opciones", "social", "salida", "teclas", "npc", "tienda",
-                                    "tablon", "correo", "subastas", "mapa-casa", "intercambio", "pregunta", "cantidad"};
+                                    "tablon", "correo", "subastas", "mapa-casa", "intercambio", "pregunta", "cantidad",
+                                    "menu-servidores"};
 
 void objetos(App& a, Conexion& c, int radio) {
     const TablaObjetos& o = a.mundo.objetos;
@@ -237,8 +245,9 @@ void html(App& a, Conexion& c) {
 void estado(App& a, Conexion& c) {
     char l[256];
     const Servidor& sv = servidor_elegido(a.cfg);
-    std::snprintf(l, sizeof l, "pantalla=%s servidor=\"%s\" frame=%llu", nombre_pantalla(a.pantalla), sv.nombre.c_str(),
-                  static_cast<unsigned long long>(a.frames_en_pantalla));
+    std::snprintf(l, sizeof l, "pantalla=%s servidor=\"%s\" frame=%llu vista=%dx%d ui=%s", nombre_pantalla(a.pantalla),
+                  sv.nombre.c_str(), static_cast<unsigned long long>(a.frames_en_pantalla), a.gpu.ancho(), a.gpu.alto(),
+                  a.cfg.ui_simple ? "simple" : "original");
     responder(c, l);
     if (a.pantalla != Pantalla::JUEGO) {
         if (!a.aviso.empty()) responder(c, "aviso=\"" + a.aviso + "\"");
@@ -251,10 +260,15 @@ void estado(App& a, Conexion& c) {
     std::snprintf(l, sizeof l, "personaje=%.*s mapa=%u x=%d y=%d nivel=%d hp=%d/%d mp=%d/%d", static_cast<int>(nombre.size()),
                   nombre.data(), static_cast<unsigned>(a.mundo.mapa), x, y, j.nivel, j.hp, j.hp_max, j.mp, j.mp_max);
     responder(c, l);
+    std::string asedios = "asedios=";
+    for (int k = 1; k <= 8; ++k)
+        if (a.castillos.asedio[k]) (asedios += std::to_string(k)) += ',';
+    if (u8 cs = castillo_de(a, j.id)) asedios += " senor=" + std::to_string(cs);
+    responder(c, asedios);
 }
 
 const char* AYUDA[] = {
-    "consultas: estado | objetos [radio] | inventario | html | ventanas | chat [n] | paquetes [n]",
+    "consultas: estado | objetos [radio] | inventario | html | ventanas | grupo | chat [n] | paquetes [n]",
     "login <cuenta> <clave> [servidor]   (espera la lista de personajes)",
     "personaje <nombre>                  (espera estar en el juego)",
     "crear <nombre> <clase 0-6>          (en la selección; espera la respuesta del servidor)",
@@ -264,10 +278,10 @@ const char* AYUDA[] = {
     "accion <vínculo de la página>   responder si|no|\"texto\"   cantidad <n>",
     "usar <ítem> [sobre <ítem>]   soltar <ítem>   dar <ítem> <objeto>   borrar <ítem>   lanzar <hechizo> [objeto]",
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
-    "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio",
+    "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio   cancelar-intercambio",
     "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>",
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
-    "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n  [plazo=ms]",
+    "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
 };
 
@@ -275,6 +289,10 @@ const char* AYUDA[] = {
 bool ejecutar(App& a, Conexion& c, std::string_view linea) {
     const std::vector<std::string> p = palabras(linea);
     if (p.empty()) return true;
+    c.paquetes_antes = c.paquetes_ahora;
+    c.chat_antes = c.chat_ahora;
+    c.paquetes_ahora = g.n_recientes;
+    c.chat_ahora = a.chat.total;
     const std::string& cmd = p[0];
     const u64 ahora = a.entrada.ahora_ms;
     Espera& es = c.espera;
@@ -333,6 +351,9 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         const ObjId item = p.size() > 1 ? buscar_item(a, p[1]) : 0;
         if (!item) return error("no hay ese ítem");
         ofrecer_en_intercambio(a, item);
+    } else if (cmd == "cancelar-intercambio") {
+        if (!a.intercambio.abierto) return error("no hay un intercambio abierto");
+        enviar(a, cmd::cancelar_intercambio(a.op));
     } else if (cmd == "aceptar-intercambio") {
         if (!a.intercambio.abierto) return error("no hay un intercambio abierto");
         enviar(a, cmd::aceptar_intercambio(a.op));
@@ -358,13 +379,27 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         for (const char* v : VENTANAS)
             if (abierta(a, v)) (l += v) += ',';
         responder(c, l);
+        // Dónde están las que se mueven (para hacer clic adentro): nombre=x,y,ancho,alto.
+        static constexpr std::pair<const char*, IdVentana> MOVILES[] = {
+            {"estado", IdVentana::ESTADO}, {"inventario", IdVentana::INVENTARIO}, {"hechizos", IdVentana::HECHIZOS},
+            {"npc", IdVentana::NPC}, {"opciones", IdVentana::OPCIONES}, {"intercambio", IdVentana::INTERCAMBIO}};
+        if (a.pantalla == Pantalla::JUEGO)
+            for (const auto& [n, id] : MOVILES)
+                if (abierta(a, n)) {
+                    const Rect rv = rect_ventana(a, id);
+                    responder(c, std::string(n) + '=' + std::to_string(rv.x) + ',' + std::to_string(rv.y) + ',' + std::to_string(rv.w) +
+                                     ',' + std::to_string(rv.h));
+                }
+    } else if (cmd == "grupo") {
+        for (const MiembroGrupo& m : a.grupo)
+            responder(c, "id=" + std::to_string(m.id) + " nombre=" + m.nombre + " hp=" + std::to_string(m.hp) + (m.lider ? " lider" : ""));
     } else if (cmd == "chat") {
         const u32 n = std::min<u32>(p.size() > 1 ? static_cast<u32>(std::atoi(p[1].c_str())) : 10, a.chat.cantidad());
         for (u32 i = n; i-- > 0;) responder(c, std::string(a.chat.texto(a.chat.reciente(i))));
     } else if (cmd == "paquetes") {
-        const u32 n = std::min<u32>({p.size() > 1 ? static_cast<u32>(std::atoi(p[1].c_str())) : 20, g.n_recientes, 64u});
+        const u32 n = std::min<u32>({p.size() > 1 ? static_cast<u32>(std::atoi(p[1].c_str())) : 20, g.n_recientes, Control::RECIENTES});
         std::string l;
-        for (u32 i = n; i-- > 0;) (l += nombre_srv(g.recientes[(g.n_recientes - 1 - i) % 64])) += ' ';
+        for (u32 i = n; i-- > 0;) (l += nombre_srv(g.recientes[(g.n_recientes - 1 - i) % Control::RECIENTES])) += ' ';
         responder(c, l);
     } else if (cmd == "hablar" || cmd == "atacar" || cmd == "clic-objeto") {
         if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
@@ -478,6 +513,8 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         } else if (std::string_view v = opcion(p, "paquete"); !v.empty()) {
             es.tipo = Espera::PAQUETE;
             es.texto = v;
+            for (u32 i = std::max(c.paquetes_antes, g.n_recientes - std::min(g.n_recientes, Control::RECIENTES)); i < g.n_recientes; ++i)
+                es.visto |= es.texto == nombre_srv(g.recientes[i % Control::RECIENTES]);
         } else if (std::string_view v = opcion(p, "html"); !v.empty()) {
             es.tipo = Espera::HTML;
             es.texto = v;
@@ -490,12 +527,16 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         } else if (std::string_view v = opcion(p, "chat"); !v.empty()) {
             es.tipo = Espera::CHAT;
             es.texto = v;
-            es.chat_desde = a.chat.total;
+            es.chat_desde = c.chat_antes;
+        } else if (std::string_view v = opcion(p, "ms"); !v.empty()) {
+            es.tipo = Espera::MS;  // tiempo real (los frames dependen de los fps)
+            es.frame = ahora + std::strtoull(std::string(v).c_str(), nullptr, 10);
+            es.vence_ms = std::max(es.vence_ms, es.frame + 1000);
         } else if (std::string_view v = opcion(p, "frames"); !v.empty()) {
             es.tipo = Espera::FRAMES;
             es.frame = a.frame + std::strtoull(std::string(v).c_str(), nullptr, 10);
         } else {
-            return error("uso: esperar pantalla=|paquete=|html=|ventana=|dialogo=|chat=|frames= [plazo=ms]");
+            return error("uso: esperar pantalla=|paquete=|html=|ventana=|dialogo=|chat=|frames=|ms= [plazo=ms]");
         }
         return false;
     } else if (cmd == "salir") {
@@ -520,6 +561,7 @@ void revisar_espera(App& a, Conexion& c) {
     case Espera::PAQUETE: listo = es.visto; break;
     case Espera::HTML: listo = a.npc && a.npc_pagina == es.texto; break;
     case Espera::FRAMES: listo = a.frame >= es.frame; break;
+    case Espera::MS: listo = a.entrada.ahora_ms >= es.frame; break;
     case Espera::VENTANA: listo = abierta(a, es.texto); break;
     case Espera::CHAT:  // una línea nueva que contenga el texto
         for (u32 i = 0; !listo && i < std::min(a.chat.total - es.chat_desde, a.chat.cantidad()); ++i)
@@ -657,7 +699,7 @@ void control_entrada(App& a) {
 }
 
 void control_paquete(Srv s) {
-    g.recientes[g.n_recientes++ % 64] = s;
+    g.recientes[g.n_recientes++ % Control::RECIENTES] = s;
     for (Conexion& c : g.conexiones)
         if (c.espera.tipo == Espera::PAQUETE && c.espera.texto == nombre_srv(s)) c.espera.visto = true;
 }
