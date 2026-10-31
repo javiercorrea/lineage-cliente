@@ -42,37 +42,8 @@ void preguntar(App& a, u8 modo, ObjId objeto, ObjId item, i32 max, std::string_v
     d.min = 1;
     d.max = std::max(max, 1);
     d.valor = 1;
-    if (a.aut.cantidad >= 0 && modo != 3) {  // prueba automática: esa cantidad y aceptar
-        d.valor = std::clamp(a.aut.cantidad, d.min, d.max);
-        d.abierto = false;
-        aceptar_cantidad_tienda(a);
-    }
 }
 
-// Prueba automática (--tienda-propia=Ítem@precio@título): a los 300 frames, el primer ítem cuyo nombre
-// contenga "Ítem", a ese precio, y abre la tienda.
-void tienda_automatica(App& a) {
-    if (a.aut.tienda_propia.empty() || a.frames_en_pantalla < 300) return;
-    std::string_view p = a.aut.tienda_propia;
-    const std::string_view nombre = p.substr(0, p.find('@'));
-    p.remove_prefix(std::min(p.size(), nombre.size() + 1));
-    const u32 precio = static_cast<u32>(std::strtoul(std::string(p.substr(0, p.find('@'))).c_str(), nullptr, 10));
-    const std::string_view titulo = p.find('@') == std::string_view::npos ? std::string_view{} : p.substr(p.find('@') + 1);
-    const TablaItems& it = a.mundo.inventario.items;
-    for (Slot s = 0; s < it.tamano(); ++s) {
-        char buf[256];
-        const size_t n = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), buf, sizeof buf);
-        if (std::string_view(buf, n).find(nombre) == std::string_view::npos) continue;
-        TiendaJugadores& t = a.tienda_pj;
-        t.armando = true;
-        t.titulo.assign(titulo);
-        t.venta.push_back({static_cast<u32>(it.ids()[s]), precio, it.col<I_CANTIDAD>()[s]});
-        enviar(a, cmd::abrir_tienda(a.op, t.venta, t.titulo));
-        t.abierta = true;
-        break;
-    }
-    a.aut.tienda_propia.clear();
-}
 
 }  // namespace
 
@@ -185,7 +156,6 @@ bool sobre_tienda(const App& a) {
 }
 
 void dibujar_tienda(App& a) {
-    tienda_automatica(a);
     TiendaJugadores& t = a.tienda_pj;
     if (!t.vista && !t.armando) return;
     Graficos& g = *a.g;

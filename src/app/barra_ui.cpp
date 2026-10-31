@@ -153,12 +153,6 @@ void procesar_barra(App& a) {
         usar_casillero(a, a.entrada.numero - 1);
     if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
     if (a.entrada.medio_presionado) usar_elegido(a);
-    // Prueba automática (--alt=N): como apretar Alt+N, uno cada 3 s.
-    Automatizacion& au = a.aut;
-    if (au.alt_hechos < au.alt.size() && a.frames_en_pantalla >= 300 + 360 * au.alt_hechos) {
-        int n = au.alt[au.alt_hechos++];
-        if (n >= 1 && n <= CASILLEROS_BARRA) usar_casillero(a, n - 1);
-    }
 }
 
 void dibujar_barra(App& a, int y) {

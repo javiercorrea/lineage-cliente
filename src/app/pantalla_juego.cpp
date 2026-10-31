@@ -492,11 +492,6 @@ void dibujar_efectos(App& a, u64 ahora, double ox, double oy) {
                 continue;
             }
             double k = static_cast<double>(t) / ef.vuelo_ms;
-            if (!a.aut.captura_proyectil.empty() && k >= 0.4) {  // prueba automática
-                a.gpu.pedir_captura(a.aut.captura_proyectil);
-                a.aut.captura_proyectil.clear();
-                a.salir = true;
-            }
             x = ef.x0 + (ef.x1 - ef.x0) * k;
             y = ef.y0 + (ef.y1 - ef.y0) * k;
             f = &a.sprites.frame_en(*r, t, termino, 0, true);
@@ -540,44 +535,6 @@ int direccion_teclas(const EntradaFrame& e) {
     if (e.derecha) return 3;
     if (e.izquierda) return 7;
     return -1;
-}
-
-// Prueba automática (--atacar=texto): el objeto vivo más cercano cuyo nombre contenga el texto
-// ("#N": con el gfx N, para los que tienen nombre en coreano, como la torre del asedio).
-ObjId objetivo_automatico(const App& a, Slot yo) {
-    const TablaObjetos& o = a.mundo.objetos;
-    const int gfx = a.aut.atacar.size() > 1 && a.aut.atacar[0] == '#' ? std::atoi(a.aut.atacar.c_str() + 1) : -1;
-    ObjId mejor = 0;
-    int mejor_d = 1 << 30;
-    for (Slot s = 0; s < o.tamano(); ++s) {
-        if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || tipo_objeto(a, s) == TIPO_ITEM) continue;
-        if (gfx >= 0 ? o.col<O_GFX>()[s] != gfx
-                     : a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos)
-            continue;
-        if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
-        int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-        if (d < mejor_d) {
-            mejor_d = d;
-            mejor = o.ids()[s];
-        }
-    }
-    return mejor;
-}
-
-// Prueba automática (--recoger): el ítem del suelo más cercano.
-ObjId item_mas_cercano(const App& a, Slot yo) {
-    const TablaObjetos& o = a.mundo.objetos;
-    ObjId mejor = 0;
-    int mejor_d = 1 << 30;
-    for (Slot s = 0; s < o.tamano(); ++s) {
-        if (a.sprites.tipo(o.col<O_GFX>()[s]) != TIPO_ITEM) continue;
-        int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-        if (d < mejor_d) {
-            mejor_d = d;
-            mejor = o.ids()[s];
-        }
-    }
-    return mejor;
 }
 
 // Ataque al objetivo (adyacente o, con arco, a distancia): la animación propia empieza ya (el eco
@@ -691,12 +648,8 @@ void mover_jugador(App& a, u64 ahora) {
         // Apretado sobre el suelo: lo que el puntero toque al caminar queda como objetivo.
         elegir_objetivo_bajo_puntero(a);
         a.objetivo_fijo = a.objetivo != 0;
-    } else if (!e.presionado && a.aut.atacar.empty() && !a.aut.recoger && !a.hablar_objetivo && !a.ataque_sostenido) {
+    } else if (!e.presionado && !a.hablar_objetivo && !a.ataque_sostenido) {
         a.objetivo = 0;
-    }
-    if (a.objetivo == 0 && a.frames_en_pantalla > 60) {
-        if (!a.aut.atacar.empty()) a.objetivo = objetivo_automatico(a, s);
-        if (a.objetivo == 0 && a.aut.recoger) a.objetivo = item_mas_cercano(a, s);
     }
     Slot obj = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
     if (obj != SIN_SLOT && o.col<O_ESTADO>()[obj] == ESTADO_MUERTO) obj = SIN_SLOT;
@@ -749,19 +702,6 @@ void mover_jugador(App& a, u64 ahora) {
     }
     if (dir < 0 && clic_en_mundo)
         dir = direccion_hacia(e.mx - vi.cx, e.my - vi.cy);  // el jugador está siempre en (cx, cy)
-    if (dir < 0 && a.aut.ruta_hecha < a.aut.ruta.size() && a.frames_en_pantalla > 60) {
-        // Prueba automática: direcciones fijas (dígitos 0–7), una por paso.
-        dir = (a.aut.ruta[a.aut.ruta_hecha++] - '0') & 7;
-        ruta = true;
-    }
-    if (dir < 0 && a.aut.pasos > a.pasos_auto_hechos && a.frames_en_pantalla > 60) {
-        // Prueba automática: caminar en la primera dirección libre empezando por la derecha.
-        for (int i = 0; i < 8 && dir < 0; ++i) {
-            int d = (3 + i) % 8;
-            if (celda_pasable(a.mundo, a.rec, o.col<O_X>()[s] + DIR_DX[d], o.col<O_Y>()[s] + DIR_DY[d])) dir = d;
-        }
-        ++a.pasos_auto_hechos;
-    }
     if (dir < 0) return;
     u16 x = o.col<O_X>()[s], y = o.col<O_Y>()[s];
     int nx = x + DIR_DX[dir], ny = y + DIR_DY[dir];
@@ -1128,7 +1068,6 @@ void dibujar_muerte(App& a) {
     g.texto(t, x + (w - ancho_texto(t, std::strlen(t))) / 2, y + 12, clave_orden(CAPA_UI_TEXTO, 20), rgba(255, 120, 100));
     bool pedir = ui::boton_texto(g, a.entrada, "Restart", x + w / 2 - 40, y + 34, 80, 18);
     if (a.t_muerte == 0) a.t_muerte = a.entrada.ahora_ms;
-    if (a.aut.reiniciar && a.entrada.ahora_ms - a.t_muerte > 5000) pedir = true;  // prueba automática
     if (pedir) reiniciar(a);
 }
 
@@ -1210,16 +1149,8 @@ void frame_juego(App& a) {
         g.texto("Cargando...", a.gpu.ancho() / 2 - 30, a.gpu.alto() / 2 - 6, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
         return;
     }
-    if (a.aut.estado) {
-        a.ventana_estado = true;
-        a.aut.estado = false;
-    }
     if (a.entrada.alt_c) a.ventana_estado = !a.ventana_estado;
     if (a.entrada.alt_i) a.ventana_inventario = !a.ventana_inventario;
-    acciones_item_automaticas(a);
-    // Prueba automática: una línea de --decir por segundo después de entrar.
-    if (a.aut.dichas < a.aut.decir.size() && a.frames_en_pantalla > 90 + 60 * a.aut.dichas)
-        enviar_chat(a, a.aut.decir[a.aut.dichas++]);
 
     cambiar_zoom(a);
     const Vista vi = vista(a);
@@ -1230,7 +1161,6 @@ void frame_juego(App& a) {
     procesar_mascotas(a);
     procesar_barra(a);
     procesar_npc(a, ahora);
-    procesar_social(a, ahora);
     elegir_cursor(a);
     mover_jugador(a, ahora);
     Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);

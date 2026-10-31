@@ -20,7 +20,7 @@ struct Config {
     std::string carpeta_juego;     // donde están Sprite*.pak, Tile.pak, map/, font/...
     std::vector<Servidor> servidores;  // al menos uno (ver leer_config)
     size_t servidor = 0;           // el elegido ("servidor_elegido=Nombre")
-    std::string clave;             // solo de --clave= (pruebas); de settings.ini no se lee ni se guarda
+    int ventana_ancho = 1280, ventana_alto = 960;  // "ventana=AxB": en puntos, el de la última vez
     int zoom = 0;                  // escala en el juego (píxeles reales por píxel lógico); 0 = automática
     bool camara_a_saltos = false;  // la cámara sigue los frames de caminar, como el original (F4)
     bool ui_simple = true;         // UI de texto (estilo ASCII) en el juego; false = panel original (F2)
@@ -52,9 +52,8 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
 // MULTIPLATAFORMA: SDL_GetPrefPath ya devuelve %APPDATA% en Windows y ~/.local/share en Linux.
 std::string ruta_configuracion();
 
-// Carga settings.ini; la variable de entorno LINEAGE_DIR y los argumentos --clave=valor tienen
-// prioridad.
-Config cargar_config(int argc, char** argv);
+// Carga settings.ini (no hay parámetros de línea de comandos).
+Config cargar_config();
 bool guardar_config(const Config& c);
 // El texto de settings.ini, sin archivos (para los tests). leer_config migra el formato anterior
 // (host=, puerto=, protocolo=, usuario=: un servidor "Servidor") y, sin ninguno, agrega el local.

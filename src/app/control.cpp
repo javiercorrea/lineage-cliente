@@ -44,7 +44,7 @@ const char* nombre_pantalla(Pantalla p) {
 
 // Lo que una conexión espera para responder.
 struct Espera {
-    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES, VENTANA, CHAT } tipo = NADA;
+    enum Tipo : u8 { NADA, PANTALLA, PAQUETE, HTML, LOGIN, PERSONAJE, FRAMES, VENTANA, CHAT, CREAR } tipo = NADA;
     Pantalla pantalla = Pantalla::LOGIN;
     Srv paquete = Srv::DESCONOCIDO;
     std::string texto;
@@ -257,16 +257,18 @@ const char* AYUDA[] = {
     "consultas: estado | objetos [radio] | inventario | html | ventanas | chat [n] | paquetes [n]",
     "login <cuenta> <clave> [servidor]   (espera la lista de personajes)",
     "personaje <nombre>                  (espera estar en el juego)",
+    "crear <nombre> <clase 0-6>          (en la selección; espera la respuesta del servidor)",
     "decir \"texto\"                       (como escrito en el chat; también /comandos)",
     "objeto = id | #gfx | parte del nombre (el más cercano)",
     "hablar <objeto>   atacar <objeto>   parar   clic-objeto <objeto> [der]",
     "accion <vínculo de la página>   responder si|no|\"texto\"   cantidad <n>",
     "usar <ítem> [sobre <ítem>]   soltar <ítem>   dar <ítem> <objeto>   borrar <ítem>   lanzar <hechizo> [objeto]",
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
+    "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio",
     "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>",
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n  [plazo=ms]",
-    "captura <ruta.bmp>   mudo on|off   traza on|off   salir",
+    "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
 };
 
 // Ejecuta una línea. Devuelve false si queda esperando (responde después).
@@ -313,6 +315,34 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         entrar_juego(a);
         es.tipo = Espera::PERSONAJE;
         return false;
+    } else if (cmd == "crear") {
+        if (a.pantalla != Pantalla::PERSONAJES) return error("no está en la selección de personajes");
+        if (p.size() < 3) return error("uso: crear <nombre> <clase 0-6>");
+        crear_personaje_rapido(a, p[1], std::atoi(p[2].c_str()));
+        es.tipo = Espera::CREAR;
+        es.texto = p[1];
+        return false;
+    } else if (cmd == "girar") {
+        if (a.pantalla != Pantalla::JUEGO || p.size() < 2) return error("uso: girar <0-7> (en el juego)");
+        const u8 d = static_cast<u8>(std::atoi(p[1].c_str()) & 7);
+        const Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
+        if (s != SIN_SLOT) a.mundo.objetos.col<O_DIR>()[s] = d;
+        enviar(a, cmd::girar(a.op, d));
+    } else if (cmd == "ofrecer") {
+        if (!a.intercambio.abierto) return error("no hay un intercambio abierto");
+        const ObjId item = p.size() > 1 ? buscar_item(a, p[1]) : 0;
+        if (!item) return error("no hay ese ítem");
+        ofrecer_en_intercambio(a, item);
+    } else if (cmd == "aceptar-intercambio") {
+        if (!a.intercambio.abierto) return error("no hay un intercambio abierto");
+        enviar(a, cmd::aceptar_intercambio(a.op));
+        a.intercambio.ok = true;
+    } else if (cmd == "traza-html") {
+        g_traza_html = p.size() < 2 || p[1] == "on";
+    } else if (cmd == "perf") {
+        a.perf = p.size() < 2 || p[1] == "on";
+    } else if (cmd == "depuracion") {
+        a.depuracion = p.size() < 2 || p[1] == "on";
     } else if (cmd == "decir") {
         if (a.pantalla != Pantalla::JUEGO) return error("no está en el juego");
         if (p.size() < 2) return error("uso: decir \"texto\"");
@@ -504,6 +534,9 @@ void revisar_espera(App& a, Conexion& c) {
         if (!a.esperando && a.pantalla == Pantalla::LOGIN) falla = a.aviso.empty() ? "no se conectó" : a.aviso;
         break;
     case Espera::PERSONAJE: listo = a.pantalla == Pantalla::JUEGO && a.mundo.en_juego; break;
+    case Espera::CREAR:  // aparece en la lista, o el servidor lo rechaza (el motivo queda en el aviso)
+        listo = std::any_of(a.pjs.begin(), a.pjs.end(), [&](const PersonajeLista& pj) { return pj.nombre == es.texto; });
+        break;
     }
     if (listo) {
         responder(c, "ok");

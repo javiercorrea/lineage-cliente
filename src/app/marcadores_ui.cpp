@@ -112,11 +112,6 @@ void dibujar_destino(App& a) {
             break;
         }
     }
-    if (a.aut.destino.size() && !elegido) {  // prueba automática: el marcador con ese nombre
-        for (const Marcador& m : a.marcadores)
-            if (m.nombre == a.aut.destino) elegido = &m;
-        azar |= a.aut.destino == "Random";
-    }
     const bool cancelar = e.escape || (e.clic_derecho && !borrado);
     e.escape = false;
     if (elegido || azar) ir(a, elegido);

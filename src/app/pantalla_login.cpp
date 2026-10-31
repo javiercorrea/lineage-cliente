@@ -77,10 +77,6 @@ void eventos_login(App& a, const Evento& e) {
     case Ev::NOTICIAS:
         a.noticias.assign(e.s[0]);
         a.mostrando_noticias = true;
-        if (a.aut.activa) {
-            a.mostrando_noticias = false;
-            enviar(a, cmd::lista_personajes(a.op));
-        }
         break;
     default: break;
     }
@@ -152,7 +148,7 @@ void frame_login(App& a) {
         if (ui::boton(g, e, 57, X_BOTONES, 0x1c2)) a.salir = true;
     }
     if (e.escape && !a.mostrando_noticias) a.salir = true;
-    if ((login || (a.aut.activa && a.frames_en_pantalla == 5)) && !bloqueado) iniciar_login(a);
+    if (login && !bloqueado) iniciar_login(a);
 
     if (simple) {
         if (a.esperando && !a.mostrando_noticias) ui::texto_centrado(g, "Connecting...", 0, 372, 640, rgba(255, 230, 150));

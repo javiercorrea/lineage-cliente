@@ -95,41 +95,6 @@ void soltar_item(App& a, ObjId item) {
                           a.mundo.inventario.items.col<I_CANTIDAD>()[s]));
 }
 
-void acciones_item_automaticas(App& a) {
-    Automatizacion& au = a.aut;
-    if (au.items_hechos >= au.items.size() || a.frames_en_pantalla < 240 + 240 * au.items_hechos) return;
-    const Automatizacion::AccionItem& ac = au.items[au.items_hechos++];
-    ObjId item = buscar_item(a, ac.nombre);
-    if (item == 0) {
-        LIN_LOG("Prueba automática: no hay un ítem \"%s\" en el inventario", ac.nombre.c_str());
-        return;
-    }
-    if (!ac.a_quien.empty()) {
-        // --dar: al más cercano cuyo nombre contenga a_quien (sin contar al propio personaje).
-        const TablaObjetos& o = a.mundo.objetos;
-        const Slot yo = o.buscar(a.mundo.jugador.id);
-        Slot mejor = SIN_SLOT;
-        int mejor_d = 1 << 30;
-        for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
-            if (s == yo || a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(ac.a_quien) == std::string_view::npos) continue;
-            const int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-            if (d < mejor_d) mejor_d = d, mejor = s;
-        }
-        if (mejor == SIN_SLOT) LIN_LOG("Prueba automática: no hay un \"%s\" a la vista", ac.a_quien.c_str());
-        else dar_item(a, o.ids()[mejor], item);
-    } else if (!ac.sobre.empty()) {
-        const ObjId objetivo = buscar_item(a, ac.sobre);
-        if (objetivo) enviar(a, cmd::usar_item_sobre(a.op, item, objetivo));
-        else LIN_LOG("Prueba automática: no hay un ítem \"%s\" en el inventario", ac.sobre.c_str());
-    } else if (ac.borrar) {
-        borrar_item(a, item);
-    } else if (ac.soltar) {
-        soltar_item(a, item);
-    } else {
-        usar_item(a, item);
-    }
-}
-
 void dibujar_inventario(App& a) {
     Graficos& g = *a.g;
     EntradaFrame& e = a.entrada;

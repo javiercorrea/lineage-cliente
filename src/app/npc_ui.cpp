@@ -25,7 +25,6 @@ constexpr int ALTO_PAGINA = ui::VENTANA_ALTO - ARRIBA - 12;
 constexpr int FILA_TIENDA = 34, FILAS_TIENDA = 6;
 constexpr int DISTANCIA_CIERRE = 6;  // al alejarse más, el diálogo se cierra
 constexpr u32 PRECIO_RETIRO = 30;    // adena por ítem retirado (C_Result del servidor)
-constexpr u64 MS_ENTRE_AUTOMATICOS = 2000;
 
 bool medir_imagen(void* ctx, u32 n, int& w, int& h) {
     const RegionAtlas& r = static_cast<App*>(ctx)->g->img(n);
@@ -45,7 +44,7 @@ void abrir_pagina(App& a, ObjId npc, std::string_view id, std::string_view datos
             html.assign(aviso.begin(), aviso.end());
         }
     }
-    if (std::getenv("LIN_HTML"))
+    if (g_traza_html)
         std::fprintf(stderr, "[html %.*s] datos=\"%.*s\"\n%.*s\n", static_cast<int>(id.size()), id.data(), static_cast<int>(datos.size()),
                      datos.data(), static_cast<int>(html.size()), reinterpret_cast<const char*>(html.data()));
     a.npc = npc;
@@ -91,7 +90,6 @@ void abrir_tienda(App& a, ObjId npc, TipoTienda tipo) {
     a.tienda_npc = npc;
     a.tienda_filas.clear();
     a.tienda_desplazamiento = 0;
-    a.aut_tienda_pendiente = !a.aut.tienda.empty();
     if (tipo == TipoTienda::DEPOSITO) {  // del propio inventario, sin lo equipado
         const TablaItems& t = a.mundo.inventario.items;
         for (Slot s = 0; s < t.tamano(); ++s) {
@@ -178,70 +176,6 @@ int distancia_npc(const App& a) {
     Slot yo = o.buscar(a.mundo.jugador.id), n = o.buscar(a.tienda != TipoTienda::NINGUNA ? a.tienda_npc : a.npc);
     if (yo == SIN_SLOT || n == SIN_SLOT) return 1 << 20;
     return std::max(std::abs(o.col<O_X>()[yo] - o.col<O_X>()[n]), std::abs(o.col<O_Y>()[yo] - o.col<O_Y>()[n]));
-}
-
-// Prueba automática: --hablar (caminar hasta el NPC y hablar), --npc-accion (un vínculo de la
-// página, o la acción tal cual) y --tienda (elegir y confirmar).
-void npc_automatico(App& a, u64 ahora) {
-    Automatizacion& au = a.aut;
-    if (!au.hablar.empty() && a.frames_en_pantalla > 240 && a.objetivo == 0) {
-        const TablaObjetos& o = a.mundo.objetos;
-        Slot yo = o.buscar(a.mundo.jugador.id);
-        ObjId mejor = 0;
-        int mejor_d = 1 << 30;
-        for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
-            if (!es_npc(a, s) || a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(au.hablar) == std::string_view::npos) continue;
-            int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-            if (d < mejor_d) {
-                mejor_d = d;
-                mejor = o.ids()[s];
-            }
-        }
-        if (mejor) {
-            a.objetivo = mejor;
-            a.hablar_objetivo = true;
-            au.hablar.clear();
-            au.t_npc = ahora;
-        }
-    }
-    if (!au.subir.empty() && a.npc && a.npc_pagina == "RaiseAttr" && a.frames_en_pantalla > 120) {
-        activar(a, "raise-" + au.subir, false);
-        au.subir.clear();
-    }
-    // Solo en la página del NPC pedido (no en la que el servidor muestra al entrar, como RaiseAttr).
-    if (a.npc && a.npc != a.mundo.jugador.id && au.hablar.empty() && a.tienda == TipoTienda::NINGUNA &&
-        au.npc_hechas < au.npc_acciones.size() &&
-        ahora > au.t_npc + MS_ENTRE_AUTOMATICOS) {
-        const std::string& acc = au.npc_acciones[au.npc_hechas++];
-        au.t_npc = ahora;
-        for (const ElementoHtml& el : a.npc_html.elementos) {
-            if (a.npc_html.vinculo(el) == acc) {
-                activar(a, acc, el.es_enlace);
-                return;
-            }
-        }
-        activar(a, acc, false);
-    }
-    if (a.tienda != TipoTienda::NINGUNA && a.aut_tienda_pendiente && !a.tienda_filas.empty()) {
-        a.aut_tienda_pendiente = false;
-        char buf[256];
-        for (const std::string& pedido : au.tienda) {
-            size_t dos = pedido.rfind(':');
-            std::string_view quien = std::string_view(pedido).substr(0, dos);
-            u32 n = dos == std::string::npos ? 1 : static_cast<u32>(std::atoi(pedido.c_str() + dos + 1));
-            if (!quien.empty() && quien[0] == '#') {  // por número de fila
-                size_t i = static_cast<size_t>(std::atoi(pedido.c_str() + 1));
-                if (i < a.tienda_filas.size()) a.tienda_filas[i].elegido = std::min(n, a.tienda_filas[i].maximo);
-                continue;
-            }
-            for (FilaTienda& f : a.tienda_filas) {
-                if (std::string_view(buf, nombre_fila(a, f, buf, sizeof buf)).find(quien) == std::string_view::npos) continue;
-                f.elegido = std::min(n, f.maximo);
-                break;
-            }
-        }
-        confirmar(a);
-    }
 }
 
 void dibujar_pagina(App& a, int x0, int y0) {
@@ -455,7 +389,6 @@ void eventos_npc(App& a, const Evento& e) {
 bool sobre_npc(const App& a) { return sobre_ventana(a, IdVentana::NPC); }
 
 void procesar_npc(App& a, u64 ahora) {
-    npc_automatico(a, ahora);
     if ((a.npc || a.tienda != TipoTienda::NINGUNA) && distancia_npc(a) > DISTANCIA_CIERRE) cerrar(a);
 }
 

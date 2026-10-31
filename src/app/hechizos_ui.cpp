@@ -15,7 +15,6 @@ namespace {
 
 constexpr int FILA = ALTO_GLIFO + 3;
 constexpr int LISTA_X = 14, LISTA_Y = 30, LISTA_FILAS = 17;
-constexpr u64 MS_ENTRE_AUTOMATICOS = 3000;
 
 // Hechizos que sabe el personaje, en orden (para la ventana).
 int hechizos_sabidos(const App& a, u16* ids, int cap) {
@@ -67,41 +66,6 @@ namespace {
 
 int distancia(const TablaObjetos& o, Slot a, Slot b) {
     return std::max(std::abs(o.col<O_X>()[a] - o.col<O_X>()[b]), std::abs(o.col<O_Y>()[a] - o.col<O_Y>()[b]));
-}
-
-// Prueba automática (--lanzar): uno cada 3 s.
-void hechizos_automaticos(App& a, u64 ahora) {
-    Automatizacion& au = a.aut;
-    if (au.lanzar.empty() || a.hechizo_pendiente || a.frames_en_pantalla < 240 ||
-        ahora < a.fin_demora_hechizo + MS_ENTRE_AUTOMATICOS)
-        return;
-    const std::string& pedido = au.lanzar[au.lanzados++ % au.lanzar.size()];
-    size_t arroba = pedido.find('@');
-    u32 id = buscar_hechizo(a, std::string_view(pedido).substr(0, arroba));
-    if (!id) {
-        LIN_LOG("Prueba automática: el personaje no sabe \"%s\"", pedido.c_str());
-        a.fin_demora_hechizo = ahora;
-        return;
-    }
-    if (arroba == std::string::npos) {
-        pedir_hechizo(a, id, 0);
-        return;
-    }
-    std::string_view quien = std::string_view(pedido).substr(arroba + 1);
-    const TablaObjetos& o = a.mundo.objetos;
-    Slot yo = o.buscar(a.mundo.jugador.id), mejor = SIN_SLOT;
-    for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
-        if (o.col<O_ESTADO>()[s] == ESTADO_MUERTO) continue;
-        if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
-        if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(quien) == std::string_view::npos) continue;
-        if (mejor == SIN_SLOT || distancia(o, yo, s) < distancia(o, yo, mejor)) mejor = s;
-    }
-    if (mejor == SIN_SLOT) {
-        LIN_LOG("Prueba automática: no hay un \"%.*s\" a la vista", static_cast<int>(quien.size()), quien.data());
-        a.fin_demora_hechizo = ahora;
-        return;
-    }
-    pedir_hechizo(a, id, o.ids()[mejor]);
 }
 
 // La ficha del hechizo sin los códigos de color (\fX) y con ^ como salto de línea.
@@ -290,10 +254,6 @@ void procesar_hechizos(App& a, u64 ahora) {
     if (a.atajos_de != nombre_personaje(a)) cargar_atajos(a);
     vencer_efectos(a.mundo.jugador, ahora);
     if (e.alt_s) a.ventana_hechizos = !a.ventana_hechizos;
-    if (a.aut.hechizos) {
-        a.ventana_hechizos = true;
-        a.aut.hechizos = false;
-    }
     if (!e.presionado) a.clic_consumido = false;
 
     // F5–F12: asignar (con el puntero sobre un hechizo de la ventana) o lanzar.
@@ -320,7 +280,6 @@ void procesar_hechizos(App& a, u64 ahora) {
             a.clic_consumido = true;
         }
     }
-    hechizos_automaticos(a, ahora);
 }
 
 void dibujar_arrastre(App& a);

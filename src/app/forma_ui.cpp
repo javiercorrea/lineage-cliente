@@ -57,8 +57,6 @@ void abrir_forma(App& a, ObjId pergamino) {
     a.ventana_forma = true;
     a.forma_item = pergamino;
     a.forma_texto.clear();
-    // Prueba automática (--forma=nombre): se elige sola.
-    if (!a.aut.forma.empty()) elegir(a, a.aut.forma);
 }
 
 void eventos_forma(App& a, const Evento& e) {

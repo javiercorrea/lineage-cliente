@@ -175,14 +175,6 @@ void frame_crear(App& a) {
     aceptar |= e.enter;
     volver |= e.escape;
 
-    // Automatización: repartir los puntos libres en orden y aceptar.
-    if (a.aut.activa && a.frames_en_pantalla == 30 && a.aut.pantalla_captura != Pantalla::CREAR) {
-        a.clase_nueva = a.aut.clase;
-        for (int i = 0; i < 6; ++i) a.extra[i] = 0;
-        for (int i = 0; i < 6 && puntos_libres(a) > 0; ++i)
-            while (puntos_libres(a) > 0 && a.extra[i] < BONUS[a.clase_nueva]) ++a.extra[i];
-        aceptar = true;
-    }
     if (aceptar) {
         if (puntos_libres(a) != 0) {
             a.aviso = "Hay que repartir todos los puntos.";
@@ -204,6 +196,19 @@ void frame_crear(App& a) {
     // Resultado de la creación (S_CharCreateStatus); el éxito llega como PERSONAJE_NUEVO.
     for (const Evento& ev : a.eventos)
         if (ev.tipo == Ev::RESULTADO_CREAR && ev.v[0] != 2) a.aviso = motivo_crear(ev.v[0]);
+}
+
+// Crear sin pasar por la pantalla (control en vivo): la clase, los puntos libres repartidos en orden
+// y el pedido al servidor. El resultado llega como en la pantalla (PERSONAJE_NUEVO o RESULTADO_CREAR).
+void crear_personaje_rapido(App& a, std::string_view nombre, int clase) {
+    a.nombre_nuevo = nombre;
+    a.clase_nueva = std::clamp(clase, 0, 6);
+    for (int i = 0; i < 6; ++i) a.extra[i] = 0;
+    for (int i = 0; i < 6 && puntos_libres(a) > 0; ++i)
+        while (puntos_libres(a) > 0 && a.extra[i] < BONUS[a.clase_nueva]) ++a.extra[i];
+    u8 stats[6];
+    for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(BASE[a.clase_nueva][i] + a.extra[i]);
+    enviar(a, cmd::crear_personaje(a.op, a.nombre_nuevo, static_cast<u8>(a.clase_nueva), static_cast<u8>(a.sexo_nuevo), stats));
 }
 
 const u8* stats_base_clase(int clase) { return BASE[std::clamp(clase, 0, 6)]; }

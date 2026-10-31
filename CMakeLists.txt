@@ -11,6 +11,12 @@ option(LIN_ASAN "Compilar con AddressSanitizer y UBSan" OFF)
 option(LIN_TESTS "Compilar los tests" ON)
 # Control en vivo para pruebas (src/app/control.cpp): ON en los presets de desarrollo, OFF en release.
 option(LIN_CONTROL "Compilar el control en vivo (socket de pruebas)" OFF)
+# Para todo el código: también decide LIN_CONFIG (otro settings.ini), que solo existe en desarrollo.
+if(LIN_CONTROL)
+    add_compile_definitions(LIN_CONTROL=1)
+else()
+    add_compile_definitions(LIN_CONTROL=0)
+endif()
 
 # Dependencias antes de las opciones de advertencias: estas aplican solo a nuestro código.
 include(cmake/dependencias.cmake)
@@ -119,9 +125,7 @@ add_executable(lineage
 target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
 if(LIN_CONTROL)
     target_sources(lineage PRIVATE src/app/control.cpp)
-    target_compile_definitions(lineage PRIVATE LIN_CONTROL=1)
 else()
-    target_compile_definitions(lineage PRIVATE LIN_CONTROL=0)
     # La versión final no debe llevar el control: ni el código ni el texto del socket.
     add_custom_command(TARGET lineage POST_BUILD
         COMMAND ${CMAKE_COMMAND} -DBIN=$<TARGET_FILE:lineage> -P ${CMAKE_SOURCE_DIR}/cmake/sin_control.cmake

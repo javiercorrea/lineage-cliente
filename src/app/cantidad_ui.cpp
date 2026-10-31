@@ -65,10 +65,6 @@ void eventos_cantidad(App& a, const Evento& e) {
     d.precio = e.v[PC_PRECIO];
     d.accion.assign(e.s[0]);
     abrir(a, e.s[1].empty() ? "How many?" : e.s[1], e.v[PC_MIN], e.v[PC_MAX], e.v[PC_INICIAL]);
-    if (a.aut.cantidad >= 0) {  // prueba automática: esa cantidad y aceptar
-        d.valor = a.aut.cantidad;
-        aceptar(a);
-    }
 }
 
 // El chambelán: impuesto (CF_TASA), poner (CF_DEPOSITAR) o sacar (CF_RETIRAR) fondos del castillo.
@@ -82,10 +78,6 @@ void abrir_cantidad_castillo(App& a, int tipo, ObjId personaje, i32 min, i32 max
     static const char* TEXTOS[] = {"Tax rate (%)", "Deposit how much adena?", "Withdraw how much adena?"};
     d.accion = TEXTOS[tipo];
     abrir(a, "Castle", min, max, inicial);
-    if (a.aut.cantidad >= 0) {  // prueba automática: esa cantidad y aceptar
-        d.valor = std::clamp(a.aut.cantidad, d.min, d.max);
-        aceptar(a);
-    }
 }
 
 void dar_item(App& a, ObjId objetivo, ObjId item) {
@@ -103,10 +95,7 @@ void dar_item(App& a, ObjId objetivo, ObjId item) {
     char titulo[256];
     const size_t m = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), titulo, sizeof titulo);
     abrir(a, std::string_view(titulo, m), 1, std::max(n, 1), std::max(n, 1));
-    if (n <= 1 || a.aut.cantidad >= 0) {  // uno solo, o prueba automática: sin preguntar
-        if (a.aut.cantidad >= 0) d.valor = std::clamp(a.aut.cantidad, 1, std::max(n, 1));
-        aceptar(a);
-    }
+    if (n <= 1) aceptar(a);  // uno solo: sin preguntar
 }
 
 void borrar_item(App& a, ObjId item) {
@@ -123,10 +112,6 @@ void borrar_item(App& a, ObjId item) {
     char titulo[256];
     const size_t m = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), titulo, sizeof titulo);
     abrir(a, std::string_view(titulo, m), 1, n, n);
-    if (a.aut.cantidad >= 0) {  // prueba automática: sin preguntar
-        d.valor = std::clamp(a.aut.cantidad, 1, n);
-        aceptar(a);
-    }
 }
 
 bool sobre_cantidad(const App& a) {

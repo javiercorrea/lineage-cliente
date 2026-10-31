@@ -56,39 +56,9 @@ void eventos_reinicio(App& a, const Evento& e) {
     }
 }
 
-// Prueba automática (--reiniciar-atributos): reparte los puntos en orden, sube de nivel y termina
-// con FUE. Un paso cada 30 frames, para dejar llegar la respuesta.
-void reinicio_automatico(App& a) {
-    ReinicioAtributos& r = a.reinicio;
-    if (!a.aut.reiniciar_atributos || a.frames_en_pantalla % 30 != 0) return;
-    if (r.fase == ReinicioAtributos::INICIAL) {
-        for (int i = 0; i < 6 && libres_inicial(a) > 0; ++i)
-            while (libres_inicial(a) > 0 && r.extra[i] < bonus_clase(clase(a))) ++r.extra[i];
-        u8 v[6];
-        for (int i = 0; i < 6; ++i) v[i] = static_cast<u8>(base_de(a, i) + r.extra[i]);
-        enviar(a, cmd::reinicio(a.op, 1, {v[0], v[1], v[2], v[3], v[4], v[5]}));
-        r.fase = ReinicioAtributos::SUBIR;  // hasta que llegue el estado (S_CharReset 2)
-        r.nivel = 0;
-    } else if (r.fase == ReinicioAtributos::SUBIR && r.nivel > 0) {
-        if (r.nivel < std::min(r.maximo, 50)) {
-            enviar(a, cmd::reinicio(a.op, 2, {static_cast<u8>(r.nivel + 10 <= std::min(r.maximo, 50) ? 7 : 0)}));
-        } else {
-            const bool ultimo = r.maximo <= 50 || r.nivel >= r.maximo - 1;
-            enviar(a, cmd::reinicio(a.op, 2, {ultimo ? u8{8} : u8{1}, r.maximo <= 50 ? u8{0} : u8{1}}));
-            if (ultimo) r.fase = ReinicioAtributos::CERRADO;
-        }
-        r.nivel = 0;  // esperar la respuesta
-    } else if (r.fase == ReinicioAtributos::ELIXIR) {
-        for (int i = 0; i < 6; ++i) r.stats[i] = static_cast<u8>(r.stats[i] + (i == 0 ? r.puntos : 0));
-        enviar(a, cmd::reinicio(a.op, 3, {r.stats[0], r.stats[1], r.stats[2], r.stats[3], r.stats[4], r.stats[5]}));
-        r.fase = ReinicioAtributos::CERRADO;
-    }
-}
-
 void dibujar_reinicio(App& a) {
     ReinicioAtributos& r = a.reinicio;
     if (r.fase == ReinicioAtributos::CERRADO) return;
-    reinicio_automatico(a);
     if (r.fase == ReinicioAtributos::CERRADO) return;
     Graficos& g = *a.g;
     EntradaFrame& e = a.entrada;

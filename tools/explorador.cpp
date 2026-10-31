@@ -13,12 +13,13 @@
 using namespace lin;
 
 int main(int argc, char** argv) {
-    Config cfg = cargar_config(argc, argv);
+    Config cfg = cargar_config();  // la carpeta del juego de settings.ini, o la de --juego=
     int gfx = 0, accion = ACC_QUIETO, img = -1, png = -1;
     std::string captura;
     for (int i = 1; i < argc; ++i) {
         std::string s = argv[i];
-        if (s.rfind("--gfx=", 0) == 0) gfx = std::atoi(s.c_str() + 6);
+        if (s.rfind("--juego=", 0) == 0) cfg.carpeta_juego = s.substr(8) + (s.back() == '/' ? "" : "/");
+        else if (s.rfind("--gfx=", 0) == 0) gfx = std::atoi(s.c_str() + 6);
         else if (s.rfind("--accion=", 0) == 0) accion = std::atoi(s.c_str() + 9);
         else if (s.rfind("--img=", 0) == 0) img = std::atoi(s.c_str() + 6);
         else if (s.rfind("--png=", 0) == 0) png = std::atoi(s.c_str() + 6);

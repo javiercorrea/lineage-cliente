@@ -187,24 +187,6 @@ void frame_personajes(App& a) {
     Gpu& gpu = g.gpu();
     EntradaFrame& e = a.entrada;
 
-    // Automatización: elegir (o crear) el personaje pedido y entrar.
-    if (a.aut.activa && a.frames_en_pantalla == 10) {
-        int elegido = a.pjs.empty() ? -1 : 0;
-        if (!a.aut.personaje.empty()) {
-            elegido = -1;
-            for (size_t i = 0; i < a.pjs.size(); ++i)
-                if (a.pjs[i].nombre == a.aut.personaje) elegido = static_cast<int>(i);
-        }
-        if (elegido >= 0) {
-            a.pj_sel = elegido;
-            if (a.aut.pantalla_captura != Pantalla::PERSONAJES) return entrar_juego(a);
-        } else if (a.aut.crear || a.aut.pantalla_captura == Pantalla::CREAR) {
-            a.nombre_nuevo = a.aut.personaje.empty() ? "Prueba" : a.aut.personaje;
-            cambiar_pantalla(a, Pantalla::CREAR);
-            return;
-        }
-    }
-
     if (a.cfg.ui_simple) return seleccion_simple(a);
     gpu.dibujar(g.png(815), 0, 0, clave_orden(CAPA_FONDO, 0));
     for (int i = 0; i < 4; ++i) {

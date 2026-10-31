@@ -91,7 +91,6 @@ TEST_CASE("settings.ini: servidores, el elegido, migración del formato anterior
     CHECK(v.servidores[0].host == "10.0.0.5");
     CHECK(v.servidores[0].puerto == 2001);
     CHECK(v.servidores[0].usuario == "ana");
-    CHECK(v.clave.empty());
     // Sin nada: el local de pruebas.
     Config vacio = leer_config("");
     REQUIRE(vacio.servidores.size() == 1);
@@ -99,7 +98,7 @@ TEST_CASE("settings.ini: servidores, el elegido, migración del formato anterior
     CHECK(vacio.servidores[0].puerto == 2000);
     // Varios, el elegido por nombre, y la vuelta por escribir_config.
     Config c = leer_config("servidor=Local|127.0.0.1|2000|jp363|\nservidor=Otro de prueba|h.ejemplo|2100|s3ep1|bob\n"
-                           "servidor_elegido=Otro de prueba\nui_simple=0\n");
+                           "servidor_elegido=Otro de prueba\nui_simple=0\nventana=1024x768\n");
     REQUIRE(c.servidores.size() == 2);
     CHECK(c.servidor == 1);
     CHECK(servidor_elegido(c).protocolo == "s3ep1");
@@ -114,4 +113,6 @@ TEST_CASE("settings.ini: servidores, el elegido, migración del formato anterior
     CHECK(d.servidores[1].nombre == "Otro de prueba");
     CHECK(d.servidores[1].puerto == 2100);
     CHECK_FALSE(d.ui_simple);
+    CHECK(d.ventana_ancho == 1024);
+    CHECK(d.ventana_alto == 768);
 }

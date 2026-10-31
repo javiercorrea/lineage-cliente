@@ -5,8 +5,9 @@
 
 namespace lin {
 
-// LIN_TRAZA=1 (o "traza on" del control en vivo) registra cada paquete enviado y recibido.
-bool g_traza = std::getenv("LIN_TRAZA") != nullptr;
+// Depuración (comandos "traza" y "traza-html" del control en vivo): cada paquete enviado y
+// recibido, y cada página HTML con sus datos.
+bool g_traza = false, g_traza_html = false;
 
 namespace {
 
@@ -21,13 +22,6 @@ void SDLCALL al_elegir_carpeta(void*, const char* const* lista, int) {
     } else {
         g_dialogo = 2;
     }
-}
-
-Pantalla pantalla_de(const std::string& s) {
-    if (s == "login") return Pantalla::LOGIN;
-    if (s == "personajes") return Pantalla::PERSONAJES;
-    if (s == "crear") return Pantalla::CREAR;
-    return Pantalla::JUEGO;
 }
 
 bool cargar_recursos(App& a) {
@@ -65,29 +59,6 @@ void leer_entrada(App& a) {
     e.zoom = 0;
     e.ntexto = 0;
     e.ahora_ms = SDL_GetTicks();
-    // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego (o del
-    // login, para probarlo sin --auto; "#" Enter, "~" Esc, "_" nada), como
-    // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
-    Automatizacion& au = a.aut;
-    if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN || a.pantalla == Pantalla::PERSONAJES) &&
-        a.frames_en_pantalla >= 300 &&
-        (a.frames_en_pantalla - 300) % 10 == 0) {
-        const char c = au.pulsar[au.pulsadas++];
-        if (c != '_') {  // "_": esperar 10 frames
-            SDL_Event k{};
-            k.type = SDL_EVENT_KEY_DOWN;
-            k.key.key = c == '#' ? SDLK_RETURN : c == '~' ? SDLK_ESCAPE : static_cast<SDL_Keycode>(c);
-            SDL_PushEvent(&k);
-            if (c != '#' && c != '~') {
-                static char texto[2];
-                texto[0] = c;
-                SDL_Event t{};
-                t.type = SDL_EVENT_TEXT_INPUT;
-                t.text.text = texto;
-                SDL_PushEvent(&t);
-            }
-        }
-    }
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
@@ -193,53 +164,8 @@ void leer_entrada(App& a) {
     e.abajo = teclas[SDL_SCANCODE_DOWN];
     e.izquierda = teclas[SDL_SCANCODE_LEFT];
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
-    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0 || a.aut.ctrl;
+    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
     e.shift = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
-    // Prueba automática (--arrastrar, repetible): el n-ésimo aprieta en (x1, y1) en el frame
-    // 300 + 180·n del juego, se mueve en 30 frames hasta (x2, y2) y suelta.
-    const u64 desde = a.frames_en_pantalla >= 300 ? a.frames_en_pantalla - 300 : ~0ull;
-    if (a.pantalla == Pantalla::JUEGO && desde / 180 < a.aut.arrastres.size() && desde % 180 <= 31) {
-        const int* ar = a.aut.arrastres[desde / 180].data();
-        int k = static_cast<int>(desde % 180);
-        e.mx = ar[0] + (ar[2] - ar[0]) * std::min(k, 30) / 30;
-        e.my = ar[1] + (ar[3] - ar[1]) * std::min(k, 30) / 30;
-        e.pulsado = k == 0;
-        e.presionado = k < 31;
-        e.clic = k == 31;
-    }
-    // Prueba automática (--mantener=x,y,N): mantener el botón izquierdo en (x, y) desde el frame
-    // 300 durante N frames.
-    if (!a.aut.mantener_sobre.empty() && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla == 300) {
-        // El punto de pantalla (fijo desde ahí) del más cercano con ese nombre.
-        const std::string& v = a.aut.mantener_sobre;
-        const size_t coma = v.rfind(',');
-        const std::string_view nombre = std::string_view(v).substr(0, coma);
-        for (const App::ObjetoEnPantalla& r : a.en_pantalla) {
-            const Slot so = a.mundo.objetos.buscar(r.id);
-            if (so == SIN_SLOT || a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[so])).find(nombre) == std::string_view::npos) continue;
-            a.aut.mantener[0] = static_cast<int>((r.x0 + r.x1) / 2);
-            a.aut.mantener[1] = static_cast<int>((r.y0 + r.y1) / 2);
-            a.aut.mantener[2] = coma == std::string::npos ? 120 : std::atoi(v.c_str() + coma + 1);
-            break;
-        }
-    }
-    const int* ma = a.aut.mantener;
-    if (ma[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + ma[2]) {
-        e.mx = ma[0];
-        e.my = ma[1];
-        e.pulsado = a.frames_en_pantalla == 300;
-        e.presionado = a.frames_en_pantalla < 300u + ma[2];
-        e.clic = a.frames_en_pantalla == 300u + ma[2];
-    }
-    // Prueba automática (--medio=x,y,N): mantener el botón del medio en (x, y) desde el frame 300
-    // durante N frames.
-    const int* me = a.aut.medio;
-    if (me[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + me[2]) {
-        e.mx = me[0];
-        e.my = me[1];
-        e.medio_presionado = a.frames_en_pantalla < 300u + me[2];
-        e.clic_medio = a.frames_en_pantalla == 300u + me[2];
-    }
 }
 
 // Red: transiciones de estado y paquetes -> eventos -> pantallas y mundo.
@@ -330,86 +256,15 @@ void cambiar_pantalla(App& a, Pantalla p) {
     a.foco = 0;
 }
 
-bool iniciar_app(App& a, int argc, char** argv) {
-    a.cfg = cargar_config(argc, argv);
-    int vw = 1280, vh = 960;  // tamaño inicial de la ventana en puntos (en Retina, el doble de píxeles)
-    for (int i = 1; i < argc; ++i) {
-        std::string s = argv[i];
-        auto valor = [&](const char* p) { return s.substr(std::strlen(p)); };
-        if (s == "--auto") a.aut.activa = true;
-        else if (s.rfind("--personaje=", 0) == 0) a.aut.personaje = valor("--personaje=");
-        else if (s == "--crear") a.aut.crear = true;
-        else if (s.rfind("--clase=", 0) == 0) a.aut.clase = std::atoi(valor("--clase=").c_str());
-        else if (s.rfind("--captura=", 0) == 0) a.aut.captura = valor("--captura=");
-        else if (s.rfind("--captura-pantalla=", 0) == 0) a.aut.pantalla_captura = pantalla_de(valor("--captura-pantalla="));
-        else if (s.rfind("--captura-espera=", 0) == 0) a.aut.espera_frames = std::atoi(valor("--captura-espera=").c_str());
-        else if (s == "--salir") a.aut.salir_tras_captura = true;
-        else if (s == "--depuracion") a.depuracion = true;
-        else if (s == "--perf") a.perf = true;
-        else if (s == "--mudo") a.mudo = true;
-        else if (s.rfind("--pasos=", 0) == 0) a.aut.pasos = std::atoi(valor("--pasos=").c_str());
-        else if (s.rfind("--decir=", 0) == 0) a.aut.decir.push_back(valor("--decir="));
-        else if (s == "--estado") a.aut.estado = true;
-        else if (s.rfind("--ruta=", 0) == 0) a.aut.ruta = valor("--ruta=");
-        else if (s.rfind("--atacar=", 0) == 0) a.aut.atacar = valor("--atacar=");
-        else if (s == "--reiniciar") a.aut.reiniciar = true;
-        else if (s == "--reiniciar-atributos") a.aut.reiniciar_atributos = true;
-        else if (s.rfind("--tienda-propia=", 0) == 0) a.aut.tienda_propia = valor("--tienda-propia=");
-        else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
-        else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
-        else if (s.rfind("--borrar=", 0) == 0) a.aut.items.push_back({false, valor("--borrar="), "", true});
-        else if (s.rfind("--usar-sobre=", 0) == 0) {
-            std::string v = valor("--usar-sobre=");
-            const size_t arroba = v.find('@');
-            a.aut.items.push_back({false, v.substr(0, arroba), "", false, arroba == std::string::npos ? "" : v.substr(arroba + 1)});
-        }
-        else if (s.rfind("--dar=", 0) == 0) {
-            std::string v = valor("--dar=");
-            const size_t arroba = v.find('@');
-            a.aut.items.push_back({false, v.substr(0, arroba), arroba == std::string::npos ? "" : v.substr(arroba + 1)});
-        }
-        else if (s == "--recoger") a.aut.recoger = true;
-        else if (s == "--inventario") a.ventana_inventario = true;
-        else if (s.rfind("--lanzar=", 0) == 0) a.aut.lanzar.push_back(valor("--lanzar="));
-        else if (s == "--hechizos") a.aut.hechizos = true;
-        else if (s.rfind("--forma=", 0) == 0) a.aut.forma = valor("--forma=");
-        else if (s.rfind("--hablar=", 0) == 0) a.aut.hablar = valor("--hablar=");
-        else if (s.rfind("--npc-accion=", 0) == 0) a.aut.npc_acciones.push_back(valor("--npc-accion="));
-        else if (s.rfind("--tienda=", 0) == 0) a.aut.tienda.push_back(valor("--tienda="));
-        else if (s.rfind("--arrastrar=", 0) == 0)
-        {
-            std::array<int, 4> ar{};
-            std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &ar[0], &ar[1], &ar[2], &ar[3]);
-            a.aut.arrastres.push_back(ar);
-        }
-        else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
-        else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
-        else if (s.rfind("--destino=", 0) == 0) a.aut.destino = valor("--destino=");
-        else if (s == "--ctrl") a.aut.ctrl = true;
-        else if (s.rfind("--mantener-sobre=", 0) == 0) a.aut.mantener_sobre = valor("--mantener-sobre=");
-        else if (s.rfind("--mantener=", 0) == 0)
-            std::sscanf(s.c_str() + 11, "%d,%d,%d", &a.aut.mantener[0], &a.aut.mantener[1], &a.aut.mantener[2]);
-        else if (s.rfind("--medio=", 0) == 0)
-            std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
-        else if (s == "--opciones") a.ventana_opciones = true;
-        else if (s == "--teclas") a.ayuda_teclas = true;
-        else if (s == "--salida") a.ventana_salida = true;
-        else if (s == "--aceptar") a.aut.aceptar = true;
-        else if (s.rfind("--girar=", 0) == 0) a.aut.girar = std::atoi(valor("--girar=").c_str());
-        else if (s.rfind("--ofrecer=", 0) == 0) a.aut.ofrecer = valor("--ofrecer=");
-        else if (s == "--social") a.ventana_social = true;
-        else if (s.rfind("--subir=", 0) == 0) a.aut.subir = valor("--subir=");
-        else if (s.rfind("--captura-proyectil=", 0) == 0) a.aut.captura_proyectil = valor("--captura-proyectil=");
-        else if (s.rfind("--alt=", 0) == 0) a.aut.alt.push_back(std::atoi(valor("--alt=").c_str()));
-        else if (s.rfind("--ventana=", 0) == 0) std::sscanf(s.c_str() + 10, "%dx%d", &vw, &vh);
-    }
+bool iniciar_app(App& a) {
+    a.cfg = cargar_config();
     a.usuario = servidor_elegido(a.cfg).usuario;
-    a.clave = a.cfg.clave;
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         LIN_LOG("SDL_Init: %s", SDL_GetError());
         return false;
     }
-    a.ventana = SDL_CreateWindow("Lineage", vw, vh, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    // Tamaño en puntos (en Retina, el doble de píxeles): el de la última vez (settings.ini).
+    a.ventana = SDL_CreateWindow("Lineage", a.cfg.ventana_ancho, a.cfg.ventana_alto, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!a.ventana || !a.gpu.iniciar(a.ventana, 640, 480)) return false;
     SDL_StartTextInput(a.ventana);
     crear_cursores(a);
@@ -472,11 +327,6 @@ void bucle_app(App& a) {
         }
         actualizar_sonido(a, a.entrada.ahora_ms);
         ++a.frames_en_pantalla;
-        if (!a.aut.captura.empty() && a.pantalla == a.aut.pantalla_captura &&
-            a.frames_en_pantalla == static_cast<u64>(a.aut.espera_frames)) {
-            a.gpu.pedir_captura(a.aut.captura);
-            if (a.aut.salir_tras_captura) a.salir = true;
-        }
         // CPU y allocations: todo menos presentar, que espera el vsync y llama al driver (el de
         // Metal hace sus propias allocations al subir y presentar; no dependen del cliente).
         a.gpu.preparar_frame();
@@ -496,6 +346,8 @@ void bucle_app(App& a) {
 }
 
 void cerrar_app(App& a) {
+    // El tamaño de la ventana queda para la próxima vez.
+    if (a.ventana && SDL_GetWindowSize(a.ventana, &a.cfg.ventana_ancho, &a.cfg.ventana_alto)) guardar_config(a.cfg);
 #if LIN_CONTROL
     control_cerrar();
 #endif

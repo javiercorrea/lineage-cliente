@@ -31,67 +31,6 @@ struct PersonajeLista {
     i32 v[13];  // índices PJ_* de eventos.h
 };
 
-// Automatización para pruebas y capturas (argumentos --auto, --captura...).
-struct Automatizacion {
-    bool activa = false;
-    std::string personaje;          // a elegir en la lista (vacío = el primero)
-    bool crear = false;             // crear `personaje` si no existe
-    int clase = 0;                  // clase al crearlo: 0 príncipe, 1 caballero, 2 elfo, 3 mago, 4 elfo oscuro...
-    std::string captura;            // ruta .bmp
-    Pantalla pantalla_captura = Pantalla::JUEGO;
-    int espera_frames = 120;        // frames en esa pantalla antes de capturar
-    bool salir_tras_captura = false;
-    int pasos = 0;                  // pasos de prueba al entrar al juego (hacia la derecha)
-    std::string ruta;               // pasos de prueba con dirección fija: dígitos 0–7
-    std::string atacar;             // atacar al más cercano cuyo nombre contenga esto
-    bool reiniciar = false;         // al morir, reiniciar solo
-    struct AccionItem {
-        bool soltar;                // si no, usar (equipar, beber...)
-        std::string nombre;         // el primer ítem del inventario cuyo nombre lo contenga
-        std::string a_quien;        // --dar=Ítem@Nombre: dárselo al más cercano con ese nombre
-        bool borrar = false;        // --borrar: al basurero
-        std::string sobre = {};     // --usar-sobre=Pergamino@Ítem: usarlo sobre ese ítem del inventario
-    };
-    std::vector<AccionItem> items;  // una cada 2 s después de entrar
-    size_t items_hechos = 0;
-    bool recoger = false;           // recoger el ítem del suelo más cercano
-    size_t ruta_hecha = 0;
-    std::vector<std::string> decir; // líneas a escribir en el chat al entrar (con prefijos)
-    size_t dichas = 0;
-    bool estado = false;            // abrir la ventana de estado al entrar
-    // Hechizos a lanzar, uno cada 3 s: "Nombre" o "Nombre@objetivo" (el más cercano cuyo nombre
-    // lo contenga). Se repite la lista en orden.
-    std::vector<std::string> lanzar;
-    size_t lanzados = 0;
-    bool hechizos = false;          // abrir la ventana de hechizos al entrar
-    std::string forma;              // polymorph: monstruo a elegir cuando se abre el diálogo
-    std::string hablar;             // caminar hasta el NPC más cercano cuyo nombre lo contenga y hablarle
-    std::vector<std::string> npc_acciones;  // vínculos de la página a seguir (o acciones), uno cada 2 s
-    size_t npc_hechas = 0;
-    std::vector<std::string> tienda;  // "Nombre:N" o "#fila:N": en la próxima lista, elegir N y confirmar
-    u64 t_npc = 0;
-    std::vector<int> alt;           // casilleros de la barra a usar (Alt+número), uno cada 3 s
-    std::vector<std::array<int, 4>> arrastres;  // --arrastrar (repetible): x1, y1 -> x2, y2
-    int medio[3] = {-1, 0, 0};  // --medio: mantener el botón del medio en (x, y) N frames
-    int mantener[3] = {-1, 0, 0};  // --mantener: mantener el botón izquierdo en (x, y) N frames
-    std::string mantener_sobre;  // --mantener-sobre=Nombre,N: como --mantener, sobre donde está ese objeto en el frame 300
-    bool ctrl = false;  // --ctrl: Ctrl mantenido todo el tiempo (forzar ataque)
-    std::string pulsar;  // --pulsar: teclas a inyectar desde el frame 300, una cada 10 frames ("#" Enter, "~" Esc)
-    std::string tienda_propia;  // --tienda-propia=Ítem@precio@título: abre la tienda propia con ese ítem (tienda_ui.cpp)
-    bool reiniciar_atributos = false;  // --reiniciar-atributos: recorre el reinicio solo (reinicio_ui.cpp)
-    int cantidad = -1;  // --cantidad: en el próximo diálogo de cantidad (o al dar un ítem), ese número y aceptar
-    std::string destino;  // --destino: en el diálogo de teleport, el marcador con ese nombre ("Random": al azar)
-    size_t pulsadas = 0;
-    std::string captura_proyectil;
-    std::string subir;              // en la página RaiseAttr, subir ese atributo ("str", "dex"...)
-    bool aceptar = false;           // responder que sí a toda pregunta del servidor (S_MessageYN)
-    int girar = -1;                 // mirar hacia esa dirección al entrar (para quedar frente a frente)
-    std::string ofrecer;            // en un intercambio, ofrecer el primer ítem con ese nombre y aceptar
-    bool ofrecido = false;
-    u64 t_intercambio = 0;
-    size_t alt_hechos = 0;
-};
-
 // Casillero de la barra de atajos. Un ítem se guarda por su id y su gfx: si el id ya no está (se
 // acabó la pila de pociones y se compró otra), se usa otro ítem con el mismo gfx.
 enum class TipoAtajo : u8 { VACIO, HECHIZO, ITEM };
@@ -279,7 +218,6 @@ enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, LABIOS, CANTIDAD };
 
 struct App {
     Config cfg;
-    Automatizacion aut;
     SDL_Window* ventana = nullptr;
     bool salir = false;
 
@@ -338,7 +276,6 @@ struct App {
     bool ayuda_teclas = false;     // F1
     u64 t_intento_portal = 0;      // último paso hacia una celda bloqueada (pantalla_juego.cpp: intento_portal)
     u32 celda_intento_portal = 0;
-    int pasos_auto_hechos = 0;
     // Combate: lo que se dibujó en el frame anterior (para saber qué hay bajo el puntero), el
     // objetivo del ataque y hasta cuándo dura el ataque en curso.
     struct ObjetoEnPantalla {
@@ -400,7 +337,6 @@ struct App {
     ObjId tienda_npc = 0;
     std::vector<FilaTienda> tienda_filas;
     u32 tienda_desplazamiento = 0;
-    bool aut_tienda_pendiente = false;
     bool hablar_objetivo = false;  // a.objetivo es un NPC al que se camina para hablarle
     bool objetivo_fijo = false;    // elegido al apretar el botón: se mantiene aunque el puntero ya no esté encima
     bool ataque_sostenido = false; // tecla A: se sigue atacando al objetivo sin mantener el botón
@@ -466,7 +402,7 @@ struct App {
     bool perf = false;
 };
 
-bool iniciar_app(App& a, int argc, char** argv);
+bool iniciar_app(App& a);
 void bucle_app(App& a);
 void cerrar_app(App& a);
 void cambiar_pantalla(App& a, Pantalla p);
@@ -524,8 +460,6 @@ void usar_item(App& a, ObjId item);
 void soltar_item(App& a, ObjId item);
 // Al basurero: pregunta cuántos (o confirma, si es uno) y lo elimina (cantidad_ui.cpp).
 void borrar_item(App& a, ObjId item);
-// Prueba automática (--usar, --soltar): ejecuta la próxima acción pendiente.
-void acciones_item_automaticas(App& a);
 
 // Hechizos (hechizos_ui.cpp).
 bool sobre_hechizos(const App& a);
@@ -560,7 +494,8 @@ u32 buscar_hechizo(const App& a, std::string_view texto);   // hechizos_ui.cpp: 
 void activar(App& a, std::string_view vinculo, bool es_enlace);  // npc_ui.cpp: un vínculo de la página del NPC
 void responder_pregunta(App& a, bool si);                   // social_ui.cpp: la primera pregunta pendiente
 void aceptar_cantidad(App& a, i32 valor);                   // cantidad_ui.cpp: el diálogo abierto, con ese número
-extern bool g_traza;                               // app.cpp: registrar los paquetes (LIN_TRAZA)
+extern bool g_traza, g_traza_html;                 // app.cpp: registrar los paquetes y las páginas HTML
+void crear_personaje_rapido(App& a, std::string_view nombre, int clase);  // pantalla_crear.cpp: puntos en orden
 #if LIN_CONTROL
 // Control en vivo para pruebas (control.cpp; solo en las versiones de desarrollo).
 void control_iniciar(App& a);
@@ -675,7 +610,6 @@ void dibujar_corona(Graficos& g, float x, float y, u64 k);  // el señor del cas
 u32 adena_inventario(const App& a);  // npc_ui.cpp
 void abrir_cantidad_castillo(App& a, int tipo, ObjId personaje, i32 min, i32 max, i32 inicial);
 const char* nombre_castillo(int castillo);
-void procesar_social(App& a, u64 ahora);  // prueba automática
 Rect rect_social(const App& a);
 Rect rect_intercambio(const App& a);
 

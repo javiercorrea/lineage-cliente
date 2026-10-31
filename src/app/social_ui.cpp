@@ -128,7 +128,6 @@ void eventos_social(App& a, const Evento& e) {
         size_t n = formatear_mensaje(a.mensajes, a.desc, m, buf, sizeof buf, color);
         p.texto.assign(buf, n);
         a.preguntas.push_back(std::move(p));
-        if (a.aut.aceptar && p.tipo != PREGUNTA_NOMBRE_CASA) responder_pregunta(a, true);  // prueba automática
         break;
     }
     case Ev::INTERCAMBIO_ABRIR:
@@ -383,35 +382,6 @@ void dibujar_social(App& a) {
     for (const char* t : ayuda) {
         g.texto(t, static_cast<float>(r.x + 10), static_cast<float>(y + 4), kt, rgba(170, 160, 140));
         y += 15;
-    }
-}
-
-void procesar_social(App& a, u64 ahora) {
-    Automatizacion& au = a.aut;
-    // Prueba automática: mirar hacia un lado (para quedar frente a frente con otro personaje).
-    if (au.girar >= 0 && a.frames_en_pantalla == 200) {
-        Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
-        if (s != SIN_SLOT) a.mundo.objetos.col<O_DIR>()[s] = static_cast<u8>(au.girar);
-        enviar(a, cmd::girar(a.op, static_cast<u8>(au.girar)));
-    }
-    if (!a.intercambio.abierto) return;
-    if (!au.ofrecer.empty() && !au.ofrecido) {  // ofrecer y, un poco después, aceptar
-        const TablaItems& t = a.mundo.inventario.items;
-        char buf[256];
-        for (Slot s = 0; s < t.tamano(); ++s) {
-            size_t n = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), buf, sizeof buf);
-            if (std::string_view(buf, n).find(au.ofrecer) == std::string_view::npos) continue;
-            ofrecer_en_intercambio(a, t.ids()[s]);
-            break;
-        }
-        au.ofrecido = true;
-        au.t_intercambio = ahora;
-    }
-    // Quien ofrece acepta 1,5 s después; quien solo acepta (--aceptar), cuando ya ve lo ofrecido.
-    bool listo = au.ofrecido ? ahora > au.t_intercambio + 1500 : (au.aceptar && !a.intercambio.otro.empty());
-    if (listo && !a.intercambio.ok) {
-        enviar(a, cmd::aceptar_intercambio(a.op));
-        a.intercambio.ok = true;
     }
 }
 

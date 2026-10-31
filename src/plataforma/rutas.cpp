@@ -9,8 +9,11 @@
 namespace lin {
 
 std::string ruta_configuracion() {
+#if LIN_CONTROL
     // LIN_CONFIG: otro settings.ini (pruebas en paralelo sin pisar la configuración del usuario).
+    // Solo en desarrollo: la versión final usa siempre el del usuario.
     if (const char* e = std::getenv("LIN_CONFIG"); e && *e) return e;
+#endif
     char* p = SDL_GetPrefPath("Lineage", "LineageCliente");
     std::string r = p ? std::string(p) + "settings.ini" : "settings.ini";
     SDL_free(p);
@@ -19,7 +22,7 @@ std::string ruta_configuracion() {
 
 namespace {
 
-// Lo que viene del formato anterior (un solo servidor) o de --usuario= en las pruebas.
+// Lo que viene del formato anterior (un solo servidor).
 struct Anterior {
     std::string host, protocolo, usuario;
     int puerto = 0;
@@ -62,6 +65,12 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "volumen_efectos") c.volumen_efectos = std::atoi(std::string(valor).c_str());
     else if (clave == "logo") c.logo = valor;
     else if (clave == "chat_con_enter") c.chat_con_enter = valor != "0";
+    else if (clave == "ventana") {
+        const size_t x = valor.find('x');
+        const int w = std::atoi(std::string(valor.substr(0, x)).c_str());
+        const int h = x == std::string_view::npos ? 0 : std::atoi(std::string(valor.substr(x + 1)).c_str());
+        if (w >= 320 && h >= 240) c.ventana_ancho = w, c.ventana_alto = h;
+    }
 }
 
 // Después de leer: migra el formato anterior, garantiza un servidor y elige el guardado.
@@ -98,23 +107,11 @@ Config leer_config(std::string_view t) {
     return c;
 }
 
-Config cargar_config(int argc, char** argv) {
+Config cargar_config() {
     std::vector<u8> ini;
     Config c = leer_archivo(ruta_configuracion(), ini)
                    ? leer_config({reinterpret_cast<const char*>(ini.data()), ini.size()})
                    : leer_config({});
-    if (const char* e = std::getenv("LINEAGE_DIR")) c.carpeta_juego = e;
-    // Pruebas (se quitan con el control en vivo): --juego=, --usuario=, --clave= y demás claves.
-    Anterior ant;
-    for (int i = 1; i < argc; ++i) {
-        std::string_view a = argv[i];
-        if (a.substr(0, 2) != "--") continue;
-        size_t igual = a.find('=');
-        if (igual == std::string_view::npos) continue;
-        if (a.substr(2, igual - 2) == "clave") c.clave = a.substr(igual + 1);
-        else aplicar(c, ant, a.substr(2, igual - 2), a.substr(igual + 1));
-    }
-    if (!ant.usuario.empty()) servidor_elegido(c).usuario = ant.usuario;
     if (!c.carpeta_juego.empty() && c.carpeta_juego.back() != '/') c.carpeta_juego += '/';
     return c;
 }
@@ -166,6 +163,7 @@ std::string escribir_config(const Config& c) {
     linea("volumen_efectos", std::to_string(c.volumen_efectos));
     linea("logo", c.logo);
     linea("chat_con_enter", c.chat_con_enter ? "1" : "0");
+    linea("ventana", std::to_string(c.ventana_ancho) + 'x' + std::to_string(c.ventana_alto));
     return t;
 }
 
