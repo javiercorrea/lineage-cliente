@@ -245,3 +245,17 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 | `docs/analisis/scripts/` | análisis del protocolo y del cliente original (Python; `requirements.txt`) |
 | `servidor_local/` | instalar, arrancar y parchar el servidor de pruebas |
 | `herramientas/prueba_login.py` | cliente mínimo en Python para depurar el protocolo |
+
+## Agent skills
+
+### Issue tracker
+
+Issues de GitHub en `javiercorrea/lineage-cliente`, con `gh`. Ver `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Los cinco roles por defecto (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Ver `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` y `docs/adr/` en la raíz del repo. Ver `docs/agents/domain.md`.
