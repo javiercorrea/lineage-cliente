@@ -43,14 +43,16 @@ class Control:
         self.resto = b""
 
     @classmethod
-    def arrancar(cls, config, binario=BINARIO, plazo=30, entorno=None):
-        """Lanza el cliente con su propio settings.ini y socket, y se conecta."""
+    def arrancar(cls, config, binario=BINARIO, plazo=30, entorno=None, registro=None):
+        """Lanza el cliente con su propio settings.ini y socket, y se conecta. `registro`: archivo
+        donde queda su salida (la traza de "traza on", por ejemplo)."""
         cls.lanzados += 1  # varios clientes desde el mismo script: un socket cada uno
         ruta = os.path.join(tempfile.gettempdir(), "lineage-control-py-%d-%d.sock" % (os.getpid(), cls.lanzados))
         env = dict(os.environ, LIN_CONFIG=config, LIN_CONTROL=ruta, **(entorno or {}))
         if os.path.exists(ruta):
             os.unlink(ruta)
-        proceso = subprocess.Popen([binario], env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        salida = open(registro, "w") if registro else subprocess.DEVNULL
+        proceso = subprocess.Popen([binario], env=env, stdout=salida, stderr=subprocess.STDOUT)
         fin = time.time() + plazo
         while not os.path.exists(ruta):
             if proceso.poll() is not None or time.time() > fin:

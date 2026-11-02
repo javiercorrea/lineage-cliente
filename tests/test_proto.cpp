@@ -763,3 +763,32 @@ TEST_CASE("Castillos y casas: S_HouseList, S_HouseMap, S_War, S_CastleMaster, fo
     igual(cmd::fecha_asedio(t), {4});
     igual(cmd::responder_texto(t, 3, 512, "Casa"), {61, 0, 2, 3, 0, 0, 0, 0, 2, 1, 0, 'C', 'a', 's', 'a', 0});
 }
+
+TEST_CASE("3.80C (tw380): opcodes, vida en 4 bytes y S_Door") {
+    TablaOpcodes t;
+    REQUIRE(tabla_opcodes("tw380", t));
+    CHECK(t.cable_init == 150);
+    CHECK(t.cli(Cli::LOGINPACKET) == 119);
+    CHECK(t.srv(87) == Srv::CHARPACK);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // S_HPUpdate (225): d 1234, d 2000.
+    std::vector<u8> hp = {225, 0xd2, 0x04, 0, 0, 0xd0, 0x07, 0, 0};
+    REQUIRE(decodificar(hp, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::HP);
+    CHECK(ev[0].v[0] == 1234);
+    CHECK(ev[0].v[1] == 2000);
+    // S_Door (209): h x, h y, c dirección, c 0x41 (no se pasa).
+    ev.clear();
+    std::vector<u8> puerta = {209, 0x10, 0x80, 0x20, 0x80, 1, 0x41};
+    REQUIRE(decodificar(puerta, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::PUERTA);
+    CHECK(ev[0].v[PU_BLOQUEADA] == 1);
+    // En 3.63 la vida sigue en 2 bytes.
+    TablaOpcodes j;
+    REQUIRE(tabla_opcodes("jp363", j));
+    ev.clear();
+    std::vector<u8> hp363 = {42, 0xd2, 0x04, 0xd0, 0x07};
+    REQUIRE(decodificar(hp363, j, arena, ev));
+    CHECK(ev[0].v[1] == 2000);
+}

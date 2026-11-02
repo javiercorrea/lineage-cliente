@@ -70,6 +70,56 @@ constexpr ParCli JP363_CLI[] = {
     {Cli::CHANGEWARTIME, 4},
 };
 
+// L1J 3.80C de Taiwán: internal/net/packet/opcodes.go de L1JGO-Whale (commit 9a19405), por nombre.
+// Sin equivalente en esa tabla (quedan en 0 y no se mandan o no se reconocen): COMMONNEWS, TELEPORT,
+// BLUEMESSAGE, DELSKILL, DOOR, PETCTRL y, del cliente, CLAN, PETMENU, USEPETITEM, SELECTTARGET,
+// SELECTLIST, RETURNTOLOGIN, BOARDNEXT, CHANGEWARTIME.
+constexpr ParSrv TW380_SRV[] = {
+    {139, Srv::SERVERVERSION}, {233, Srv::LOGINRESULT},   {178, Srv::CHARAMOUNT},   {93, Srv::CHARLIST},
+    {127, Srv::NEWCHARPACK},   {98, Srv::NEWCHARWRONG},   {6, Srv::DETELECHAROK},   {223, Srv::LOGINTOGAME},
+    {227, Srv::DISCONNECT},    {8, Srv::OWNCHARSTATUS},   {206, Srv::MAPID},        {87, Srv::CHARPACK},
+    {10, Srv::MOVEOBJECT},     {120, Srv::REMOVE_OBJECT}, {122, Srv::CHANGEHEADING}, {40, Srv::LIGHT},
+    {123, Srv::GAMETIME},      {115, Srv::WEATHER},       {71, Srv::SERVERMSG},     {225, Srv::HPUPDATE},
+    {33, Srv::MPUPDATE},       {81, Srv::NORMALCHAT},     {243, Srv::GLOBALCHAT},   {119, Srv::CHARVISUALUPDATE},
+    {158, Srv::DOACTIONGFX},   {37, Srv::SPMR},           {174, Srv::OWNCHARATTRDEF}, {183, Srv::CHARTITLE},
+    {113, Srv::EXP},           {34, Srv::LAWFUL},         {73, Srv::WHISPERCHAT},   {161, Srv::NPCSHOUT},
+    {209, Srv::DOOR},          {250, Srv::PACKETBOX},    {30, Srv::ATTACKPACKET},  {237, Srv::HPMETER},
+    {5, Srv::INVLIST},         {15, Srv::ADDITEM},        {57, Srv::DELETEINVENTORYITEM}, {100, Srv::ITEMNAME},
+    {24, Srv::ITEMAMOUNT},     {240, Srv::ITEMCOLOR},     {164, Srv::ADDSKILL},     {55, Srv::SKILLSOUNDGFX},
+    {106, Srv::EFFECTLOCATION}, {255, Srv::SKILLHASTE},   {67, Srv::SKILLBRAVE},    {216, Srv::SKILLICONSHIELD},
+    {42, Srv::RANGESKILLS},    {76, Srv::POLY},           {39, Srv::SHOWHTML},      {70, Srv::SHOWSHOPBUYLIST},
+    {65, Srv::SHOWSHOPSELLLIST}, {176, Srv::SHOWRETRIEVELIST}, {219, Srv::YES_NO},  {52, Srv::TRADE},
+    {35, Srv::TRADEADDITEM},   {112, Srv::TRADESTATUS},   {118, Srv::EMBLEM},       {23, Srv::SKILLBUY},
+    {202, Srv::PARALYSIS},     {165, Srv::POISON},        {47, Srv::CURSEBLIND},    {136, Srv::INPUTAMOUNT},
+    {236, Srv::SELECTTARGET},  {11, Srv::TRUETARGET},     {92, Srv::BOOKMARKS},     {83, Srv::SELECTLIST},
+    {245, Srv::IDENTIFYDESC},  {171, Srv::INVIS},         {85, Srv::RESURRECTION},  {166, Srv::STRUP},
+    {188, Srv::DEXUP},         {60, Srv::PINKNAME},       {103, Srv::LIQUOR},       {22, Srv::SOUND},
+    {140, Srv::PRIVATESHOPLIST}, {68, Srv::BOARD},        {148, Srv::BOARDREAD},    {186, Srv::MAIL},
+    {156, Srv::HOUSELIST},     {187, Srv::HOUSEMAP},      {84, Srv::WAR},           {69, Srv::CASTLEMASTER},
+    {185, Srv::TAXRATE},       {4, Srv::DEPOSIT},         {141, Srv::DRAWAL},
+    {231, Srv::MAPID},  // S_WarTime: el decodificador de S_MapID lo distingue por el largo
+};
+constexpr ParCli TW380_CLI[] = {
+    {Cli::CLIENTVERSION, 14},  {Cli::LOGINPACKET, 119},  {Cli::COMMONCLICK, 16},   {Cli::NEWCHAR, 84},
+    {Cli::DELETECHAR, 162},    {Cli::LOGINTOSERVER, 137}, {Cli::MOVECHAR, 29},     {Cli::CHANGEHEADING, 225},
+    {Cli::KEEPALIVE, 95},      {Cli::QUITGAME, 122},     {Cli::CHAT, 40},          {Cli::CHATWHISPER, 184},
+    {Cli::ATTACK, 229},        {Cli::RESTART, 177},      {Cli::USEITEM, 164},      {Cli::PICKUPITEM, 112},
+    {Cli::DROPITEM, 25},       {Cli::USESKILL, 6},       {Cli::NPCACTION, 125},    {Cli::NPCTALK, 34},
+    {Cli::RESULT, 161},        {Cli::TELEPORT, 52},      {Cli::ATTR, 121},
+    {Cli::CREATEPARTY, 43},    {Cli::PARTYLIST, 230},    {Cli::LEAVEPARTY, 33},    {Cli::BANPARTY, 255},
+    {Cli::TRADE, 2},           {Cli::TRADEADDITEM, 37},  {Cli::TRADEADDOK, 71},    {Cli::TRADEADDCANCEL, 86},
+    {Cli::CREATECLAN, 222},    {Cli::JOINCLAN, 194},     {Cli::LEAVECLAN, 61},     {Cli::BANCLAN, 69},
+    {Cli::TITLE, 90},          {Cli::PLEDGE, 68},        {Cli::WHO, 206},          {Cli::EMBLEM, 18},
+    {Cli::SKILLBUY, 145},      {Cli::SKILLBUYOK, 39},    {Cli::DOOR, 41},          {Cli::GIVEITEM, 45},
+    {Cli::AMOUNT, 11},         {Cli::CHANGECHAR, 7},     {Cli::FIXWEAPONLIST, 118}, {Cli::BOOKMARK, 165},
+    {Cli::BOOKMARKDELETE, 3},  {Cli::DELETEINVENTORYITEM, 138}, {Cli::EXITGHOST, 173}, {Cli::ENTERPORTAL, 219},
+    {Cli::CHARRESET, 98},      {Cli::EXCLUDE, 171},      {Cli::BUDDYLIST, 4},      {Cli::ADDBUDDY, 207},
+    {Cli::DELETEBUDDY, 202},   {Cli::CHATPARTY, 199},    {Cli::SHOP, 38},          {Cli::SHOPLIST, 47},
+    {Cli::BOARD, 23},          {Cli::BOARDREAD, 114},    {Cli::BOARDWRITE, 141},   {Cli::BOARDDELETE, 153},
+    {Cli::MAIL, 87},           {Cli::WAR, 227},          {Cli::TAXRATE, 19},       {Cli::DEPOSIT, 56},
+    {Cli::DRAWAL, 44},
+};
+
 const char* NOMBRES[] = {
     "?", "INITPACKET", "SERVERVERSION", "LOGINRESULT", "COMMONNEWS", "CHARAMOUNT", "CHARLIST", "NEWCHARPACK",
     "NEWCHARWRONG", "DETELECHAROK", "LOGINTOGAME", "DISCONNECT", "OWNCHARSTATUS", "MAPID", "CHARPACK",
@@ -88,12 +138,20 @@ static_assert(sizeof(NOMBRES) / sizeof(NOMBRES[0]) == static_cast<size_t>(Srv::C
 
 }  // namespace
 
-bool tabla_opcodes(std::string_view version, TablaOpcodes& t) {
-    if (version != "jp363") return false;
+template <size_t NS, size_t NC>
+void cargar(TablaOpcodes& t, const ParSrv (&srv)[NS], const ParCli (&cli)[NC], u8 init, bool v380) {
     for (Srv& s : t.srv_de_cable) s = Srv::DESCONOCIDO;
-    for (const ParSrv& p : JP363_SRV) t.srv_de_cable[p.cable] = p.interno;
-    for (const ParCli& p : JP363_CLI) t.cable_de_cli[static_cast<int>(p.interno)] = p.cable;
-    t.cable_init = 161;
+    for (u8& c : t.cable_de_cli) c = 0;
+    for (const ParSrv& p : srv) t.srv_de_cable[p.cable] = p.interno;
+    for (const ParCli& p : cli) t.cable_de_cli[static_cast<int>(p.interno)] = p.cable;
+    t.cable_init = init;
+    t.v380 = v380;
+}
+
+bool tabla_opcodes(std::string_view version, TablaOpcodes& t) {
+    if (version == "jp363") cargar(t, JP363_SRV, JP363_CLI, 161, false);
+    else if (version == "tw380") cargar(t, TW380_SRV, TW380_CLI, 150, true);
+    else return false;
     return true;
 }
 

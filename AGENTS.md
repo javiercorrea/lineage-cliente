@@ -50,6 +50,8 @@ LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 62 casos; sin LIN
 - **Ejecutable:** `build/<preset>/lineage`, sin parámetros (la carpeta del juego y los servidores
   salen de `settings.ini`). La configuración del usuario está en
   `~/Library/Application Support/Lineage/LineageCliente/settings.ini`.
+- **Servidor 3.80C** (protocolo `tw380`): `servidor_380/instalar.sh` y `arrancar.sh` (L1JGO-Whale, puerto
+  7001; ver ENTREGABLES.md, "Servidor 3.80C"). Solo local, como el de 3.63.
 - **No pisar esa configuración en las pruebas:** usar `LIN_CONFIG=/ruta/propia.ini` (sección 5; solo
   en `debug`). Ese `.ini` necesita `juego=` y, para el servidor local, nada más: sin `servidor=` se
   usa `127.0.0.1:2000 jp363`.

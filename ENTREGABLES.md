@@ -967,6 +967,36 @@ Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
   - el socket en Windows (`afunix.h`, MULTIPLATAFORMA);
   - editar la lista de servidores desde el login.
 
+## Servidor 3.80C (L1JGO-Whale)
+
+![Entrar](docs/capturas/380_entrar.png) ![NPC](docs/capturas/380_npc.png) ![Combate](docs/capturas/380_combate.png)
+
+- **El servidor:** [L1JGO-Whale](https://github.com/r0ptik/L1JGO-Whale), un servidor 3.80C de Taiwán en Go con PostgreSQL. `servidor_380/instalar.sh` lo deja local:
+  - commit fijo, Go y PostgreSQL de Homebrew;
+  - base propia en `servidor_380/datos`, puerto 5433;
+  - configuración generada en `l1jgo/local.toml`, sin el `#npc:gfx` de depuración en los nombres;
+  - `arrancar.sh` lo levanta en el puerto 7001 y `detener.sh` lo detiene.
+- **Protocolo `tw380`** (`proto/opcodes.cpp`):
+  - la tabla sale de `internal/net/packet/opcodes.go` del servidor, por nombre;
+  - el paquete inicial es el opcode 150 (semilla y 11 bytes fijos); el cifrado es el mismo de 3.63;
+  - **diferencias de formato:**
+    - vida y maná en 4 bytes en `S_OwnCharStatus`, `S_HPUpdate` y `S_MPUpdate` (`Lector::vida`, según `TablaOpcodes::v380`);
+    - `S_Door` es el opcode 209, con el mismo formato;
+    - `S_WarTime` tiene su propio opcode (231): va al decodificador de `S_MapID`, que lo distingue por el largo.
+  - **El resto** (login, lista y creación de personajes, entrar, `S_CharPack`, movimiento, chat, inventario, páginas de NPC, ataques) funcionó sin cambios.
+  - **En `settings.ini`:** `servidor=Whale 3.80|127.0.0.1|7001|tw380|`.
+- **Verificado en vivo** con el control (cuenta `prueba`, personaje Ensayo, creado desde el cliente; GM puesto en la base para las pruebas):
+  - login, crear un príncipe y entrar (mapa 2005, la isla de los principiantes);
+  - estado con la vida correcta, caminar, chat (con su eco);
+  - inventario, `.item` (pociones), `.level 20`;
+  - hablar con NPCs (`cuse1`, `tutor`, con los vínculos de las páginas del juego);
+  - `.spawn` de un Jack-O-Lantern y pelear (9–11 por golpe; el monstruo le saca 21–25 y lo mata: aparece el aviso de muerte).
+- **Limitaciones (del servidor o de la instalación):**
+  - **Texto en chino:** los nombres de ítems y los mensajes del sistema llegan en chino (Big5; el servidor solo acepta Big5 o GBK), y la instalación trae solo la fuente coreana: se ven ilegibles. Los nombres de NPC usan `$N` y se ven bien.
+  - **Sin equivalente en `tw380`** (quedan sin mandar o sin reconocer): noticias, `S_Teleport`, el mensaje azul, borrar hechizos, el menú de mascotas, volver al login, la página siguiente del tablón y la fecha del asedio.
+  - **Opcode 64** (`S_CharSynAck`: casilleros de equipo, emblema, reinicio): sin decodificar.
+  - **No probado:** tiendas, almacén, grupo, intercambio, clanes, casas y castillos en 3.80; las pruebas de `herramientas/pruebas` usan personajes del servidor 3.63.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)

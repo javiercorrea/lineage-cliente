@@ -11,6 +11,9 @@ namespace {
 
 struct Lector : LectorBinario {
     Arena* arena;
+    bool v380 = false;
+    // Vida y maná (S_OwnCharStatus, S_HPUpdate, S_MPUpdate): h hasta 3.63, d en 3.80C.
+    i32 vida() { return v380 ? static_cast<i32>(d()) : h(); }
     u8 c() { return u8_(); }
     u16 h() { return u16_(); }
     u32 d() { return u32_(); }
@@ -70,10 +73,10 @@ bool estado(Lector& l, Evento& e) {
     e.v[EP_NIVEL] = l.c();
     e.v[EP_EXP] = static_cast<i32>(l.d());
     for (int i = EP_FUE; i <= EP_CAR; ++i) e.v[i] = l.c();
-    e.v[EP_HP] = l.h();
-    e.v[EP_HPMAX] = l.h();
-    e.v[EP_MP] = l.h();
-    e.v[EP_MPMAX] = l.h();
+    e.v[EP_HP] = l.vida();
+    e.v[EP_HPMAX] = l.vida();
+    e.v[EP_MP] = l.vida();
+    e.v[EP_MPMAX] = l.vida();
     e.v[EP_CA] = static_cast<i8>(l.c());
     l.d();
     e.v[EP_COMIDA] = l.c();
@@ -148,8 +151,8 @@ bool direccion(Lector& l, Evento& e) { e.tipo = Ev::CAMBIAR_DIRECCION; e.id = l.
 bool luz(Lector& l, Evento& e) { e.tipo = Ev::LUZ; e.id = l.d(); e.v[0] = l.c(); return true; }
 bool hora(Lector& l, Evento& e) { e.tipo = Ev::HORA_JUEGO; e.v[0] = static_cast<i32>(l.d()); return true; }
 bool clima(Lector& l, Evento& e) { e.tipo = Ev::CLIMA; e.v[0] = l.c(); return true; }
-bool hp(Lector& l, Evento& e) { e.tipo = Ev::HP; e.v[0] = l.h(); e.v[1] = l.h(); return true; }
-bool mp(Lector& l, Evento& e) { e.tipo = Ev::MP; e.v[0] = l.h(); e.v[1] = l.h(); return true; }
+bool hp(Lector& l, Evento& e) { e.tipo = Ev::HP; e.v[0] = l.vida(); e.v[1] = l.vida(); return true; }
+bool mp(Lector& l, Evento& e) { e.tipo = Ev::MP; e.v[0] = l.vida(); e.v[1] = l.vida(); return true; }
 // S_ServerMessage / S_BlueMessage: h id del mensaje (string-e.tbl), c n, n × s argumentos
 // (se guardan 2; ningún mensaje de L1J usa más).
 bool mensaje(Lector& l, Evento& e) {
@@ -813,6 +816,7 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
     Lector l;
     l.datos = cuerpo.subspan(1);
     l.arena = &arena;
+    l.v380 = tabla.v380;
     if (e.origen == Srv::INVLIST) {
         // S_InvList: c n + n ítems. Vacía el inventario y lo vuelve a llenar.
         int n = l.c();

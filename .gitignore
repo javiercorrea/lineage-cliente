@@ -34,3 +34,8 @@ __pycache__/
 *.s32
 *.til
 *.spr
+
+# Servidor 3.80C: se baja y genera con servidor_380/instalar.sh
+servidor_380/l1jgo/
+servidor_380/datos/
+servidor_380/servidor.log
