@@ -75,7 +75,8 @@ build/debug/lineage
   servidor_elegido=Local de pruebas
   ```
 
-  Los campos son nombre, host, puerto, versión de protocolo y la última cuenta usada en ese servidor.
+  Los campos son nombre, host, puerto, versión de protocolo (`jp363` o `tw380`, el 3.80C de Taiwán) y
+  la última cuenta usada en ese servidor.
   La clave no se guarda. Un `settings.ini` viejo (`host=`, `puerto=`...) se convierte solo.
 - **El tamaño de la ventana** se guarda al cerrar (`ventana=AxB`).
 - **Controles en el juego:** mantener el clic izquierdo para caminar hacia el puntero, o las flechas

@@ -43,12 +43,14 @@ struct TablaOpcodes {
     Srv srv_de_cable[256];                          // número de cable -> interno
     u8 cable_de_cli[static_cast<int>(Cli::CANTIDAD)];  // interno -> número de cable
     u8 cable_init;                                  // opcode del paquete inicial (sin cifrar)
+    bool v380 = false;                              // 3.80C: vida y maná en 4 bytes (ver Lector::vida)
 
     Srv srv(u8 cable) const { return srv_de_cable[cable]; }
     u8 cli(Cli c) const { return cable_de_cli[static_cast<int>(c)]; }
 };
 
-// Versiones disponibles: "jp363" (L1J-JP 3.63c, servidor local de pruebas).
+// Versiones disponibles: "jp363" (L1J-JP 3.63c, servidor local de pruebas) y "tw380" (3.80C de
+// Taiwán, L1JGO-Whale: servidor_380).
 // PENDIENTE: cargar las demás desde los opcodes.txt de docs/analisis/opcodes (s3ep1, kr380...).
 bool tabla_opcodes(std::string_view version, TablaOpcodes& salida);
 
