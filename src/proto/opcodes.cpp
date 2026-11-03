@@ -123,6 +123,58 @@ constexpr ParCli TW380_CLI[] = {
     {Cli::DRAWAL, 44},
 };
 
+// L1J 3.0 English / US 2009 (S3EP1): encryptions/Opcodes.java de l1j-en/classic, por nombre. El
+// cifrado es el mismo XOR que jp363. Saludo inicial: opcode 125 (0x7D) + semilla (fija 0x7C98BDFA,
+// el cliente la lee igual). Vida/maná en 2 bytes como 3.63.
+// Sin equivalente en classic (quedan en 0): PETCTRL; y del cliente: ninguno.
+constexpr ParSrv S3EP1_SRV[] = {
+    {89, Srv::SERVERVERSION}, {63, Srv::LOGINRESULT}, {66, Srv::COMMONNEWS}, {80, Srv::CHARAMOUNT},
+    {102, Srv::CHARLIST}, {56, Srv::NEWCHARPACK}, {29, Srv::NEWCHARWRONG}, {84, Srv::DETELECHAROK},
+    {116, Srv::LOGINTOGAME}, {41, Srv::DISCONNECT}, {59, Srv::OWNCHARSTATUS}, {73, Srv::MAPID},
+    {1, Srv::CHARPACK}, {126, Srv::MOVEOBJECT}, {0, Srv::REMOVE_OBJECT}, {15, Srv::CHANGEHEADING},
+    {124, Srv::LIGHT}, {58, Srv::GAMETIME}, {31, Srv::WEATHER}, {98, Srv::SERVERMSG},
+    {34, Srv::HPUPDATE}, {92, Srv::MPUPDATE}, {71, Srv::NORMALCHAT}, {3, Srv::GLOBALCHAT},
+    {13, Srv::CHARVISUALUPDATE}, {11, Srv::TELEPORT}, {6, Srv::DOACTIONGFX}, {52, Srv::SPMR},
+    {96, Srv::OWNCHARATTRDEF}, {32, Srv::CHARTITLE}, {95, Srv::EXP}, {119, Srv::LAWFUL},
+    {47, Srv::WHISPERCHAT}, {50, Srv::NPCSHOUT}, {19, Srv::OWNCHARSTATUS2}, {62, Srv::PACKETBOX},
+    {65, Srv::BLUEMESSAGE}, {35, Srv::ATTACKPACKET}, {104, Srv::HPMETER}, {8, Srv::INVLIST},
+    {33, Srv::ADDITEM}, {75, Srv::DELETEINVENTORYITEM}, {9, Srv::ITEMNAME}, {25, Srv::ITEMAMOUNT},
+    {107, Srv::ITEMCOLOR}, {28, Srv::ADDSKILL}, {57, Srv::DELSKILL}, {101, Srv::SKILLSOUNDGFX},
+    {69, Srv::EFFECTLOCATION}, {49, Srv::SKILLHASTE}, {20, Srv::SKILLBRAVE},
+    {114, Srv::SKILLICONSHIELD}, {112, Srv::RANGESKILLS}, {2, Srv::POLY}, {37, Srv::SHOWHTML},
+    {46, Srv::SHOWSHOPBUYLIST}, {12, Srv::SHOWSHOPSELLLIST}, {24, Srv::SHOWRETRIEVELIST},
+    {105, Srv::YES_NO}, {53, Srv::TRADE}, {21, Srv::TRADEADDITEM}, {122, Srv::TRADESTATUS},
+    {7, Srv::EMBLEM}, {48, Srv::SKILLBUY}, {82, Srv::DOOR}, {81, Srv::PARALYSIS}, {10, Srv::POISON},
+    {110, Srv::CURSEBLIND}, {123, Srv::INPUTAMOUNT}, {61, Srv::SELECTTARGET}, {70, Srv::TRUETARGET},
+    {103, Srv::BOOKMARKS}, {18, Srv::SELECTLIST}, {99, Srv::IDENTIFYDESC}, {22, Srv::INVIS},
+    {44, Srv::RESURRECTION}, {106, Srv::STRUP}, {51, Srv::DEXUP}, {87, Srv::PINKNAME},
+    {43, Srv::LIQUOR}, {17, Srv::BLESSOFEVA}, {86, Srv::ABILITY}, {83, Srv::SOUND},
+    {115, Srv::PRIVATESHOPLIST}, {93, Srv::BOARD}, {91, Srv::BOARDREAD}, {127, Srv::MAIL},
+    {72, Srv::HOUSELIST}, {113, Srv::HOUSEMAP}, {94, Srv::WAR}, {111, Srv::CASTLEMASTER},
+    {120, Srv::TAXRATE}, {60, Srv::DEPOSIT}, {67, Srv::DRAWAL}, {26, Srv::MAPID},
+};
+constexpr ParCli S3EP1_CLI[] = {
+    {Cli::CLIENTVERSION, 34}, {Cli::LOGINPACKET, 113}, {Cli::COMMONCLICK, 46}, {Cli::NEWCHAR, 50},
+    {Cli::DELETECHAR, 54}, {Cli::LOGINTOSERVER, 89}, {Cli::MOVECHAR, 15}, {Cli::CHANGEHEADING, 6},
+    {Cli::KEEPALIVE, 4}, {Cli::QUITGAME, 114}, {Cli::CHAT, 18}, {Cli::CHATWHISPER, 92},
+    {Cli::ATTACK, 5}, {Cli::RESTART, 82}, {Cli::USEITEM, 119}, {Cli::PICKUPITEM, 7},
+    {Cli::DROPITEM, 52}, {Cli::USESKILL, 129}, {Cli::NPCACTION, 65}, {Cli::NPCTALK, 118},
+    {Cli::RESULT, 104}, {Cli::TELEPORT, 79}, {Cli::ATTR, 63}, {Cli::CREATEPARTY, 130},
+    {Cli::PARTYLIST, 77}, {Cli::LEAVEPARTY, 11}, {Cli::BANPARTY, 72}, {Cli::TRADE, 30},
+    {Cli::TRADEADDITEM, 20}, {Cli::TRADEADDOK, 61}, {Cli::TRADEADDCANCEL, 41}, {Cli::CREATECLAN, 62},
+    {Cli::JOINCLAN, 94}, {Cli::LEAVECLAN, 27}, {Cli::BANCLAN, 103}, {Cli::TITLE, 66},
+    {Cli::PLEDGE, 76}, {Cli::WHO, 57}, {Cli::CLAN, 73}, {Cli::EMBLEM, 120}, {Cli::SKILLBUY, 93},
+    {Cli::SKILLBUYOK, 31}, {Cli::DOOR, 75}, {Cli::GIVEITEM, 85}, {Cli::AMOUNT, 124},
+    {Cli::PETMENU, 83}, {Cli::USEPETITEM, 111}, {Cli::SELECTTARGET, 47}, {Cli::CHANGECHAR, 16},
+    {Cli::FIXWEAPONLIST, 51}, {Cli::SELECTLIST, 112}, {Cli::BOOKMARK, 0}, {Cli::BOOKMARKDELETE, 128},
+    {Cli::DELETEINVENTORYITEM, 69}, {Cli::EXITGHOST, 121}, {Cli::RETURNTOLOGIN, 95},
+    {Cli::ENTERPORTAL, 26}, {Cli::CHARRESET, 80}, {Cli::EXCLUDE, 116}, {Cli::BUDDYLIST, 109},
+    {Cli::ADDBUDDY, 56}, {Cli::DELETEBUDDY, 10}, {Cli::CHATPARTY, 131}, {Cli::SHOP, 8},
+    {Cli::SHOPLIST, 17}, {Cli::BOARD, 24}, {Cli::BOARDREAD, 19}, {Cli::BOARDNEXT, 87},
+    {Cli::BOARDWRITE, 84}, {Cli::BOARDDELETE, 60}, {Cli::MAIL, 127}, {Cli::WAR, 101},
+    {Cli::TAXRATE, 110}, {Cli::DEPOSIT, 68}, {Cli::DRAWAL, 42}, {Cli::CHANGEWARTIME, 98},
+};
+
 const char* NOMBRES[] = {
     "?", "INITPACKET", "SERVERVERSION", "LOGINRESULT", "COMMONNEWS", "CHARAMOUNT", "CHARLIST", "NEWCHARPACK",
     "NEWCHARWRONG", "DETELECHAROK", "LOGINTOGAME", "DISCONNECT", "OWNCHARSTATUS", "MAPID", "CHARPACK",
@@ -154,6 +206,7 @@ void cargar(TablaOpcodes& t, const ParSrv (&srv)[NS], const ParCli (&cli)[NC], u
 bool tabla_opcodes(std::string_view version, TablaOpcodes& t) {
     if (version == "jp363") cargar(t, JP363_SRV, JP363_CLI, 161, PerfilProtocolo{});
     else if (version == "tw380") cargar(t, TW380_SRV, TW380_CLI, 150, PerfilProtocolo{.bytes_vida = 4});
+    else if (version == "s3ep1") cargar(t, S3EP1_SRV, S3EP1_CLI, 125, PerfilProtocolo{});
     else return false;
     return true;
 }

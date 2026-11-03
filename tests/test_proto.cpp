@@ -792,3 +792,19 @@ TEST_CASE("3.80C (tw380): opcodes, vida en 4 bytes y S_Door") {
     REQUIRE(decodificar(hp363, j, arena, ev));
     CHECK(ev[0].v[1] == 2000);
 }
+
+TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
+    TablaOpcodes t;
+    REQUIRE(tabla_opcodes("s3ep1", t));
+    CHECK(t.cable_init == 125);          // saludo: opcode 0x7D
+    CHECK(t.perfil.bytes_vida == 2);     // vida en 2 bytes, como 3.63
+    CHECK(t.srv(1) == Srv::CHARPACK);    // S_CharPack = 1
+    CHECK(t.srv(89) == Srv::SERVERVERSION);
+    CHECK(t.srv(63) == Srv::LOGINRESULT);
+    CHECK(t.srv(116) == Srv::LOGINTOGAME);  // S_Unknown1
+    CHECK(t.srv(82) == Srv::DOOR);          // S_Attribute
+    CHECK(t.cli(Cli::LOGINPACKET) == 113);
+    CHECK(t.cli(Cli::MOVECHAR) == 15);
+    CHECK(t.cli(Cli::PARTYLIST) == 77);
+    CHECK(tabla_opcodes("inexistente", t) == false);
+}

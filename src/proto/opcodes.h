@@ -57,8 +57,8 @@ struct TablaOpcodes {
     u8 cli(Cli c) const { return cable_de_cli[static_cast<int>(c)]; }
 };
 
-// Versiones disponibles: "jp363" (L1J-JP 3.63c, servidor local de pruebas) y "tw380" (3.80C de
-// Taiwán, L1JGO-Whale: servidor_380).
+// Versiones disponibles: "jp363" (L1J-JP 3.63c), "tw380" (3.80C de Taiwán, L1JGO-Whale) y "s3ep1"
+// (3.0 English / US 2009, l1j-en/classic).
 // PENDIENTE: cargar las demás desde los opcodes.txt de docs/analisis/opcodes (s3ep1, kr380...).
 bool tabla_opcodes(std::string_view version, TablaOpcodes& salida);
 
