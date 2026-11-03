@@ -1,5 +1,9 @@
 # Opcodes del servidor que el cliente no implementa
 
+Dos servidores de prueba, dos tablas de `src/proto/opcodes.cpp`:
+- **`jp363`** (L1J-JP 3.63c, `servidor_local/l1j-jp`): el grueso del documento.
+- **`tw380`** (3.80C de Taiwán, L1JGO-Whale, `servidor_380/l1jgo`): sección propia al final.
+
 Revisión de `servidor_local/l1j-jp` (L1J-JP 3.63c: `codes/Opcodes.java`, `packets/PacketHandler.java`)
 contra la tabla `jp363` de `src/proto/opcodes.cpp`. Solo cuenta lo que el servidor usa de verdad: un
 `S_OPCODE_*` que aparece en alguna clase que lo envía, o un `C_OPCODE_*` con un `case` en
@@ -85,6 +89,44 @@ encantar arma o armadura" y "Casas y castillos".
 - **Opciones del original al servidor:** `C_LoginToServerOK` (75: chat global y susurros
   abiertos o cerrados), `C_CharacterConfig` (129: disposición de la interfaz), `C_SendLocation` (41),
   `C_ExtraCommand` (157).
+
+## Servidor 3.80C de Taiwán (tw380)
+
+Revisión de `servidor_380/l1jgo` (L1JGO-Whale, commit 9a19405: `internal/net/packet/opcodes.go` y los
+handlers de `internal/handler`) contra la tabla `tw380` de `src/proto/opcodes.cpp`. La mayoría de los
+paquetes son los mismos que en 3.63 con otro número de cable; acá va solo lo distinto.
+
+Última revisión: 2026-11-02.
+
+**Funciona** (verificado en vivo; ENTREGABLES.md "Servidor 3.80C"): login, lista y creación de
+personaje, entrar, `S_CharPack`, movimiento, chat, inventario, páginas de NPC y ataques. La vida y el
+maná van en 4 bytes (no 2); `S_Door` es el 209 (`S_ChangeAttr`) y `S_WarTime` el 231.
+
+**El servidor envía y el cliente no decodifica** (quedan como "?" en la traza):
+
+- `S_CharSynAck` (64): multiuso — casilleros de equipo, emblema, reinicio de personaje y
+  sincronización de la info del personaje. Lo mandan 7 handlers: es el de más impacto.
+- `S_RedMessage` (105): texto rojo al centro de la pantalla.
+- `S_ChangeName` (46), `S_ClanName` (72), `S_ClanAttention` (200): cambio de nombre y avisos de
+  estado del clan.
+- `S_ClanMatching` (0): emparejamiento de clanes. El número 0 choca con "paquete vacío", así que
+  habría que tratarlo aparte.
+
+**Sin opcode en 3.80** (la función existe en el cliente pero no se puede usar contra este servidor;
+quedan en 0 en la tabla): noticias (`S_CommonNews`), `S_Teleport`, mensaje azul, borrar hechizos
+(`S_DelSkill`), menú de mascotas (`S_PetCtrlMenu`); del cliente: pedir emblema (`C_Clan`), menú e
+ítem de mascota, elegir objetivo (`C_SelectTarget`), lista de reparar (`C_SelectList`), volver al
+login (`C_ReturnToLogin`), página siguiente del tablón (`C_BoardBack`) y elegir fecha del asedio
+(`C_ChangeWarTime`). El servidor usa otros mecanismos (las mascotas van por un subtipo de
+`S_HpMeter`).
+
+**Sin probar en 3.80:** tiendas, almacén, grupo, intercambio, clanes, casas y castillos. Las pruebas
+en vivo (`herramientas/pruebas`) usan el servidor 3.63.
+
+**Limitación de la instalación:** el 3.80 manda los textos en chino (Big5) y Lineage Justice solo
+trae la fuente coreana, así que los nombres de ítems y los mensajes del sistema se ven ilegibles.
+Cómo se detectó: la tabla sale de `opcodes.go` del servidor por nombre, y los opcodes sin decodificar
+aparecen como "?" con el comando `traza on` del control en vivo (`paquetes` los lista).
 
 ## Cómo se hizo
 

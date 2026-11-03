@@ -72,8 +72,11 @@ constexpr ParCli JP363_CLI[] = {
 
 // L1J 3.80C de Taiwán: internal/net/packet/opcodes.go de L1JGO-Whale (commit 9a19405), por nombre.
 // Sin equivalente en esa tabla (quedan en 0 y no se mandan o no se reconocen): COMMONNEWS, TELEPORT,
-// BLUEMESSAGE, DELSKILL, DOOR, PETCTRL y, del cliente, CLAN, PETMENU, USEPETITEM, SELECTTARGET,
+// BLUEMESSAGE, DELSKILL, PETCTRL y, del cliente, CLAN, PETMENU, USEPETITEM, SELECTTARGET,
 // SELECTLIST, RETURNTOLOGIN, BOARDNEXT, CHANGEWARTIME.
+// El servidor manda y el cliente aún no decodifica: S_CharSynAck (64), S_RedMessage (105),
+// S_ChangeName (46), S_ClanName (72), S_ClanAttention (200), S_ClanMatching (0). Ver
+// docs/analisis/OPCODES_PENDIENTES.md.
 constexpr ParSrv TW380_SRV[] = {
     {139, Srv::SERVERVERSION}, {233, Srv::LOGINRESULT},   {178, Srv::CHARAMOUNT},   {93, Srv::CHARLIST},
     {127, Srv::NEWCHARPACK},   {98, Srv::NEWCHARWRONG},   {6, Srv::DETELECHAROK},   {223, Srv::LOGINTOGAME},
