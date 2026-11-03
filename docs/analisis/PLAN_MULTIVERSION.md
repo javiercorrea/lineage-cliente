@@ -1,7 +1,8 @@
 # Plan: varias versiones de protocolo sin `if (versión)` en los decodificadores
 
-**Estado:** fases 1 y 2 hechas (rama `agente/multiversion`). `s3ep1` conecta y hace login
-contra l1j-en/classic en local (`servidor_classic/`); falta la fase 3 (recorrer los cuerpos).
+**Estado:** fases 1 y 2 hechas; fase 3 arrancada (rama `agente/multiversion`). `s3ep1` entra al
+mundo contra l1j-en/classic en local (`servidor_classic/`): login, entrar, moverse, chat, objetos y
+render andan. Pendientes conocidos: crear personaje (stats por clase) y abrir diálogo de NPC.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -71,11 +72,17 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
    - solo si un paquete es irreconciliable por parámetros, un puntero de función por opcode en esa
      versión (la excepción de la tabla de §2), documentado.
    - Verificar en vivo con el control (login, entrar, mover, chat, NPC) y capturas.
-   - **Primer hallazgo:** crear personaje lo rechaza el servidor (`S_CharCreateStatus`): las tablas de
-     stats base por clase del US 2009 difieren de las 3.63, así que los puntos que manda el cliente
-     caen fuera del rango que valida classic. El cuerpo de `C_CreateChar` en sí coincide; lo que
-     cambia son los datos de las clases. Pendiente: tabla de clases por versión (o sembrar un
-     personaje en la base para probar el mundo primero).
+   - **Verificado en vivo contra classic** (personaje sembrado en la base): entrar al mundo (mapa 4),
+     el estado propio (posición, HP/MP/nivel), moverse, chat (con eco), objetos cercanos con nombres
+     de NPC correctos y el render. Sin opcodes "?": los cuerpos del mundo coinciden lo suficiente (los
+     decodificadores son tolerantes: `poner` lee lo que necesita e ignora el resto). Capturas:
+     `docs/capturas/classic_mundo.png`, `classic_login.png`.
+   - **Pendientes conocidos (cuerpos/validaciones que difieren):**
+     - **Crear personaje:** rechazado por `S_CharCreateStatus`. El cuerpo de `C_CreateChar` coincide,
+       pero las tablas de stats base por clase del US 2009 difieren de las 3.63 y los puntos caen
+       fuera del rango. Para probar el mundo se sembró el personaje en la base.
+     - **Diálogo de NPC:** el cliente camina hasta el NPC pero no llegó a mandar `C_NPCTalk`
+       (acercamiento/arrival); falta ver si es movimiento o cuerpo.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
