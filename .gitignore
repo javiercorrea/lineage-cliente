@@ -39,3 +39,8 @@ __pycache__/
 servidor_380/l1jgo/
 servidor_380/datos/
 servidor_380/servidor.log
+
+# Servidor classic (US 2009 / s3ep1): se baja y genera con servidor_classic/instalar.sh
+servidor_classic/l1jen/
+servidor_classic/datos/
+servidor_classic/server.log

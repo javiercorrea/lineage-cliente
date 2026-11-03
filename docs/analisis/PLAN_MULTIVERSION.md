@@ -1,5 +1,8 @@
 # Plan: varias versiones de protocolo sin `if (versión)` en los decodificadores
 
+**Estado:** fases 1 y 2 hechas (rama `agente/multiversion`). `s3ep1` conecta y hace login
+contra l1j-en/classic en local (`servidor_classic/`); falta la fase 3 (recorrer los cuerpos).
+
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
 paquetes tengan un `if` por versión**. Esas funciones deben quedar agnósticas; toda la variación
@@ -59,13 +62,20 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
    - `cable_init = 125` (0x7D);
    - el perfil de esa versión con lo que ya se sepa.
    - Cifrado: no se toca, es el mismo XOR (verificado: mismas máscaras y misma derivación de clave).
-   - Meta: llegar al login y la lista de personajes contra classic en local (trae `docker-compose`).
+   - **Hecho.** Login y lista de personajes OK contra classic en local. El `docker-compose` de classic
+     no sirvió (la VM de Rancher no alcanza Docker Hub), así que se levanta nativo con ant + la
+     MariaDB de Homebrew en `servidor_classic/` (igual que `servidor_local`), puerto 2000.
 3. **Recorrer los cuerpos con la traza** (`traza on` del control en vivo):
    - por cada cuerpo que difiera, **agregar un parámetro al perfil** y cambiar la llamada del
      decodificador a la versión parametrizada (p.ej. el byte extra de `S_OwnCharPack`);
    - solo si un paquete es irreconciliable por parámetros, un puntero de función por opcode en esa
      versión (la excepción de la tabla de §2), documentado.
    - Verificar en vivo con el control (login, entrar, mover, chat, NPC) y capturas.
+   - **Primer hallazgo:** crear personaje lo rechaza el servidor (`S_CharCreateStatus`): las tablas de
+     stats base por clase del US 2009 difieren de las 3.63, así que los puntos que manda el cliente
+     caen fuera del rango que valida classic. El cuerpo de `C_CreateChar` en sí coincide; lo que
+     cambia son los datos de las clases. Pendiente: tabla de clases por versión (o sembrar un
+     personaje en la base para probar el mundo primero).
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
