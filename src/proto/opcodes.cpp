@@ -142,18 +142,18 @@ static_assert(sizeof(NOMBRES) / sizeof(NOMBRES[0]) == static_cast<size_t>(Srv::C
 }  // namespace
 
 template <size_t NS, size_t NC>
-void cargar(TablaOpcodes& t, const ParSrv (&srv)[NS], const ParCli (&cli)[NC], u8 init, bool v380) {
+void cargar(TablaOpcodes& t, const ParSrv (&srv)[NS], const ParCli (&cli)[NC], u8 init, PerfilProtocolo perfil) {
     for (Srv& s : t.srv_de_cable) s = Srv::DESCONOCIDO;
     for (u8& c : t.cable_de_cli) c = 0;
     for (const ParSrv& p : srv) t.srv_de_cable[p.cable] = p.interno;
     for (const ParCli& p : cli) t.cable_de_cli[static_cast<int>(p.interno)] = p.cable;
     t.cable_init = init;
-    t.v380 = v380;
+    t.perfil = perfil;
 }
 
 bool tabla_opcodes(std::string_view version, TablaOpcodes& t) {
-    if (version == "jp363") cargar(t, JP363_SRV, JP363_CLI, 161, false);
-    else if (version == "tw380") cargar(t, TW380_SRV, TW380_CLI, 150, true);
+    if (version == "jp363") cargar(t, JP363_SRV, JP363_CLI, 161, PerfilProtocolo{});
+    else if (version == "tw380") cargar(t, TW380_SRV, TW380_CLI, 150, PerfilProtocolo{.bytes_vida = 4});
     else return false;
     return true;
 }

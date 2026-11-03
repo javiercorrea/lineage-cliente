@@ -11,12 +11,18 @@ namespace {
 
 struct Lector : LectorBinario {
     Arena* arena;
-    bool v380 = false;
-    // Vida y maná (S_OwnCharStatus, S_HPUpdate, S_MPUpdate): h hasta 3.63, d en 3.80C.
-    i32 vida() { return v380 ? static_cast<i32>(d()) : h(); }
+    PerfilProtocolo perfil;
     u8 c() { return u8_(); }
     u16 h() { return u16_(); }
     u32 d() { return u32_(); }
+    // N bytes little-endian a i32: el ancho sale del perfil, no de la versión.
+    i32 leer(u8 n) {
+        u32 v = 0;
+        for (u8 i = 0; i < n; ++i) v |= static_cast<u32>(c()) << (8 * i);
+        return static_cast<i32>(v);
+    }
+    // Vida y maná: su ancho lo da el perfil (2 bytes hasta 3.63, 4 en 3.80C).
+    i32 vida() { return leer(perfil.bytes_vida); }
     // Cadena CP949 terminada en \0, copiada a la arena del frame.
     std::string_view s() {
         size_t ini = pos;
@@ -816,7 +822,7 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
     Lector l;
     l.datos = cuerpo.subspan(1);
     l.arena = &arena;
-    l.v380 = tabla.v380;
+    l.perfil = tabla.perfil;
     if (e.origen == Srv::INVLIST) {
         // S_InvList: c n + n ítems. Vacía el inventario y lo vuelve a llenar.
         int n = l.c();

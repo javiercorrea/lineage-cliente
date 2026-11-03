@@ -39,11 +39,19 @@ enum class Cli : u8 {
     CANTIDAD
 };
 
+// Parámetros del formato de los cuerpos que varían entre versiones (los números de opcode van en la
+// tabla). Toda diferencia de versión se expresa como un dato de acá, no como un `if` en los
+// decodificadores (ver docs/analisis/PLAN_MULTIVERSION.md). Cada campo arranca con el valor del
+// 3.63c, que es el caso base.
+struct PerfilProtocolo {
+    u8 bytes_vida = 2;  // ancho de vida y maná (S_OwnCharStatus, S_HPUpdate, S_MPUpdate); 4 en 3.80C
+};
+
 struct TablaOpcodes {
     Srv srv_de_cable[256];                          // número de cable -> interno
     u8 cable_de_cli[static_cast<int>(Cli::CANTIDAD)];  // interno -> número de cable
     u8 cable_init;                                  // opcode del paquete inicial (sin cifrar)
-    bool v380 = false;                              // 3.80C: vida y maná en 4 bytes (ver Lector::vida)
+    PerfilProtocolo perfil;                         // formato de los cuerpos para esta versión
 
     Srv srv(u8 cable) const { return srv_de_cable[cable]; }
     u8 cli(Cli c) const { return cable_de_cli[static_cast<int>(c)]; }

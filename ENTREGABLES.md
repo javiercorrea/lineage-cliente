@@ -980,7 +980,7 @@ Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
   - la tabla sale de `internal/net/packet/opcodes.go` del servidor, por nombre;
   - el paquete inicial es el opcode 150 (semilla y 11 bytes fijos); el cifrado es el mismo de 3.63;
   - **diferencias de formato:**
-    - vida y maná en 4 bytes en `S_OwnCharStatus`, `S_HPUpdate` y `S_MPUpdate` (`Lector::vida`, según `TablaOpcodes::v380`);
+    - vida y maná en 4 bytes en `S_OwnCharStatus`, `S_HPUpdate` y `S_MPUpdate` (`Lector::vida`, con `PerfilProtocolo::bytes_vida`);
     - `S_Door` es el opcode 209, con el mismo formato;
     - `S_WarTime` tiene su propio opcode (231): va al decodificador de `S_MapID`, que lo distingue por el largo.
   - **El resto** (login, lista y creación de personajes, entrar, `S_CharPack`, movimiento, chat, inventario, páginas de NPC, ataques) funcionó sin cambios.
