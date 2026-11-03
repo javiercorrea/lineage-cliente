@@ -1,8 +1,8 @@
 # Plan: varias versiones de protocolo sin `if (versión)` en los decodificadores
 
-**Estado:** fases 1 y 2 hechas; fase 3 arrancada (rama `agente/multiversion`). `s3ep1` entra al
-mundo contra l1j-en/classic en local (`servidor_classic/`): login, entrar, moverse, chat, objetos y
-render andan. Pendientes conocidos: crear personaje (stats por clase) y abrir diálogo de NPC.
+**Estado:** fases 1 y 2 hechas; fase 3 avanzada (rama `agente/multiversion`). `s3ep1` juega contra
+l1j-en/classic en local (`servidor_classic/`): login, entrar, moverse, chat, objetos, render,
+**atacar, lanzar hechizos y diálogo de NPC**. Pendiente: crear personaje (stats base por clase).
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -77,12 +77,17 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      de NPC correctos y el render. Sin opcodes "?": los cuerpos del mundo coinciden lo suficiente (los
      decodificadores son tolerantes: `poner` lee lo que necesita e ignora el resto). Capturas:
      `docs/capturas/classic_mundo.png`, `classic_login.png`.
-   - **Pendientes conocidos (cuerpos/validaciones que difieren):**
-     - **Crear personaje:** rechazado por `S_CharCreateStatus`. El cuerpo de `C_CreateChar` coincide,
-       pero las tablas de stats base por clase del US 2009 difieren de las 3.63 y los puntos caen
-       fuera del rango. Para probar el mundo se sembró el personaje en la base.
-     - **Diálogo de NPC:** el cliente camina hasta el NPC pero no llegó a mandar `C_NPCTalk`
-       (acercamiento/arrival); falta ver si es movimiento o cuerpo.
+   - **Jugabilidad verificada** (personaje sembrado, GM con el prefijo `.`): **atacar** (melee: una
+     rana murió de un golpe; `C_Attack` y `S_AttackPacket` decodifican), **hechizos** (un mago lanza
+     Energy Bolt: `C_UseSkill`, `S_AddSkill`, `S_SkillSound` y el daño), y **diálogo de NPC** (la
+     página HTML con sus vínculos renderiza). Capturas `classic_skill.png`, `classic_npc.png`.
+   - **Notas de las pruebas** (no son del protocolo): el camino del cliente es ingenuo y se traba con
+     edificios, así que para hablar/atacar conviene teletransportarse adyacente (`.tele x y mapid`,
+     que pide los 3 args); en la base de classic la columna `Class` guarda el gfx del classId (0
+     príncipe, 734 mago), no 0–6.
+   - **Pendiente:** crear personaje desde el cliente lo rechaza el servidor. El cuerpo de
+     `C_CreateChar` coincide, pero las tablas de stats base por clase del US 2009 difieren de las 3.63
+     y los puntos caen fuera del rango. Por eso se siembra el personaje en la base.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
