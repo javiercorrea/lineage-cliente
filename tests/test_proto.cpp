@@ -793,6 +793,41 @@ TEST_CASE("3.80C (tw380): opcodes, vida en 4 bytes y S_Door") {
     CHECK(ev[0].v[1] == 2000);
 }
 
+TEST_CASE("Decodificar y responder S_MessageYN: forma larga (jp363) y corta (s3ep1)") {
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // jp363: cable 155, h 0, d número=1337, h tipo=953, s "Ensayo"
+    TablaOpcodes jp;
+    tabla_opcodes("jp363", jp);
+    const u8 largo[] = {155, 0, 0, 0x39, 0x05, 0, 0, 0xb9, 0x03, 'E', 'n', 's', 'a', 'y', 'o', 0};
+    REQUIRE(decodificar({largo, sizeof largo}, jp, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PREGUNTA);
+    CHECK(ev[0].v[PR_NUMERO] == 1337);
+    CHECK(ev[0].v[PR_TIPO] == 953);
+    CHECK(ev[0].s[0] == "Ensayo");
+    // La respuesta larga: h tipo, d número, h tipo, h sí
+    Escritor r = cmd::responder(jp, 1337, 953, true);
+    const u8 esp_largo[] = {jp.cli(Cli::ATTR), 0xb9, 0x03, 0x39, 0x05, 0, 0, 0xb9, 0x03, 1, 0};
+    CHECK(std::memcmp(r.cuerpo().data(), esp_largo, sizeof esp_largo) == 0);
+
+    // s3ep1: cable 105, h tipo=953, s "Ensayo" (sin h 0 ni número)
+    ev.clear();
+    TablaOpcodes s3;
+    tabla_opcodes("s3ep1", s3);
+    const u8 corto[] = {105, 0xb9, 0x03, 'E', 'n', 's', 'a', 'y', 'o', 0};
+    REQUIRE(decodificar({corto, sizeof corto}, s3, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PREGUNTA);
+    CHECK(ev[0].v[PR_TIPO] == 953);
+    CHECK(ev[0].s[0] == "Ensayo");
+    // La respuesta corta: h tipo, c sí
+    Escritor rc = cmd::responder(s3, 0, 953, true);
+    const u8 esp_corto[] = {s3.cli(Cli::ATTR), 0xb9, 0x03, 1};  // opcode + h tipo + c sí = 4 bytes justos
+    REQUIRE(rc.cuerpo().size() == 4);
+    CHECK(std::memcmp(rc.cuerpo().data(), esp_corto, sizeof esp_corto) == 0);
+}
+
 TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
     TablaOpcodes t;
     REQUIRE(tabla_opcodes("s3ep1", t));
@@ -800,6 +835,8 @@ TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
     CHECK(t.perfil.bytes_vida == 2);     // vida en 2 bytes, como 3.63
     CHECK(t.perfil.bytes_catalizador_item == 0);  // S_AddItem/S_InvList sin el campo catalizador...
     CHECK(t.perfil.bytes_cola_item == 0);         // ...ni la cola fija de 11 bytes del 3.63/3.80
+    CHECK(t.perfil.bytes_pre_pregunta == 0);      // S_MessageYN sin el h 0...
+    CHECK(t.perfil.bytes_numero_pregunta == 0);   // ...ni el número (el tipo va primero y hace de número)
     CHECK(t.srv(1) == Srv::CHARPACK);    // S_CharPack = 1
     CHECK(t.srv(89) == Srv::SERVERVERSION);
     CHECK(t.srv(63) == Srv::LOGINRESULT);

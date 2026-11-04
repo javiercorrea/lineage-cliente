@@ -3,7 +3,8 @@
 **Estado:** fases 1 y 2 hechas; fase 3 avanzada (rama `agente/multiversion`). `s3ep1` juega contra
 l1j-en/classic en local (`servidor_classic/`): login, **crear personaje**, entrar, moverse, chat,
 objetos, render, **atacar, lanzar hechizos y diálogo de NPC**, **inventario, usar/equipar, borrar,
-tienda (comprar) y almacén (guardar/retirar)**.
+tienda (comprar) y almacén (guardar/retirar)**, **grupo (invitar/aceptar/salir, ventana y chat),
+clan (crear y ver), título y emblema**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -107,6 +108,26 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      `readD()` y borra el montón entero con `removeItem(item, item.getCount())`); la cantidad que
      agrega el cliente la ignora el servidor (los 4 bytes de más son inocuos por el relleno a 4). Así
      que en classic "borrar" vacía toda la pila, no la cantidad pedida.
+   - **Pregunta sí/no (S_MessageYN) y su respuesta (C_Attr): otra divergencia parametrizada.** El
+     3.63/3.80 anteponen un `h 0` y un `d` con el número de pregunta, y responden con
+     número+tipo+respuesta (la respuesta en 2 bytes); el US 2009 manda solo el tipo (que ya elige la
+     pregunta) y responde con 1 byte. Se agregaron al perfil `bytes_pre_pregunta` y
+     `bytes_numero_pregunta` (2 y 4 por defecto, 0 y 0 en `s3ep1`): `pregunta` lee
+     `l.saltar(pre)` + `l.leer(numero)` + `h tipo` sin `if`, y `responder` elige forma larga/corta
+     según si el perfil trae número. Era lo que faltaba para **aceptar invitaciones de grupo** (y
+     sirve a todas las ventanas sí/no: unirse a un clan, confirmar intercambio, aceptar/rendir una
+     guerra, teletransportes...). Test de bytes de las dos formas en `tests/test_proto.cpp`.
+   - **Social verificado en vivo** (contra classic): **título** (`/title`, `S_CharTitle`, se dibuja
+     sobre el nombre), **clan** (`/clan` lo crea; `/pledge` muestra la lista `pledgeM`), **emblema**
+     (`/emblem` sube 384 bytes y `S_Emblem` se decodifica y dibuja junto al nombre) y **grupo**
+     (invitar con `/invite`, aceptar el sí/no, `/party` abre la ventana HTML con líder y miembros,
+     chat de grupo con `#` en los dos sentidos, salir con `/leaveparty`). Capturas
+     `classic_titulo.png`, `classic_clan.png`, `classic_emblema2.png`, `classic_grupo_B.png`.
+   - **Nota (no es del protocolo):** en `s3ep1` la membresía del grupo se comunica con `S_HpMeter`
+     (barras de vida) y la ventana `S_Party` es una página HTML a pedido (`/party`); no hay el
+     `S_PacketBox` de grupo (sub 104/105/106) que llena el panel nativo de miembros del cliente, así
+     que ese panel lateral queda vacío aunque el grupo exista y funcione. Poblarlo desde la página
+     HTML sería una mejora del cliente, no del protocolo.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en

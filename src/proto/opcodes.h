@@ -50,6 +50,12 @@ struct PerfilProtocolo {
     // US 2009 no tiene ni uno ni otra.
     u8 bytes_catalizador_item = 2;
     u8 bytes_cola_item = 11;
+    // Pregunta sí/no (S_MessageYN) y su respuesta (C_Attr). El 3.63/3.80 anteponen un h 0 y un d con
+    // el número de pregunta, y responden con número+tipo+respuesta en 2 bytes; el US 2009 manda solo
+    // el tipo y responde con la respuesta en 1 byte (el tipo alcanza para elegir la pregunta). Ver
+    // `pregunta` y `responder`: con número = forma larga; sin número (0) = forma corta.
+    u8 bytes_pre_pregunta = 2;
+    u8 bytes_numero_pregunta = 4;
 };
 
 struct TablaOpcodes {

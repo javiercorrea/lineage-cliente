@@ -380,11 +380,13 @@ bool html(Lector& l, Evento& e) {
     l.error = false;  // S_NoSell y otras variantes terminan distinto
     return true;
 }
-// S_MessageYN: h 0, d número de pregunta, h tipo (string-e.tbl), 1 a 3 × s argumentos
+// S_MessageYN: [h 0][d número de pregunta] h tipo (string-e.tbl), 1 a 3 × s argumentos. El US 2009
+// no trae ni el h 0 ni el número (el perfil los pone en 0, y el número queda sin usar: su respuesta
+// corta solo echa el tipo); el tipo va primero.
 bool pregunta(Lector& l, Evento& e) {
     e.tipo = Ev::PREGUNTA;
-    l.h();
-    e.v[PR_NUMERO] = static_cast<i32>(l.d());
+    l.saltar(l.perfil.bytes_pre_pregunta);
+    e.v[PR_NUMERO] = l.leer(l.perfil.bytes_numero_pregunta);
     e.v[PR_TIPO] = l.h();
     if (l.quedan(1)) e.s[0] = l.s();
     if (l.quedan(1)) e.s[1] = l.s();
