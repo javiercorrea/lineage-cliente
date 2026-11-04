@@ -7,7 +7,8 @@ tienda (comprar) y almacén (guardar/retirar)**, **grupo (invitar/aceptar/salir,
 clan (crear y ver), título y emblema**, **intercambio (ofrecer/aceptar entre dos clientes) y
 mascotas (invocar, menú de control y elegir objetivo)**, **almacén retirar (S_RetrieveList +
 C_Result), combate (atacar, acertar/fallar y matar, con el campo de golpe parametrizado) y skills
-(aprender con S_AddSkill y lanzar con C_UseSkill)**.
+(aprender con S_AddSkill y lanzar con C_UseSkill)**, **amigos (S_Buddy HTML) y evolución de
+mascota (Fruit of Evolution → POLY/CHARPACK)**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -181,6 +182,13 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      classic**: no hay vínculo `buyspell` en las páginas de NPC y `S_SkillBuy` solo se construye como
      respuesta a `C_SkillBuy`. Los opcodes `SKILLBUY`/`SKILLBUYOK` quedan mapeados pero sin uso en
      `s3ep1`. "Wizard Merlin" es un teleportador, no un maestro de hechizos.
+   - **Amigos (buddy): sin cambios, es HTML.** `C_AddBuddy`/`C_DelBuddy` mandan `s nombre`; `C_Buddy`
+     responde `S_Buddy`, que es un `SHOWHTML` de la página `buddy` con la lista. `/addbuddy Companero`
+     + `/buddy` abre la ventana "Friends List (Companero)". Captura `classic_buddy.png`.
+   - **Evolución de mascota: sin cambios de protocolo.** Darle a una mascota de nivel ≥30 una "Fruit
+     of Evolution" (ítem 40070, `C_GiveItem`) la transforma a su forma alta (Wolf 45043 → High Wolf
+     45686): llega un `POLY` + `CHARPACK` con el nuevo sprite (gfx 96 → 3199) y un "High Pet Collar"
+     al inventario. Prueba con `.createpet Wolf 30` + `.create 40070`. Captura `classic_evolucion.png`.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
