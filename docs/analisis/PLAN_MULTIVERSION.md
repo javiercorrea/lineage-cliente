@@ -194,6 +194,36 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
    `ENTREGABLES.md`; el perfil documentado en `opcodes.h`.
 
+### Pendiente de probar contra classic (s3ep1)
+
+Inventario de áreas aún sin verificar en vivo. Ordenado por probabilidad de que el cuerpo del
+paquete difiera y haga falta un parámetro de perfil nuevo (como pasó con vida, ítem, pregunta
+sí/no y golpe de ataque). El resto de las áreas listadas en **Estado** ya se verificó.
+
+- **Candidatos a divergencia de cuerpo (lo más valioso de probar):**
+  - **Compra/venta real en tienda** (`C_Result` tipo 0/1): solo se verificó que la ventana abre y
+    el almacén (tipo 2/3); comprar y vender a un mercader no se ejercitó.
+  - **Reparar arma** (`FIXWEAPONLIST` / `C_SelectList`): ventana REPARAR sin ciclo con herrero.
+  - **Efectos de estado:** `PARALYSIS`, `POISON`, `CURSEBLIND`, `INVIS`, `LIQUOR`, `BLESSOFEVA`,
+    `POLY` (del jugador). Paquetes cortos, pero cada uno puede traer su propio ancho.
+  - **Resurrección** (`RESURRECTION`): morir y revivir.
+- **Probablemente HTML o trivial (bajo riesgo, sin verificar):** correo (`MAIL`), tablón
+  (`BOARD`/`BOARDREAD`/`BOARDWRITE`/`BOARDDELETE`), puertas (`DOOR`), marcadores de teleport
+  (`BOOKMARKS`/`BOOKMARK`/`BOOKMARKDELETE`), tienda privada (`PRIVATESHOPLIST`), `PINKNAME`,
+  `TRUETARGET`.
+- **Sistemas grandes sin tocar:** guerra de clanes y castillos (`WAR`, `CASTLEMASTER`, `TAXRATE`,
+  `CHANGEWARTIME`, fondos de castillo `DEPOSIT`/`DRAWAL` — flujo distinto del almacén personal
+  pese al nombre); casas y subastas (`HOUSELIST`, `HOUSEMAP`); clan restante: unión de un segundo
+  miembro (`JOINCLAN`), expulsar (`BANCLAN`), guerra entre clanes.
+- **tw380:** no hay servidor 3.80C local con fuente disponible; `bytes_golpe_ataque` se asume 2
+  (writeH) por defecto, sin verificación en vivo.
+- **Gaps de cliente, no de protocolo (ya documentados arriba):** panel lateral nativo de grupo y de
+  mascotas queda vacío en classic (el server los manda por HTML); `SKILLBUY` mapeado pero dormido
+  (classic aprende por libros → `S_AddSkill`, ya verificado). Poblarlos sería mejora de UI.
+
+Lo más rentable a continuación: compra/venta real en tienda (cierra el ciclo de `C_Result`) y los
+efectos de estado, los candidatos más probables a necesitar un parámetro de perfil nuevo.
+
 ## 4. Fuera de este plan
 
 - **Recursos del juego:** el cliente dibuja con los assets 3.6x del install (sprites, ids de NPC,
