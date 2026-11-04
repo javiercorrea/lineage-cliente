@@ -1,8 +1,8 @@
 # Plan: varias versiones de protocolo sin `if (versión)` en los decodificadores
 
 **Estado:** fases 1 y 2 hechas; fase 3 avanzada (rama `agente/multiversion`). `s3ep1` juega contra
-l1j-en/classic en local (`servidor_classic/`): login, entrar, moverse, chat, objetos, render,
-**atacar, lanzar hechizos y diálogo de NPC**. Pendiente: crear personaje (stats base por clase).
+l1j-en/classic en local (`servidor_classic/`): login, **crear personaje**, entrar, moverse, chat,
+objetos, render, **atacar, lanzar hechizos y diálogo de NPC**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -85,9 +85,13 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      edificios, así que para hablar/atacar conviene teletransportarse adyacente (`.tele x y mapid`,
      que pide los 3 args); en la base de classic la columna `Class` guarda el gfx del classId (0
      príncipe, 734 mago), no 0–6.
-   - **Pendiente:** crear personaje desde el cliente lo rechaza el servidor. El cuerpo de
-     `C_CreateChar` coincide, pero las tablas de stats base por clase del US 2009 difieren de las 3.63
-     y los puntos caen fuera del rango. Por eso se siembra el personaje en la base.
+   - **Crear personaje: arreglado.** No era el protocolo: el cuerpo de `C_CreateChar` y las tablas de
+     base/puntos flotantes coinciden con el US 2009. El bug era del cliente (nunca se había probado
+     crear): la asignación automática volcaba todos los puntos en Fuerza (Str 21) y superaba el
+     máximo absoluto por stat (Str 20). Se agregó la tabla `MAX` (los `maxFixedStats` del servidor,
+     estándar del juego) en `pantalla_crear.cpp` y tanto la asignación automática como el +/- la
+     respetan. Verificado: un mago creado desde el cliente (stats suman 75, dentro de los topes) y
+     entró al mundo.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en

@@ -20,6 +20,19 @@ constexpr u8 BASE[7][6] = {
 };
 constexpr int BONUS[7] = {8, 4, 7, 16, 10, 6, 10};
 constexpr int TOTAL_STATS = 75;
+// Máximo absoluto por stat y clase (maxFixedStats del servidor; estándar del juego, igual entre
+// versiones). Orden Str, Dex, Con, Wis, Cha, Int, como BASE.
+constexpr u8 MAX[7][6] = {
+    {20, 18, 18, 18, 18, 18},  // príncipe
+    {20, 16, 18, 13, 16, 12},  // caballero
+    {18, 18, 18, 18, 16, 18},  // elfo
+    {20, 18, 18, 18, 18, 18},  // mago
+    {18, 18, 18, 18, 18, 18},  // elfo oscuro
+    {19, 16, 18, 17, 14, 17},  // caballero dragón
+    {19, 16, 18, 18, 18, 18},  // ilusionista
+};
+// Puntos que se le pueden sumar a un stat: los flotantes de la clase, sin pasar el máximo absoluto.
+inline int tope_extra(int clase, int i) { return std::min<int>(BONUS[clase], MAX[clase][i] - BASE[clase][i]); }
 
 constexpr u32 IMG_CLASE[7] = {1753, 1755, 1757, 1759, 1761, 1749, 1751};
 constexpr int POS_CLASE[7][2] = {{332, 11}, {542, 11}, {332, 67}, {542, 67}, {332, 118}, {542, 118}, {332, 166}};
@@ -70,7 +83,7 @@ void bajar_stat(App& a, int i) {
 }
 
 void subir_stat(App& a, int i) {
-    if (puntos_libres(a) > 0 && a.extra[i] < BONUS[a.clase_nueva]) ++a.extra[i];
+    if (puntos_libres(a) > 0 && a.extra[i] < tope_extra(a.clase_nueva, i)) ++a.extra[i];
 }
 
 // Pantalla original (draw_new_char.cpp). Igual que crear_simple.
@@ -205,7 +218,7 @@ void crear_personaje_rapido(App& a, std::string_view nombre, int clase) {
     a.clase_nueva = std::clamp(clase, 0, 6);
     for (int i = 0; i < 6; ++i) a.extra[i] = 0;
     for (int i = 0; i < 6 && puntos_libres(a) > 0; ++i)
-        while (puntos_libres(a) > 0 && a.extra[i] < BONUS[a.clase_nueva]) ++a.extra[i];
+        while (puntos_libres(a) > 0 && a.extra[i] < tope_extra(a.clase_nueva, i)) ++a.extra[i];
     u8 stats[6];
     for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(BASE[a.clase_nueva][i] + a.extra[i]);
     enviar(a, cmd::crear_personaje(a.op, a.nombre_nuevo, static_cast<u8>(a.clase_nueva), static_cast<u8>(a.sexo_nuevo), stats));
