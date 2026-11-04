@@ -45,6 +45,11 @@ enum class Cli : u8 {
 // 3.63c, que es el caso base.
 struct PerfilProtocolo {
     u8 bytes_vida = 2;  // ancho de vida y maná (S_OwnCharStatus, S_HPUpdate, S_MPUpdate); 4 en 3.80C
+    // Cuerpo de ítem (S_AddItem, S_InvList): el 3.63/3.80 ponen antes del tipo un campo h de
+    // catalizador mágico (2 bytes) y cierran con una cola fija (c 10, d 0, d 0, h 0 = 11 bytes); el
+    // US 2009 no tiene ni uno ni otra.
+    u8 bytes_catalizador_item = 2;
+    u8 bytes_cola_item = 11;
 };
 
 struct TablaOpcodes {

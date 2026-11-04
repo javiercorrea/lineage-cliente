@@ -798,6 +798,8 @@ TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
     REQUIRE(tabla_opcodes("s3ep1", t));
     CHECK(t.cable_init == 125);          // saludo: opcode 0x7D
     CHECK(t.perfil.bytes_vida == 2);     // vida en 2 bytes, como 3.63
+    CHECK(t.perfil.bytes_catalizador_item == 0);  // S_AddItem/S_InvList sin el campo catalizador...
+    CHECK(t.perfil.bytes_cola_item == 0);         // ...ni la cola fija de 11 bytes del 3.63/3.80
     CHECK(t.srv(1) == Srv::CHARPACK);    // S_CharPack = 1
     CHECK(t.srv(89) == Srv::SERVERVERSION);
     CHECK(t.srv(63) == Srv::LOGINRESULT);

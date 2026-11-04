@@ -2,7 +2,8 @@
 
 **Estado:** fases 1 y 2 hechas; fase 3 avanzada (rama `agente/multiversion`). `s3ep1` juega contra
 l1j-en/classic en local (`servidor_classic/`): login, **crear personaje**, entrar, moverse, chat,
-objetos, render, **atacar, lanzar hechizos y diálogo de NPC**.
+objetos, render, **atacar, lanzar hechizos y diálogo de NPC**, **inventario, usar/equipar, borrar,
+tienda (comprar) y almacén (guardar/retirar)**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -92,6 +93,20 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      estándar del juego) en `pantalla_crear.cpp` y tanto la asignación automática como el +/- la
      respetan. Verificado: un mago creado desde el cliente (stats suman 75, dentro de los topes) y
      entró al mundo.
+   - **Ítems, tienda y almacén: una divergencia de cuerpo, parametrizada.** El cuerpo por ítem de
+     `S_AddItem`/`S_InvList` difiere: el 3.63/3.80 ponen tras el id un campo `h` de catalizador
+     mágico (2 bytes) y cierran con una cola fija de 11 bytes (`c 10, d 0, d 0, h 0`); el US 2009 no
+     tiene ni uno ni otra. Se agregaron al perfil `bytes_catalizador_item` y `bytes_cola_item` (2 y
+     11 por defecto, 0 y 0 en `s3ep1`) y `leer_item` pasó de `l.h()` / `l.saltar(1+4+4+2)` a
+     `l.saltar(perfil.bytes_catalizador_item)` / `l.saltar(perfil.bytes_cola_item)`. Sin esto el
+     inventario se desalineaba ítem a ítem. Verificado en vivo: inventario con nombres, gfx, encanto
+     y cantidades correctos; **usar/equipar** (poción 20→19, daga "(Armed)"), **borrar** (quita el
+     ítem), **tienda** (la lista de compra de un mercader con nombres y precios, y la adena propia) y
+     **almacén** (la lista para guardar). Capturas `classic_tienda.png`, `classic_almacen.png`.
+   - **Nota (no es del protocolo):** en `s3ep1` el `C_DeleteInventoryItem` solo lleva el id (lee
+     `readD()` y borra el montón entero con `removeItem(item, item.getCount())`); la cantidad que
+     agrega el cliente la ignora el servidor (los 4 bytes de más son inocuos por el relleno a 4). Así
+     que en classic "borrar" vacía toda la pila, no la cantidad pedida.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en

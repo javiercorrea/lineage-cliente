@@ -661,7 +661,7 @@ std::string_view atributos_item(Lector& l) {
 bool leer_item(Lector& l, Evento& e) {
     e.tipo = Ev::ITEM;
     e.id = l.d();
-    l.h();
+    l.saltar(l.perfil.bytes_catalizador_item);
     e.v[IT_USO] = l.c();
     e.v[IT_CARGAS] = l.c();
     e.v[IT_GFX] = l.h();
@@ -670,7 +670,7 @@ bool leer_item(Lector& l, Evento& e) {
     e.v[IT_IDENTIFICADO] = l.c();
     e.s[0] = l.s();
     e.s[1] = atributos_item(l);
-    l.saltar(1 + 4 + 4 + 2);
+    l.saltar(l.perfil.bytes_cola_item);
     return true;
 }
 bool item_nombre(Lector& l, Evento& e) { e.tipo = Ev::ITEM_NOMBRE; e.id = l.d(); e.s[0] = l.s(); return true; }
