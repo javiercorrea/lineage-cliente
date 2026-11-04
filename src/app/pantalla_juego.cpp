@@ -28,6 +28,7 @@ constexpr u32 IMG_PANEL_IZQ = 1028, IMG_PANEL_DER = 1019, IMG_CHAT = 1042, IMG_E
 constexpr u32 IMG_BARRA_EXP = 1029, IMG_BARRA_HP = 1030, IMG_BARRA_MP = 1031;
 constexpr int ROTULO_BARRA = 28;  // ancho del rótulo "Lev"/"Hp"/"Mp" pintado al principio de cada barra
 constexpr int CHAT_X = 124 + 20, CHAT_Y = 363 + 32, CHAT_ANCHO = 342, CHAT_FILAS = 5;
+constexpr u64 DUR_COMBATE = 900;  // ms que dura un texto de combate flotante (sube y se desvanece)
 constexpr int ENTRADA_X = 124 + 30, ENTRADA_Y = 363 + 102;
 constexpr size_t MAX_ENTRADA_CHAT = 60;
 
@@ -395,14 +396,48 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.
+        const bool soy_yo = o.ids()[s] == a.mundo.jugador.id;
         const u8 hp = o.col<O_HP>()[s];
-        if (hp <= 100) {
+        if (hp <= 100 && !soy_yo) {
             constexpr int ANCHO_BARRA = 40;
             g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5, ANCHO_BARRA, 3, clave_orden(CAPA_EFECTOS, 0),
                                rgba(30, 30, 30, 200));
             g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5, ANCHO_BARRA * hp / 100, 3,
                                clave_orden(CAPA_EFECTOS, 1), rgba(220, 50, 40));
             top -= 6;
+        }
+        // Barra de HP/MP propia (opción): dos barras finas sobre el personaje, con los valores reales.
+        if (soy_yo && a.cfg.barra_personaje) {
+            const EstadoJugador& j = a.mundo.jugador;
+            constexpr int W = 40;
+            auto barra = [&](int dy, i32 v, i32 vmax, u32 col) {
+                g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5 + dy, W, 3, clave_orden(CAPA_EFECTOS, 0),
+                                   rgba(30, 30, 30, 200));
+                if (vmax > 0)
+                    g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5 + dy, W * std::clamp(v, 0, vmax) / vmax, 3,
+                                       clave_orden(CAPA_EFECTOS, 1), col);
+            };
+            barra(0, j.hp, j.hp_max, rgba(220, 50, 40));
+            barra(-4, j.mp, j.mp_max, rgba(80, 130, 240));
+            top -= 10;
+        }
+        // Texto de combate flotante (opción): daño recibido / "Miss", sube y se desvanece (DUR_COMBATE).
+        if (soy_yo && a.n_textos_combate) {
+            u8 w = 0;
+            for (u8 i = 0; i < a.n_textos_combate; ++i) {
+                App::TextoCombate& f = a.textos_combate[i];
+                u64 dt = ahora - f.t0;
+                if (dt >= DUR_COMBATE) continue;  // expirado: se compacta fuera
+                std::string_view tx(f.t);
+                int tw = ancho_texto(f.t, tx.size());
+                // Arranca encima del nombre/barras y sube 26 px desvaneciéndose.
+                float ty = sy - 66 - static_cast<float>(dt) / DUR_COMBATE * 26.0f;
+                u8 alfa = static_cast<u8>(255 * (1.0 - static_cast<double>(dt) / DUR_COMBATE));
+                g.texto_sombra(tx, sx + 24 - tw / 2, ty, clave_orden(CAPA_EFECTOS, 3), rgba(f.r, f.g, f.b, alfa));
+                if (w != i) a.textos_combate[w] = f;
+                ++w;
+            }
+            a.n_textos_combate = w;
         }
         // Nombre con los "$N" resueltos en cualquier parte ("$4 (85)" es "Adena (85)"). Los ítems
         // del suelo lo muestran solo con el puntero encima, para no tapar el mapa.
@@ -842,6 +877,50 @@ void dibujar_panel_simple(App& a) {
     campo("Food ", t);
 }
 
+// Minimapa en la esquina inferior derecha, del tamaño de la zona de chat. Muestra la pasabilidad de
+// lo ya cargado (segmento_cargado no toca disco: lo no explorado queda como fondo) centrada en el
+// personaje, más un punto por objeto. cam_x/cam_y es el centro de cámara (= la celda del personaje).
+constexpr int MM_CELL = 3;
+void dibujar_minimapa(App& a, double cam_x, double cam_y) {
+    Graficos& g = *a.g;
+    const Vista vi = vista(a);
+    constexpr int W = CHAT_ANCHO, H = CHAT_FILAS * ALTO_GLIFO + 8;
+    const int x0 = vi.w - W - 8, y0 = vi.panel_y - H - 8;
+    if (y0 < 0 || x0 < 0) return;
+    g.gpu().rectangulo(x0, y0, W, H, clave_orden(CAPA_UI, 0), rgba(10, 12, 10, 205));  // fondo = sin explorar
+    g.gpu().rectangulo(x0 - 1, y0 - 1, W + 2, 1, clave_orden(CAPA_UI, 1), rgba(150, 130, 90));
+    const int cx = static_cast<int>(std::lround(cam_x)), cy = static_cast<int>(std::lround(cam_y));
+    const int cols = W / MM_CELL, rows = H / MM_CELL;
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c) {
+            const int wx = cx + c - cols / 2, wy = cy + r - rows / 2;
+            const SegmentoMapa* s = segmento_cargado(a.mundo, a.rec, wx, wy);
+            if (!s) continue;
+            const int lx = wx - s->base_x, ly = wy - s->base_y;
+            const bool bloq = (s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1);
+            g.gpu().rectangulo(x0 + c * MM_CELL, y0 + r * MM_CELL, MM_CELL, MM_CELL, clave_orden(CAPA_UI, 1),
+                               bloq ? rgba(55, 50, 45) : rgba(90, 110, 85));
+        }
+    TablaObjetos& o = a.mundo.objetos;
+    for (Slot s = 0; s < o.tamano(); ++s) {
+        if (!o.ids()[s]) continue;
+        const int dx = static_cast<int>(o.col<O_X>()[s]) - cx, dy = static_cast<int>(o.col<O_Y>()[s]) - cy;
+        if (std::abs(dx) > cols / 2 || std::abs(dy) > rows / 2) continue;
+        u32 col;
+        if (o.ids()[s] == a.mundo.jugador.id)
+            col = rgba(255, 255, 255);
+        else {
+            const u8 t = tipo_objeto(a, s);
+            col = t == TIPO_MONSTRUO    ? rgba(230, 70, 60)
+                  : t == TIPO_PERSONAJE ? rgba(90, 200, 230)
+                  : t == TIPO_ITEM      ? rgba(150, 150, 150)
+                                        : rgba(230, 210, 90);
+        }
+        g.gpu().rectangulo(x0 + (cols / 2 + dx) * MM_CELL - 1, y0 + (rows / 2 + dy) * MM_CELL - 1, 3, 3,
+                           clave_orden(CAPA_UI, 2), col);
+    }
+}
+
 }  // namespace
 
 void enviar_chat(App& a, std::string_view linea) {
@@ -850,6 +929,18 @@ void enviar_chat(App& a, std::string_view linea) {
     if (!interpretar_entrada(linea, c)) return;
     if (c.susurro) enviar(a, cmd::susurrar(a.op, c.destino, c.texto));
     else enviar(a, cmd::chat(a.op, c.tipo, c.texto));
+}
+
+void empujar_texto_combate(App& a, const char* t, u8 r, u8 g, u8 b) {
+    constexpr u8 N = sizeof a.textos_combate / sizeof a.textos_combate[0];
+    if (a.n_textos_combate >= N) {  // descartar el más viejo
+        std::memmove(a.textos_combate, a.textos_combate + 1, (N - 1) * sizeof a.textos_combate[0]);
+        a.n_textos_combate = N - 1;
+    }
+    App::TextoCombate& f = a.textos_combate[a.n_textos_combate++];
+    std::snprintf(f.t, sizeof f.t, "%s", t);
+    f.t0 = a.entrada.ahora_ms;
+    f.r = r, f.g = g, f.b = b;
 }
 
 namespace {
@@ -1228,6 +1319,7 @@ void frame_juego(App& a) {
     a.gpu.nivel_ventana(0);
     dibujar_reinicio(a);
     dibujar_destino(a);
+    dibujar_minimapa(a, cam_x, cam_y);
     a.gpu.nivel_ventana(0);
     dibujar_chat(a);
     dibujar_ventanas(a);

@@ -374,6 +374,11 @@ struct App {
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
     bool ventana_salida = false;  // Restart / Quit
+    // Texto de combate flotante sobre el personaje (daño recibido / "Miss"), si cfg.texto_dano.
+    struct TextoCombate { char t[12]; u64 t0; u8 r, g, b; };
+    TextoCombate textos_combate[6];
+    u8 n_textos_combate = 0;
+    i32 hp_anterior = 0;  // detectar daño recibido: caída de HP tras aplicar los eventos del frame
     bool ventana_social = false;
     std::vector<Pregunta> preguntas;
     Intercambio intercambio;
@@ -526,6 +531,8 @@ bool sobre_forma(const App& a);
 // Tipo de gfx del objeto (TipoGfx); un gfx que no está en la tabla de sprites cuenta como monstruo.
 u8 tipo_objeto(const App& a, Slot s);
 bool es_npc(const App& a, Slot s);
+// Encola un texto de combate (daño/"Miss") sobre el personaje; descarta el más viejo si no entra.
+void empujar_texto_combate(App& a, const char* t, u8 r, u8 g, u8 b);
 void eventos_npc(App& a, const Evento& e);
 bool sobre_npc(const App& a);
 // Al comienzo del frame del juego: prueba automática y cierre al alejarse.

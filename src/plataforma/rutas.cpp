@@ -65,6 +65,8 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "volumen_efectos") c.volumen_efectos = std::atoi(std::string(valor).c_str());
     else if (clave == "logo") c.logo = valor;
     else if (clave == "chat_con_enter") c.chat_con_enter = valor != "0";
+    else if (clave == "barra_personaje") c.barra_personaje = valor == "1";
+    else if (clave == "texto_dano") c.texto_dano = valor == "1";
     else if (clave == "ventana") {
         const size_t x = valor.find('x');
         const int w = std::atoi(std::string(valor.substr(0, x)).c_str());
@@ -163,6 +165,8 @@ std::string escribir_config(const Config& c) {
     linea("volumen_efectos", std::to_string(c.volumen_efectos));
     linea("logo", c.logo);
     linea("chat_con_enter", c.chat_con_enter ? "1" : "0");
+    linea("barra_personaje", c.barra_personaje ? "1" : "0");
+    linea("texto_dano", c.texto_dano ? "1" : "0");
     linea("ventana", std::to_string(c.ventana_ancho) + 'x' + std::to_string(c.ventana_alto));
     return t;
 }

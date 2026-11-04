@@ -218,8 +218,19 @@ void procesar_red(App& a) {
         eventos_marcadores(a, e);
         eventos_hechizos(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
+        // "Miss" sobre el personaje: un ataque que lo tiene de objetivo y no acierta (el daño recibido
+        // se detecta por la caída de HP tras aplicar los eventos, abajo).
+        if (a.cfg.texto_dano && e.tipo == Ev::ATAQUE && static_cast<ObjId>(e.v[AT_OBJETIVO]) == a.mundo.jugador.id &&
+            !e.v[AT_GOLPE])
+            empujar_texto_combate(a, "Miss", 230, 230, 230);
     }
     aplicar_eventos(a.mundo, a.eventos, a.entrada.ahora_ms);
+    if (a.cfg.texto_dano && a.mundo.jugador.hp_max > 0 && a.mundo.jugador.hp < a.hp_anterior) {
+        char t[12];
+        std::snprintf(t, sizeof t, "-%d", a.hp_anterior - a.mundo.jugador.hp);
+        empujar_texto_combate(a, t, 255, 80, 60);
+    }
+    a.hp_anterior = a.mundo.jugador.hp;
     aplicar_chat(a.chat, a.mensajes, a.desc, a.eventos, a.entrada.ahora_ms);
 }
 
