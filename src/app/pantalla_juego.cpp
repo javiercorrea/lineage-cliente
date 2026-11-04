@@ -410,6 +410,15 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         std::string_view nombre(nombre_buf, expandir_desc(a.desc, texto(a.mundo, o.col<O_NOMBRE>()[s]), nombre_buf,
                                                           sizeof nombre_buf));
         if (a.sprites.tipo(gfx) == TIPO_ITEM && !bajo_puntero) nombre = {};
+        // NPC con título: el nombre llega como "Merchant^Nombre"; se muestra "[Merchant]" encima del
+        // nombre normal (la misma franja que el título de un personaje, más abajo).
+        char titulo_npc_buf[64] = "";
+        std::string_view titulo_npc;
+        if (auto p = nombre.find('^'); p != std::string_view::npos) {
+            int n = std::snprintf(titulo_npc_buf, sizeof titulo_npc_buf, "[%.*s]", static_cast<int>(p), nombre.data());
+            titulo_npc = {titulo_npc_buf, std::min(static_cast<size_t>(n), sizeof titulo_npc_buf - 1)};
+            nombre = nombre.substr(p + 1);
+        }
         if (!nombre.empty()) {
             int w = ancho_texto(nombre.data(), nombre.size());
             // Los personajes (nombre propio; los NPC y monstruos vienen como "$N") según el
@@ -450,9 +459,11 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
                 }
             }
             top -= 14;
-            // Título encima del nombre.
-            std::string_view titulo = texto(a.mundo, o.col<O_TITULO>()[s]);
-            if (!titulo.empty() && personaje) {
+            // Título encima del nombre: el del NPC ("Merchant^...") o el del personaje (O_TITULO).
+            std::string_view titulo = !titulo_npc.empty() ? titulo_npc
+                                      : personaje         ? texto(a.mundo, o.col<O_TITULO>()[s])
+                                                          : std::string_view{};
+            if (!titulo.empty()) {
                 int wt = ancho_texto(titulo.data(), titulo.size());
                 g.texto_sombra(titulo, sx + 24 - wt / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
                 top -= 14;
