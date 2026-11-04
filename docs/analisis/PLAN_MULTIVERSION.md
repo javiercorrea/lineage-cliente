@@ -6,7 +6,8 @@ objetos, render, **atacar, lanzar hechizos y diálogo de NPC**, **inventario, us
 tienda (comprar) y almacén (guardar/retirar)**, **grupo (invitar/aceptar/salir, ventana y chat),
 clan (crear y ver), título y emblema**, **intercambio (ofrecer/aceptar entre dos clientes) y
 mascotas (invocar, menú de control y elegir objetivo)**, **almacén retirar (S_RetrieveList +
-C_Result) y combate (atacar, acertar/fallar y matar, con el campo de golpe parametrizado)**.
+C_Result), combate (atacar, acertar/fallar y matar, con el campo de golpe parametrizado) y skills
+(aprender con S_AddSkill y lanzar con C_UseSkill)**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -165,6 +166,12 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      `leer(perfil.bytes_golpe_ataque)`. Verificado en vivo: Ensayo acierta (`golpe 01`), el mob falla
      (`golpe 00, dir 04`) y, con `.spawn 45005` (Frog, 1 HP), muere (`DOACTIONGFX` de muerte + `EXP`).
      Captura `classic_combate.png`.
+   - **Skills: sin cambios de protocolo.** `.addskill` manda `S_AddSkill`, que el cliente decodifica
+     (la cabecera 32/50/100 y las filas de bits; `l.error = false` perdona el relleno que varía) y
+     puebla la ventana de magia con los hechizos, su nivel y su coste. Lanzar (`C_UseSkill`) funciona:
+     `lanzar Shield` encadenó `SKILLSOUNDGFX` (sonido/gfx de conjuro), `SKILLICONSHIELD` (ícono del
+     buff), `OWNCHARATTRDEF` (cambia la AC), `DOACTIONGFX` y `MPUPDATE` (gasta maná). Capturas
+     `classic_skills.png`, `classic_skills_cast.png`.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
