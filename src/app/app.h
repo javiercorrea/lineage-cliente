@@ -434,7 +434,8 @@ u8 opacidad_ventanas(const App& a);
 // Botones para abrir las ventanas: los del panel original (esquina del panel derecho) o de texto
 // (UI simple; devuelve dónde terminan a la izquierda).
 void dibujar_botones_panel(App& a, int x, int y);
-int dibujar_botones_texto(App& a, int x_derecha, int y);
+int dibujar_botones_texto(App& a, int x_der, int y_top);
+int ancho_botones_texto();  // ancho del bloque de botones de la UI simple (2 columnas)
 void dibujar_opciones(App& a);
 void dibujar_ayuda_teclas(App& a);  // F1
 // Clima (clima.cpp): lluvia o nieve sobre el mundo (hasta la fila `h`, donde empieza el panel).

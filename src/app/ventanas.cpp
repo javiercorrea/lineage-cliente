@@ -227,21 +227,38 @@ void dibujar_botones_panel(App& a, int x, int y) {
     if (boton_panel(a, 1015, x + 94, y, "Party, trade, clan")) a.ventana_social = !a.ventana_social;
 }
 
-int dibujar_botones_texto(App& a, int x_derecha, int y) {
-    // UI simple: [Magic] [Status] [Items] [Options], alineados a la derecha.
-    struct B {
-        std::string_view t;
-        bool* abierta;
-    } botones[] = {{"Exit", &a.ventana_salida}, {"Options", &a.ventana_opciones}, {"Social", &a.ventana_social}, {"Items", &a.ventana_inventario},
-                   {"Status", &a.ventana_estado}, {"Magic", &a.ventana_hechizos}};
-    int x = x_derecha;
-    for (const B& b : botones) {
-        int w = ancho_texto(b.t.data(), b.t.size()) + 10;
-        x -= w;
-        if (ui::boton_texto(*a.g, a.entrada, b.t, x, y, w, ALTO_GLIFO + 4)) *b.abierta = !*b.abierta;
-        x -= 4;
+// UI simple: 6 botones en 2 columnas × 3 filas, a la izquierda del minimapa.
+static constexpr std::string_view BOTONES_INF[6] = {"Magic", "Status", "Items", "Social", "Options", "Exit"};
+static bool* boton_inf_abierta(App& a, int i) {
+    switch (i) {
+    case 0: return &a.ventana_hechizos;
+    case 1: return &a.ventana_estado;
+    case 2: return &a.ventana_inventario;
+    case 3: return &a.ventana_social;
+    case 4: return &a.ventana_opciones;
+    default: return &a.ventana_salida;
     }
-    return x;
+}
+static int col_botones_inf() {
+    int w = 0;
+    for (std::string_view t : BOTONES_INF) w = std::max(w, ancho_texto(t.data(), t.size()) + 10);
+    return w;
+}
+
+int ancho_botones_texto() { return 2 * col_botones_inf() + 4; }  // ancho del bloque de 2 columnas
+
+// Dibuja el bloque de botones con su borde derecho en x_der y su tope en y_top. Devuelve el borde izq.
+int dibujar_botones_texto(App& a, int x_der, int y_top) {
+    const int cw = col_botones_inf(), fh = ALTO_GLIFO + 4;
+    const int x0 = x_der - (2 * cw + 4);
+    for (int i = 0; i < 6; ++i) {
+        const int bx = x0 + (i / 3) * (cw + 4), by = y_top + (i % 3) * (fh + 2);
+        if (ui::boton_texto(*a.g, a.entrada, BOTONES_INF[i], bx, by, cw, fh)) {
+            bool* abierta = boton_inf_abierta(a, i);
+            *abierta = !*abierta;
+        }
+    }
+    return x0;
 }
 
 // Recuadro con título y "[x]" para las ventanas chicas (opciones, salida). Devuelve true al cerrar.

@@ -880,15 +880,18 @@ void dibujar_panel_simple(App& a) {
 // Minimapa en la esquina inferior derecha, del tamaño de la zona de chat. Muestra la pasabilidad de
 // lo ya cargado (segmento_cargado no toca disco: lo no explorado queda como fondo) centrada en el
 // personaje, más un punto por objeto. cam_x/cam_y es el centro de cámara (= la celda del personaje).
-constexpr int MM_CELL = 3;
+constexpr int MM_CELL = 2;  // px por celda en el minimapa
 void dibujar_minimapa(App& a, double cam_x, double cam_y) {
     Graficos& g = *a.g;
     const Vista vi = vista(a);
-    constexpr int W = CHAT_ANCHO, H = CHAT_FILAS * ALTO_GLIFO + 8;
-    const int x0 = vi.w - W - 8, y0 = vi.panel_y - H - 8;
+    // Cuadrado del alto de la zona de chat. UI simple: dentro de la franja, a la derecha de los
+    // botones; UI original: sobre el panel, en la esquina.
+    const int W = (CHAT_FILAS + 1) * ALTO_GLIFO, H = W;
+    const int x0 = vi.w - MARGEN_SIMPLE - W;
+    const int y0 = a.cfg.ui_simple ? vi.panel_y + 4 : vi.panel_y - H - 8;
     if (y0 < 0 || x0 < 0) return;
-    g.gpu().rectangulo(x0, y0, W, H, clave_orden(CAPA_UI, 0), rgba(10, 12, 10, 205));  // fondo = sin explorar
-    g.gpu().rectangulo(x0 - 1, y0 - 1, W + 2, 1, clave_orden(CAPA_UI, 1), rgba(150, 130, 90));
+    g.gpu().rectangulo(x0, y0, W, H, clave_orden(CAPA_UI, 3), rgba(10, 12, 10, 205));  // fondo = sin explorar
+    g.gpu().rectangulo(x0 - 1, y0 - 1, W + 2, 1, clave_orden(CAPA_UI, 4), rgba(150, 130, 90));
     const int cx = static_cast<int>(std::lround(cam_x)), cy = static_cast<int>(std::lround(cam_y));
     const int cols = W / MM_CELL, rows = H / MM_CELL;
     for (int r = 0; r < rows; ++r)
@@ -898,7 +901,7 @@ void dibujar_minimapa(App& a, double cam_x, double cam_y) {
             if (!s) continue;
             const int lx = wx - s->base_x, ly = wy - s->base_y;
             const bool bloq = (s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1);
-            g.gpu().rectangulo(x0 + c * MM_CELL, y0 + r * MM_CELL, MM_CELL, MM_CELL, clave_orden(CAPA_UI, 1),
+            g.gpu().rectangulo(x0 + c * MM_CELL, y0 + r * MM_CELL, MM_CELL, MM_CELL, clave_orden(CAPA_UI, 4),
                                bloq ? rgba(55, 50, 45) : rgba(90, 110, 85));
         }
     TablaObjetos& o = a.mundo.objetos;
@@ -917,7 +920,7 @@ void dibujar_minimapa(App& a, double cam_x, double cam_y) {
                                         : rgba(230, 210, 90);
         }
         g.gpu().rectangulo(x0 + (cols / 2 + dx) * MM_CELL - 1, y0 + (rows / 2 + dy) * MM_CELL - 1, 3, 3,
-                           clave_orden(CAPA_UI, 2), col);
+                           clave_orden(CAPA_UI, 5), col);
     }
 }
 
@@ -956,8 +959,12 @@ AreaChat area_chat(const App& a) {
     const Vista vi = vista(a);
     if (a.cfg.ui_simple) {
         const int y = vi.panel_y + 4, entrada_y = y + CHAT_FILAS * ALTO_GLIFO;
-        return {MARGEN_SIMPLE, y, vi.w - 2 * MARGEN_SIMPLE, MARGEN_SIMPLE + 12, entrada_y, vi.w - 2 * MARGEN_SIMPLE - 12,
-                0, vi.panel_y, vi.w, vi.h - vi.panel_y};
+        // A la derecha: minimapa cuadrado (lado = alto de la zona de chat) + bloque de botones, con
+        // un hueco de 8 px a cada lado. El chat ocupa lo que queda a la izquierda.
+        const int lado = (CHAT_FILAS + 1) * ALTO_GLIFO;
+        const int ancho = std::max(80, vi.w - 2 * MARGEN_SIMPLE - lado - 16 - ancho_botones_texto());
+        return {MARGEN_SIMPLE, y, ancho, MARGEN_SIMPLE + 12, entrada_y, ancho - 12,
+                0, vi.panel_y, MARGEN_SIMPLE + ancho, vi.h - vi.panel_y};
     }
     const int X = vi.hx, Y = vi.hy;
     return {X + CHAT_X, Y + CHAT_Y, CHAT_ANCHO, X + ENTRADA_X, Y + ENTRADA_Y, 330, X + 124, Y + 363, 390, 117};
@@ -1296,7 +1303,9 @@ void frame_juego(App& a) {
     a.teclas_f_y = -1;  // dibujar_panel los ubica si se dibuja el panel original
     if (a.cfg.ui_simple) {
         dibujar_panel_simple(a);
-        dibujar_botones_texto(a, vi.w - MARGEN_SIMPLE, area_chat(a).entrada_y - 2);
+        // Botones en 2 columnas, justo a la izquierda del minimapa (lado = alto de la zona de chat).
+        const int lado = (CHAT_FILAS + 1) * ALTO_GLIFO;
+        dibujar_botones_texto(a, vi.w - MARGEN_SIMPLE - lado - 8, vi.panel_y + 10);
     } else {
         dibujar_panel(a);
     }
