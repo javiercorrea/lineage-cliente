@@ -165,13 +165,22 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      (`0x0400`). Se agregó `bytes_golpe_ataque` al perfil (2 por defecto, 1 en `s3ep1`); `ataque` lee
      `leer(perfil.bytes_golpe_ataque)`. Verificado en vivo: Ensayo acierta (`golpe 01`), el mob falla
      (`golpe 00, dir 04`) y, con `.spawn 45005` (Frog, 1 HP), muere (`DOACTIONGFX` de muerte + `EXP`).
-     Captura `classic_combate.png`.
+     También la rama de hechizo (`S_UseAttackSkill`, p. ej. lanzar "Lighting" sobre un lobo) parsea
+     con el golpe de 1 byte: `12 | atacante | objetivo | 06(golpe) | 02(dir) | seq d | gfx h | ...`;
+     con 2 bytes la cola del proyectil se desalineaba. Captura `classic_combate.png`.
    - **Skills: sin cambios de protocolo.** `.addskill` manda `S_AddSkill`, que el cliente decodifica
      (la cabecera 32/50/100 y las filas de bits; `l.error = false` perdona el relleno que varía) y
      puebla la ventana de magia con los hechizos, su nivel y su coste. Lanzar (`C_UseSkill`) funciona:
      `lanzar Shield` encadenó `SKILLSOUNDGFX` (sonido/gfx de conjuro), `SKILLICONSHIELD` (ícono del
      buff), `OWNCHARATTRDEF` (cambia la AC), `DOACTIONGFX` y `MPUPDATE` (gasta maná). Capturas
      `classic_skills.png`, `classic_skills_cast.png`.
+   - **Nota — cómo se adquieren los hechizos en classic (no es `SKILLBUY`).** En el US 2009 los
+     hechizos se aprenden **usando un libro de hechizos** (ítem `Spellbook(...)`), cuyo uso en
+     `C_ItemUSe` manda `S_AddSkill` (el mismo paquete ya verificado). El flujo `buyspell`
+     (`C_SkillBuy` → `S_SkillBuy`, opcodes `SKILLBUY`) de jp/kr **no está cableado al contenido de
+     classic**: no hay vínculo `buyspell` en las páginas de NPC y `S_SkillBuy` solo se construye como
+     respuesta a `C_SkillBuy`. Los opcodes `SKILLBUY`/`SKILLBUYOK` quedan mapeados pero sin uso en
+     `s3ep1`. "Wizard Merlin" es un teleportador, no un maestro de hechizos.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
