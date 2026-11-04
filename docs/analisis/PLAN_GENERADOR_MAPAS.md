@@ -60,57 +60,104 @@ generador muestrea de ahí. Bootstrapping con arte real, sin adivinar ids.
 
 Cargador liviano para mapas generados, que **evita escribir un encoder `.s32`**:
 
-1. **Formato propio** `mapas_generados/<id>/<seg>.mg` (o un solo archivo si entra): por celda, el
-   tile de suelo (de la paleta) y el atributo. Objetos del mapa (árboles, paredes decorativas):
-   opcional en v1; un laberinto puede dibujarse solo con tiles de piso/pared sin objetos levantados.
-2. **Un `decodificar_mg(...) -> SegmentoMapa`** análogo a `decodificar_s32`. `SegmentoMapa` es la
-   moneda común; el resto del render y la pasabilidad no cambian.
+1. **Formato propio** `mapas_generados/<id>/<seg>.mg` (o un solo archivo si entra). Lleva tres cosas,
+   todas traducibles a `SegmentoMapa`:
+   - **suelo**: por celda, el tile de piso (de la paleta, §2).
+   - **atributo**: por celda, la máscara de pasabilidad (misma fuente que el `.txt` del server).
+   - **objetos**: una lista de *estampas* colocadas (árbol, edificio, tramo de desfiladero): cada una
+     es `id_de_estampa + celda ancla`. Las estampas se expanden a `SegmentoMapa.objetos` +
+     `tiles_objetos` (ver §5). Son necesarias desde la v1 para árboles, edificios y desfiladeros.
+2. **Un `decodificar_mg(...) -> SegmentoMapa`** análogo a `decodificar_s32`, que además **expande las
+   estampas** a piezas. `SegmentoMapa` es la moneda común; el render y la pasabilidad no cambian, y
+   **las transparencias/oclusión salen gratis** (§5).
 3. **Directorio override:** `mundo.cpp:segmento()` y `cargador_segmentos.cpp` prueban primero una
    carpeta de mapas generados (config `mapas_generados=` o env `LIN_MAPAS`), y si no, la instalación.
    Así los mapas de prueba **no ensucian la instalación del usuario** (AGENTS.md §5). Es el enganche
    mínimo: una función `ruta_segmento(id, x, y)` que decide carpeta y extensión.
-4. **Tests:** `decodificar_mg` con bytes fijos -> `SegmentoMapa` esperado (como hace
-   `test_recursos.cpp` con `.s32`).
+4. **Tests:** `decodificar_mg` con bytes fijos -> `SegmentoMapa` esperado, incluida una estampa
+   expandida (como hace `test_recursos.cpp` con `.s32`).
 
-## 5. Generación: dos modos
+## 5. Objetos del mapa, transparencias, puertas y portales
+
+Lo que levanta del suelo (árboles, edificios, desfiladeros) y lo que conecta mapas (puertas, portales)
+se trata con lo que ya existe; la clave es **reusar arte real verbatim**.
+
+- **Transparencias: gratis si se reusan objetos reales.** El render ya hace oclusión (un personaje
+  detrás de un árbol/edificio queda tapado) y translúcido (una copa o un techo delante del personaje,
+  que le cubre el centro del cuerpo, se dibuja al 50 %). Eso lo decide el **byte de tipo del tile**
+  (bit `0x04`) y la **capa** (`pantalla_juego.cpp`, `pieza_de_suelo`, `tile_translucido`), no metadata
+  del mapa. Si el generador copia las piezas de un objeto real **sin tocar sus tiles**, el árbol y el
+  techo se comportan solos. **Cero código de render nuevo.**
+- **Estampas (biblioteca de objetos):** un script cosecha objetos enteros de mapas reales —un árbol,
+  una casa, un tramo de desfiladero— como `TileObjetoMapa[]` relativos (x, y, capa, tile, base) **más
+  su huella de colisión** (qué celdas bloquea). Se guardan en una biblioteca por bioma. El generador
+  las coloca como unidades; el cargador (§4) las expande.
+- **Árboles:** estampas de la paleta isla/bosque. Colocación dispersa en modo isla/abierto; bloquean
+  solo el tronco.
+- **Desfiladeros / cliffs:** estampas de cara de acantilado a lo largo del borde de altura (modo
+  isla). La **huella bloquea el borde** (no se cruza el desfiladero) y marca el atributo de ambos
+  lados. Cosechadas de un mapa real con acantilados.
+- **Edificios:** estampas de casa/muralla. Techo translúcido = gratis (mismo mecanismo). La huella
+  bloquea la planta; se puede dejar un hueco de puerta.
+- **Puertas (dungeon/laberinto): ya soportadas, son spawns del server, no geometría.** Una puerta =
+  una fila en `spawnlist_door` (gfx, mapa, celda, dirección). El server la instancia
+  (`L1DoorInstance`), el cliente la recibe como objeto y la abre/cierra con el código que ya hay
+  (`decodificar.cpp:puerta()` = S_Door, `Mundo::puertas_cerradas`, `C_Door` al accionar). El generador
+  **emite las filas**; las pone en chokepoints de corredor.
+- **Entrada y salida: portales por la tabla `dungeon` del server.** El server resuelve el teleport por
+  `dungeon` (celda origen -> mapa/celda destino; `model/Dungeon.java`). El generador elige una **celda
+  de entrada** y una **de salida** (el BFS de §6 garantiza que están conectadas) y emite:
+  - entrada: `dungeon` de (mapa overworld, celda) -> (mapa N, celda de entrada);
+  - salida: `dungeon` de (mapa N, celda de salida) -> (mapa overworld u otro, celda);
+  - opcional: una estampa visible (escalera/portal) en esas celdas, lado cliente.
+
+## 6. Generación: dos modos
 
 Módulo aparte (Python en `herramientas/mapas/`, junto a las otras herramientas; no entra al binario).
-Produce el grid lógico (una sola fuente) y lo vuelca a los formatos de §3 y §4.
+Produce el grid lógico (una sola fuente) + la colocación de estampas, y lo vuelca a los formatos de
+§3 y §4.
 
 - **isla / abierto:** ruido (valor/Perlin) -> altura; umbral = costa; borde de agua garantizado;
-  suavizado; caminos. Agua = celda bloqueada (o nadable si se quiere, según flag del mapa).
-- **dungeon / laberinto:** salas por BSP + corredores que las conectan, **o** un laberinto
-  (DFS/Prim). Pared = celda bloqueada.
-- **Self-check obligatorio** (regla "lógica nueva = un chequeo"): el grid es **conexo** — un BFS desde
-  la celda de spawn alcanza toda celda caminable. Un mapa con zonas aisladas es un bug, no un mapa.
-  Además: hay al menos un spawn válido y el borde está cerrado (no se sale del rectángulo).
+  **desfiladeros en los saltos de altura**; árboles dispersos; caminos. Agua = celda bloqueada (o
+  nadable, según flag del mapa). Entrada = punto de desembarco; salida = portal/entrada de dungeon.
+- **dungeon / laberinto:** salas por BSP + corredores que las conectan, **o** un laberinto (DFS/Prim).
+  Pared = celda bloqueada. **Puertas en los chokepoints** entre salas/corredores. **Entrada y salida**
+  en extremos opuestos (p. ej. esquinas), conectadas por construcción.
+- **Self-check obligatorio** (regla "lógica nueva = un chequeo"): el grid es **conexo y la entrada
+  alcanza la salida** — un BFS desde la celda de entrada llega a la de salida y a toda celda caminable.
+  Un mapa con la salida aislada, o con una puerta que tapa el único paso, es un bug. Además: borde
+  cerrado, y toda huella de estampa cae dentro del rectángulo.
 
-## 6. Explorar (sin herramienta nueva)
+## 7. Explorar (sin herramienta nueva)
 
-Se reusa el cliente actual. Flujo: generar id N -> copiar `maps/N.txt` + correr el `.sql` ->
-reiniciar el server -> apuntar `LIN_MAPAS` a la carpeta generada -> entrar con el socket de control
-(`herramientas/lin_ctl.py`), teleport al mapa N (`.moveloc`/`.move`), caminar y capturar. La
-exploración y la validación visual salen gratis con lo que ya existe.
+Se reusa el cliente actual. Flujo: generar id N -> copiar `maps/N.txt` + correr el `.sql` (incluye
+`mapids`, `spawnlist_door` y `dungeon`) -> reiniciar el server -> apuntar `LIN_MAPAS` a la carpeta
+generada -> entrar con el socket de control (`herramientas/lin_ctl.py`), teleport al mapa N
+(`.moveloc`/`.move`) o entrar por el portal, caminar, abrir puertas y capturar. La exploración y la
+validación visual salen gratis con lo que ya existe.
 
-## 7. Fuera de este alcance (extensiones posteriores)
+## 8. Fuera de este alcance (extensiones posteriores)
 
 - **Dinámico en vivo (regenerar sin reiniciar):** parche al server con un comando admin "recargar
-  mapa N" (invalidar la caché de `MapsTable`/`CachedMapReader`) + recargar la caché de segmentos del
-  cliente para ese id. Es la única fricción real del "dinámico de verdad"; el generador es el mismo.
+  mapa N" (invalidar la caché de `MapsTable`/`CachedMapReader`, `DoorTable`, `Dungeon`) + recargar la
+  caché de segmentos del cliente para ese id. Es la única fricción real del "dinámico de verdad"; el
+  generador es el mismo.
 - **Encoder `.s32`:** emitir el formato oficial en vez del liviano, para que un cliente stock también
-  cargue el mapa. Más caro (tilesets, objetos, portales) y solo hace falta si se quiere interoperar
-  con el cliente oficial.
-- **Objetos del mapa** (árboles/casas levantadas) y **portales** entre mapas generados.
+  cargue el mapa. Más caro (tilesets, objetos, portales) y solo hace falta para interoperar con el
+  cliente oficial.
 - **Spawns de monstruos/NPC** en el mapa generado (tablas `spawnlist`), para que sea jugable y no
   solo caminable.
 
-## 8. Riesgos
+## 9. Riesgos
 
 - **Valores de tile/atributo mal elegidos** dibujan basura o rompen la colisión. Se mitiga cosechando
   de mapas reales y comparando contra un `.s32` existente decodificado.
 - **Desincronía cliente/servidor:** si el grid de colisión del `.txt` no coincide con el atributo del
-  cliente, el jugador "rebota" (el server rechaza un movimiento que el cliente creyó válido). Por eso
-  §2 insiste en **un solo grid** traducido a ambos.
+  cliente (o la huella de una estampa bloquea de un lado y no del otro), el jugador "rebota" (el server
+  rechaza un movimiento que el cliente creyó válido). Por eso §2 insiste en **un solo grid**, y la
+  huella de cada estampa alimenta **a los dos** formatos.
+- **Oclusión mal ordenada:** si una estampa se coloca con una capa/`base` inconsistente, un árbol tapa
+  lo que no debe. Se mitiga copiando piezas reales sin recalcular su orden.
 - **Id en uso:** elegir un id que ningún mapa real ocupe (rango alto libre) para no pisar contenido.
 - **El override de carpeta** toca `segmento()` y el hilo cargador: cambiar la construcción de la ruta
   en un solo lugar compartido para no divergir.
