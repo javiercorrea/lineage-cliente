@@ -126,7 +126,10 @@ constexpr ParCli TW380_CLI[] = {
 // L1J 3.0 English / US 2009 (S3EP1): encryptions/Opcodes.java de l1j-en/classic, por nombre. El
 // cifrado es el mismo XOR que jp363. Saludo inicial: opcode 125 (0x7D) + semilla (fija 0x7C98BDFA,
 // el cliente la lee igual). Vida/maná en 2 bytes como 3.63.
-// Sin equivalente en classic (quedan en 0): PETCTRL; y del cliente: ninguno.
+// Sin equivalente en classic (quedan en 0): PETCTRL; y del cliente: ninguno. En classic el menú de
+// control de la mascota (S_PetMenuPacket) es un SHOWHTML (página anicom/moncom), no el binario
+// S_PetCtrlMenu del 3.63/3.80; la mascota en sí llega como CHARPACK (S_PetPack) y el "elegir objetivo"
+// como SELECTTARGET. El panel nativo de mascotas (que se llena con PETCTRL) queda vacío, como el de grupo.
 constexpr ParSrv S3EP1_SRV[] = {
     {89, Srv::SERVERVERSION}, {63, Srv::LOGINRESULT}, {66, Srv::COMMONNEWS}, {80, Srv::CHARAMOUNT},
     {102, Srv::CHARLIST}, {56, Srv::NEWCHARPACK}, {29, Srv::NEWCHARWRONG}, {84, Srv::DETELECHAROK},

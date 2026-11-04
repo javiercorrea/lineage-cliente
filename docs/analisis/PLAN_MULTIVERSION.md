@@ -4,7 +4,8 @@
 l1j-en/classic en local (`servidor_classic/`): login, **crear personaje**, entrar, moverse, chat,
 objetos, render, **atacar, lanzar hechizos y diálogo de NPC**, **inventario, usar/equipar, borrar,
 tienda (comprar) y almacén (guardar/retirar)**, **grupo (invitar/aceptar/salir, ventana y chat),
-clan (crear y ver), título y emblema**.
+clan (crear y ver), título y emblema**, **intercambio (ofrecer/aceptar entre dos clientes) y
+mascotas (invocar, menú de control y elegir objetivo)**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -128,6 +129,26 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      `S_PacketBox` de grupo (sub 104/105/106) que llena el panel nativo de miembros del cliente, así
      que ese panel lateral queda vacío aunque el grupo exista y funcione. Poblarlo desde la página
      HTML sería una mejora del cliente, no del protocolo.
+   - **Intercambio: sin cambios, lo cubrió el fix del sí/no.** El flujo completo entre dos clientes
+     anda sin tocar código: A `/trade` frente a frente (FaceToFace exige adyacencia y que ambos se
+     miren) dispara `S_Message_YN(252)`; B acepta con la forma corta ya parametrizada y ambos abren
+     la ventana (`S_Trade`); A ofrece ítems (`C_TradeAddItem` = `d ítem, d cantidad` ↔ `S_TradeAddItem`
+     con lado/gfx/nombre/bendición) y, con los dos `C_TradeOK`, los ítems se transfieren de verdad
+     (A recibe `DELETEINVENTORYITEM`, B `ADDITEM`, ambos `TRADESTATUS`). Capturas `classic_trade_B.png`,
+     `classic_trade_B_recibido.png`. **Detalle del server classic:** los GM entran invisibles (comando
+     `invis` con `run_on_login=1`); como el trade exige visibilidad mutua, el personaje GM hace `.invis`
+     para verse antes de comerciar.
+   - **Mascotas: la mascota se dibuja como personaje y el menú es HTML (como el grupo).** `S_PetPack`
+     es un `S_CharPack` (opcode CHARPACK), así que la mascota invocada se renderiza en el mapa sin
+     nada especial. El **menú de control** (`S_PetMenuPacket`) es en realidad un `SHOWHTML` con la
+     página `anicom`/`moncom` (atacar, modo agresivo/defensivo, quieto, desplegar, alerta, recoger,
+     despedir, poner nombre), no el binario `S_PetCtrlMenu` del 3.63/3.80; se abre al hablarle a la
+     mascota (`C_NPCTalk` → `onTalkAction`). La acción "atacar" (`attackchr`) devuelve `S_SelectTarget`
+     (opcode 61, `d id`), que el cliente decodifica y usa para entrar en modo "elegir objetivo". Por
+     eso, igual que con el grupo, el **panel lateral nativo de mascotas** (`App::mascotas`, que se
+     llena con `S_PetCtrlMenu`/PETCTRL) queda vacío en `s3ep1`: classic controla la mascota por HTML.
+     Prueba contra classic con `.createpet Wolf 10` + `.create 41160` (Calling Flute) y `usar` el
+     collar. Captura `classic_pet_menu.png`.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en
