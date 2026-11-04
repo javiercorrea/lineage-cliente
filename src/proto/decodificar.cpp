@@ -254,7 +254,8 @@ bool accion(Lector& l, Evento& e) {
 bool visual(Lector& l, Evento& e) { e.tipo = Ev::CAMBIO_VISUAL; e.id = l.d(); e.v[0] = l.c(); return true; }
 
 // S_AttackPacket / S_AttackMissPacket / S_AttackPacketForNpc / S_UseAttackSkill / S_UseArrowSkill:
-// c acción, d atacante, d objetivo, h golpe (0 = falló), c dirección, y un resto según la variante:
+// c acción, d atacante, d objetivo, golpe (0 = falló; ancho del perfil: 2 bytes hasta 3.3c, 1 en el
+// US 2009), c dirección, y un resto según la variante:
 //  - golpe cuerpo a cuerpo o fallo: 5 bytes (posición del objetivo y marcas);
 //  - hechizo o flecha: d número de secuencia, h gráfico del proyectil, c tipo de uso (6 hechizo,
 //    127 flecha), h x, h y del atacante, h x, h y del objetivo y 5 bytes en 0.
@@ -265,7 +266,7 @@ bool ataque(Lector& l, Evento& e) {
     e.v[AT_ACCION] = l.c();
     e.id = l.d();
     e.v[AT_OBJETIVO] = static_cast<i32>(l.d());
-    e.v[AT_GOLPE] = l.h() != 0;
+    e.v[AT_GOLPE] = l.leer(l.perfil.bytes_golpe_ataque) != 0;
     e.v[AT_DIR] = l.c() & 7;
     if (l.quedan(4 + 2 + 1 + 8)) {
         l.d();

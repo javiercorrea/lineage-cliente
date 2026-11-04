@@ -5,7 +5,8 @@ l1j-en/classic en local (`servidor_classic/`): login, **crear personaje**, entra
 objetos, render, **atacar, lanzar hechizos y diálogo de NPC**, **inventario, usar/equipar, borrar,
 tienda (comprar) y almacén (guardar/retirar)**, **grupo (invitar/aceptar/salir, ventana y chat),
 clan (crear y ver), título y emblema**, **intercambio (ofrecer/aceptar entre dos clientes) y
-mascotas (invocar, menú de control y elegir objetivo)**.
+mascotas (invocar, menú de control y elegir objetivo)**, **almacén retirar (S_RetrieveList +
+C_Result) y combate (atacar, acertar/fallar y matar, con el campo de golpe parametrizado)**.
 
 Objetivo: que el cliente hable con servidores de distintas versiones (hoy `jp363` y `tw380`; a
 futuro `s3ep1`, el US 2009 de l1j-en/classic, u otras) **sin que las funciones que arman o leen
@@ -149,6 +150,21 @@ Cada fase compila, pasa los tests y no cambia el comportamiento de `jp363` ni `t
      llena con `S_PetCtrlMenu`/PETCTRL) queda vacío en `s3ep1`: classic controla la mascota por HTML.
      Prueba contra classic con `.createpet Wolf 10` + `.create 41160` (Calling Flute) y `usar` el
      collar. Captura `classic_pet_menu.png`.
+   - **Almacén — retirar: sin cambios de protocolo.** El depósito y el retiro usan `C_Result` (tipo 2
+     guardar, 3 retirar); la lista de lo guardado llega por `S_RetrieveList` (SHOWRETRIEVELIST). Ciclo
+     completo verificado con Storage^Karim: `accion deposit` → `C_Result` tipo 2; `accion retrieve` →
+     `S_RetrieveList` abre la ventana con los ítems; elegir y OK → `C_Result` tipo 3 (con el id que vino
+     en la lista) y el ítem vuelve al inventario (cobra 30 adena por ítem). Captura `classic_almacen_retiro.png`.
+   - **Combate: una divergencia de cuerpo, parametrizada (`bytes_golpe_ataque`).** En `S_AttackPacket`
+     y todas sus variantes (`S_AttackMissPacket`, `S_AttackPacketForNpc`, `S_UseAttackSkill`,
+     `S_UseArrowSkill`) el campo de golpe/acierto va en **1 byte** (`writeC`) en el US 2009 y en **2**
+     (`writeH`) desde el 3.3c; el propio `S_AttackPacket.java` del jp363 conserva ambas formas
+     comentadas (`writeC(0x01) // 3.0c` vs `writeH(0x01) // 3.3c`). Leer el ancho de 2 bytes contra
+     classic desalineaba la dirección y, peor, leía un **fallo con dirección** (`00 04`) como acierto
+     (`0x0400`). Se agregó `bytes_golpe_ataque` al perfil (2 por defecto, 1 en `s3ep1`); `ataque` lee
+     `leer(perfil.bytes_golpe_ataque)`. Verificado en vivo: Ensayo acierta (`golpe 01`), el mob falla
+     (`golpe 00, dir 04`) y, con `.spawn 45005` (Frog, 1 HP), muere (`DOACTIONGFX` de muerte + `EXP`).
+     Captura `classic_combate.png`.
 4. **Lado de envío** (`comandos.h`): el mismo criterio para los cuerpos que cambien al mandar (son
    menos; el cliente manda paquetes simples). Si ninguno difiere, esta fase es un repaso.
 5. **Documentación:** sección `s3ep1` en `OPCODES_PENDIENTES.md` (como la de `tw380`); nota en

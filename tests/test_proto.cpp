@@ -837,6 +837,7 @@ TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
     CHECK(t.perfil.bytes_cola_item == 0);         // ...ni la cola fija de 11 bytes del 3.63/3.80
     CHECK(t.perfil.bytes_pre_pregunta == 0);      // S_MessageYN sin el h 0...
     CHECK(t.perfil.bytes_numero_pregunta == 0);   // ...ni el número (el tipo va primero y hace de número)
+    CHECK(t.perfil.bytes_golpe_ataque == 1);      // S_AttackPacket: golpe/acierto en 1 byte (writeC), no 2
     CHECK(t.srv(1) == Srv::CHARPACK);    // S_CharPack = 1
     CHECK(t.srv(89) == Srv::SERVERVERSION);
     CHECK(t.srv(63) == Srv::LOGINRESULT);
@@ -845,5 +846,25 @@ TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
     CHECK(t.cli(Cli::LOGINPACKET) == 113);
     CHECK(t.cli(Cli::MOVECHAR) == 15);
     CHECK(t.cli(Cli::PARTYLIST) == 77);
+
+    // S_AttackPacket del US 2009 (ATTACKPACKET = cable 35): el golpe va en 1 byte. Acierto con dir 3.
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    const u8 golpe[] = {35, 1, 0x10, 0, 0, 0, 0x20, 0, 0, 0, 1, 3, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar({golpe, sizeof golpe}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::ATAQUE);
+    CHECK(ev[0].id == 0x10);
+    CHECK(ev[0].v[AT_OBJETIVO] == 0x20);
+    CHECK(ev[0].v[AT_GOLPE] == 1);
+    CHECK(ev[0].v[AT_DIR] == 3);
+    // Un fallo con dirección (golpe 0, dir 4): leído con 2 bytes daría 0x0400 (un "acierto" falso) y la
+    // dirección saldría del byte siguiente; con el ancho de 1 byte del perfil es correctamente un fallo.
+    ev.clear();
+    const u8 fallo[] = {35, 1, 0x10, 0, 0, 0, 0x20, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar({fallo, sizeof fallo}, t, arena, ev));
+    CHECK(ev[0].v[AT_GOLPE] == 0);
+    CHECK(ev[0].v[AT_DIR] == 4);
+
     CHECK(tabla_opcodes("inexistente", t) == false);
 }

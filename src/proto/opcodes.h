@@ -56,6 +56,11 @@ struct PerfilProtocolo {
     // `pregunta` y `responder`: con número = forma larga; sin número (0) = forma corta.
     u8 bytes_pre_pregunta = 2;
     u8 bytes_numero_pregunta = 4;
+    // Ancho del campo de golpe/acierto en los paquetes de ataque (S_AttackPacket y variantes): el
+    // 3.0c/US 2009 lo manda en 1 byte (`writeC`), el 3.3c en adelante en 2 (`writeH`; ver el comentario
+    // de S_AttackPacket.java del jp363, que conserva ambas formas). Leer el ancho equivocado desalinea
+    // la dirección y confunde un fallo con un acierto.
+    u8 bytes_golpe_ataque = 2;
 };
 
 struct TablaOpcodes {
