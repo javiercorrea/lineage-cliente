@@ -116,28 +116,38 @@ bool decodificar_mg(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
     s.tiles_objetos.clear();
     s.objetos.clear();
     s.portales.clear();
-    // Suelo uniforme, atributos de colisión, y la estampa de pared entera en cada celda bloqueada.
-    // El solapamiento entre celdas vecinas forma la masa de roca; cada celda es su propio objeto para
-    // que la oclusión del jugador sea local (una pared tapa solo cuando está delante).
+    // Primera pasada: leer la grilla (0=piso, 1=pared), el suelo uniforme y la colisión.
+    std::vector<u8> pared(static_cast<size_t>(N) * N);
+    for (size_t i = 0; i < pared.size(); ++i) {
+        s.suelo[i * 2] = piso_izq;
+        s.suelo[i * 2 + 1] = piso_der;
+        pared[i] = l.u8_() ? 1 : 0;
+        if (pared[i]) {
+            s.atributos[i * 2] = 1;
+            s.atributos[i * 2 + 1] = 1;
+        }
+    }
+    if (l.error) return false;
+    // Segunda pasada: en cada celda-pared, estampar la roca, pero SOLO las piezas que caen sobre otra
+    // celda-pared (máscara). Así la roca no invade los pasillos y la estructura (laberinto) se lee.
+    // Cada celda es su propio objeto, para que la oclusión del jugador sea local.
     for (int ly = 0; ly < N; ++ly) {
         for (int lx = 0; lx < N; ++lx) {
-            const size_t c = (static_cast<size_t>(ly) * N + lx) * 2;
-            s.suelo[c] = piso_izq;
-            s.suelo[c + 1] = piso_der;
-            if (!l.u8_()) continue;  // piso
-            s.atributos[c] = 1;
-            s.atributos[c + 1] = 1;
-            if (estampa.empty()) continue;
+            if (!pared[static_cast<size_t>(ly) * N + lx] || estampa.empty()) continue;
             const u32 inicio = static_cast<u32>(s.tiles_objetos.size());
             u8 x0 = 63, y0 = 63, x1 = 0, y1 = 0;
             for (const TileObjetoMapa& e : estampa) {
-                const u8 px = static_cast<u8>(lx * 2 + e.x), py = static_cast<u8>(ly + e.y);
+                const int cx = lx + e.x / 2, cy = ly + e.y;  // celda donde cae la pieza
+                if (cx < 0 || cx >= N || cy < 0 || cy >= N || !pared[static_cast<size_t>(cy) * N + cx]) continue;
+                const u8 px = static_cast<u8>(lx * 2 + e.x), py = static_cast<u8>(cy);
                 s.tiles_objetos.push_back({px, py, e.capa, 0, e.tile});
                 x0 = std::min<u8>(x0, px / 2); x1 = std::max<u8>(x1, px / 2);
                 y0 = std::min<u8>(y0, py);     y1 = std::max<u8>(y1, py);
             }
-            calcular_bases(s.tiles_objetos.data() + inicio, estampa.size());
-            s.objetos.push_back({inicio, static_cast<u32>(estampa.size()), x0, y0, x1, y1});
+            const u32 n = static_cast<u32>(s.tiles_objetos.size()) - inicio;
+            if (!n) continue;
+            calcular_bases(s.tiles_objetos.data() + inicio, n);
+            s.objetos.push_back({inicio, n, x0, y0, x1, y1});
         }
     }
     return !l.error;
