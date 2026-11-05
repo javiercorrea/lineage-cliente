@@ -1,4 +1,4 @@
-// Fuente TTF de la interfaz (VT323, Latin-1) rasterizada con stb_truetype. Los textos de la
+// Fuente TTF de la interfaz (Departure Mono, Latin-1) rasterizada con stb_truetype. Los textos de la
 // interfaz están en UTF-8 y se dibujan con ella; el texto del servidor (CP949) sigue en la fuente
 // bitmap del juego (recursos/fuente.h). Los glifos son celdas de ALTO_GLIFO píxeles de alto con la
 // línea base en la misma fila, así que el dibujo común (Graficos::texto) no cambia.
