@@ -43,6 +43,9 @@ struct Config {
     bool chat_con_enter = true;
     bool barra_personaje = false;  // barra de HP/MP sobre el propio personaje
     bool texto_dano = false;       // daño recibido / "Miss" flotante sobre el personaje
+    // Compensación de ataque: al atacar, mostrar el golpe (swing propio y flinch del objetivo) ya,
+    // sin esperar el eco del servidor, para que con latencia alta el combate se sienta instantáneo.
+    bool compensar_ataque = true;
 };
 
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").

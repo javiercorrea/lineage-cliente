@@ -591,9 +591,21 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
     int dir = direccion_de(o.col<O_X>()[obj] - o.col<O_X>()[yo], o.col<O_Y>()[obj] - o.col<O_Y>()[yo]);
     if (dir >= 0) o.col<O_DIR>()[yo] = static_cast<u8>(dir);
     enviar(a, cmd::atacar(a.op, o.ids()[obj], o.col<O_X>()[obj], o.col<O_Y>()[obj]));
-    o.col<O_ACCION>()[yo] = ACC_ATACAR;
-    o.col<O_TACCION>()[yo] = ahora;
     GfxId gfx = o.col<O_GFX>()[yo];
+    // Compensación de ataque (opcional, en vivo): sin esperar el eco del servidor, mostrar ya el golpe
+    // -el swing propio y el flinch del objetivo en el frame de impacto- para que con latencia alta el
+    // combate se sienta instantáneo. Puede "errar" en un fallo o fuera de rango; el servidor lo corrige
+    // (mundo.cpp no reinicia un flinch ya en curso). Apagado: la animación espera el eco (como el stock).
+    if (a.cfg.compensar_ataque) {
+        o.col<O_ACCION>()[yo] = ACC_ATACAR;
+        o.col<O_TACCION>()[yo] = ahora;
+        if (o.col<O_ESTADO>()[obj] != ESTADO_MUERTO) {
+            u64 impacto = a.sprites.ms_hasta_impacto(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
+            if (impacto == 0) impacto = a.sprites.ms_hasta_impacto(gfx, ACC_ATACAR);
+            o.col<O_ACCION>()[obj] = ACC_DANADO;
+            o.col<O_TACCION>()[obj] = ahora + impacto;
+        }
+    }
     u32 ms = a.sprites.duracion_ms(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
     if (ms == 0) ms = a.sprites.duracion_ms(gfx, ACC_ATACAR);
     if (ms == 0) ms = ATAQUE_DESCONOCIDO_MS;

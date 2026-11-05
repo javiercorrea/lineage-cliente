@@ -67,6 +67,7 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "chat_con_enter") c.chat_con_enter = valor != "0";
     else if (clave == "barra_personaje") c.barra_personaje = valor == "1";
     else if (clave == "texto_dano") c.texto_dano = valor == "1";
+    else if (clave == "compensar_ataque") c.compensar_ataque = valor != "0";
     else if (clave == "ventana") {
         const size_t x = valor.find('x');
         const int w = std::atoi(std::string(valor.substr(0, x)).c_str());
@@ -167,6 +168,7 @@ std::string escribir_config(const Config& c) {
     linea("chat_con_enter", c.chat_con_enter ? "1" : "0");
     linea("barra_personaje", c.barra_personaje ? "1" : "0");
     linea("texto_dano", c.texto_dano ? "1" : "0");
+    linea("compensar_ataque", c.compensar_ataque ? "1" : "0");
     linea("ventana", std::to_string(c.ventana_ancho) + 'x' + std::to_string(c.ventana_alto));
     return t;
 }

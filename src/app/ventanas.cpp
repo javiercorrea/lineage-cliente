@@ -314,6 +314,8 @@ void dibujar_opciones(App& a) {
         a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
     if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))
         a.cfg.texto_dano = !a.cfg.texto_dano, cambio = true;
+    if (fila("Attack compensation", a.cfg.compensar_ataque ? "On" : "Off"))
+        a.cfg.compensar_ataque = !a.cfg.compensar_ataque, cambio = true;
     std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
     if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;

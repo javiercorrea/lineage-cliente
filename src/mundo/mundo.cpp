@@ -289,8 +289,14 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             // Si acertó, el objetivo muestra el daño cuando lo alcanza el golpe.
             Slot so = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO]));
             if (e.v[AT_GOLPE] && so != SIN_SLOT && o.col<O_ESTADO>()[so] != ESTADO_MUERTO) {
-                o.col<O_ACCION>()[so] = ACC_DANADO;
-                o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
+                // Si el flinch ya se está mostrando (p. ej. predicho por la compensación de ataque, con
+                // su t de impacto todavía en el futuro), no reiniciarlo con el eco del servidor.
+                const u64 t = o.col<O_TACCION>()[so];
+                const bool ya = o.col<O_ACCION>()[so] == ACC_DANADO && (t >= ahora || ahora - t < 300);
+                if (!ya) {
+                    o.col<O_ACCION>()[so] = ACC_DANADO;
+                    o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
+                }
             }
             break;
         }
