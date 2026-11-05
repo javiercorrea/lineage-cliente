@@ -75,7 +75,8 @@ TEST_CASE("rasterizar_ttf: la tilde y el descendente caben en la celda") {
     REQUIRE(rasterizar_ttf(0xC9, acentuada));  // É
     REQUIRE(rasterizar_ttf('g', descendente));
     CHECK(fila_con_trazo(acentuada, 0));            // la tilde llega hasta la primera fila
-    CHECK(fila_con_trazo(descendente, ALTO_GLIFO - 1));  // el descendente llega a la última
+    // El descendente baja de la línea base (fila 11 con em 14) y se ve en la fila siguiente.
+    CHECK(fila_con_trazo(descendente, ALTO_GLIFO - 2));
 }
 
 TEST_CASE("FuenteBitmap: los glifos TTF no necesitan la carpeta del juego") {

@@ -14,8 +14,8 @@ bool FuenteBitmap::cargar(const std::string& carpeta) {
 bool FuenteBitmap::rasterizar(u32 glifo, ImagenRGBA& salida) const {
     if (glifo >= GLIFO_TTF_BASE) return rasterizar_ttf(glifo - GLIFO_TTF_BASE, salida);
     if (glifo < 95) {
-        salida.preparar(ANCHO_GLIFO_ASCII, ALTO_GLIFO);
-        for (int y = 0; y < ALTO_GLIFO; ++y) {
+        salida.preparar(ANCHO_GLIFO_ASCII, ALTO_GLIFO_BITMAP);
+        for (int y = 0; y < ALTO_GLIFO_BITMAP; ++y) {
             u8 fila = ascii[glifo * 12 + y];
             for (int x = 0; x < ANCHO_GLIFO_ASCII; ++x)
                 if (fila & (0x80 >> x)) salida.px[y * ANCHO_GLIFO_ASCII + x] = 0xFFFFFFFFu;
@@ -24,8 +24,8 @@ bool FuenteBitmap::rasterizar(u32 glifo, ImagenRGBA& salida) const {
     }
     u32 k = glifo - 1000;
     if (glifo < 1000 || coreana.empty() || k >= 2401) return false;
-    salida.preparar(ANCHO_GLIFO_KOR, ALTO_GLIFO);
-    for (int y = 0; y < ALTO_GLIFO; ++y) {
+    salida.preparar(ANCHO_GLIFO_KOR, ALTO_GLIFO_BITMAP);
+    for (int y = 0; y < ALTO_GLIFO_BITMAP; ++y) {
         u16 fila = static_cast<u16>((coreana[k * 24 + y * 2] << 8) | coreana[k * 24 + y * 2 + 1]);
         for (int x = 0; x < ANCHO_GLIFO_KOR; ++x)
             if (fila & (0x8000 >> x)) salida.px[y * ANCHO_GLIFO_KOR + x] = 0xFFFFFFFFu;
