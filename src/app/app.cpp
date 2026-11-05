@@ -1,4 +1,5 @@
 #include <atomic>
+#include <cstdio>
 #include <cstdlib>
 #include "app/app.h"
 #include "core/asignaciones.h"
@@ -281,6 +282,18 @@ bool iniciar_app(App& a) {
     crear_cursores(a);
     if (carpeta_juego_valida(a.cfg.carpeta_juego) && cargar_recursos(a)) {
         cambiar_pantalla(a, Pantalla::LOGIN);
+        // LIN_RENDER=id,x,y,salida.bmp: entrar directo a dibujar el mapa (sin red/login) y capturarlo.
+        if (const char* r = std::getenv("LIN_RENDER"); r && *r) {
+            int id = 0, x = 0, y = 0;
+            char sal[256] = {0};
+            if (std::sscanf(r, "%d,%d,%d,%255s", &id, &x, &y, sal) == 4) {
+                a.render = {true, static_cast<MapId>(id), x, y, sal};
+                a.mundo.mapa = static_cast<MapId>(id);
+                cambiar_pantalla(a, Pantalla::JUEGO);
+            } else {
+                LIN_LOG("LIN_RENDER mal formado (esperaba id,x,y,salida.bmp): %s", r);
+            }
+        }
     } else {
         // Primer arranque: el usuario elige la carpeta del juego con el diálogo nativo.
         cambiar_pantalla(a, Pantalla::ELEGIR_CARPETA);
@@ -328,7 +341,9 @@ void bucle_app(App& a) {
         control_entrada(a);  // el mouse inyectado
 #endif
         procesar_red(a);
-        switch (a.pantalla) {
+        if (a.render.activo) {
+            dibujar_captura(a);
+        } else switch (a.pantalla) {
         case Pantalla::ELEGIR_CARPETA: frame_elegir_carpeta(a); break;
         case Pantalla::LOGIN: frame_login(a); break;
         case Pantalla::PERSONAJES: frame_personajes(a); break;

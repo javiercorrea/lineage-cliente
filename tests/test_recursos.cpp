@@ -144,6 +144,49 @@ TEST_CASE("Mapa 2005: atributos del .s32 coinciden con el mapa del servidor" * d
     CHECK(coinciden * 100 / total >= 95);
 }
 
+TEST_CASE("Mapa generado .mg: piso uniforme, colisión y la estampa de pared por celda bloqueada") {
+    // Bytes fijos, sin instalación: MG02 + piso + estampa de 2 piezas + grilla 64×64 todo piso salvo (2,3).
+    auto u16le = [](std::vector<u8>& b, u16 v) { b.push_back(v & 0xFF); b.push_back(v >> 8); };
+    auto u32le = [](std::vector<u8>& b, u32 v) { for (int i = 0; i < 4; ++i) b.push_back((v >> (8 * i)) & 0xFF); };
+    std::vector<u8> b = {'M', 'G', '0', '2'};
+    u16le(b, 0x8000);        // base_x del archivo
+    u16le(b, 0x8000);        // base_y
+    u32le(b, 0x0009c8aeu);   // piso izq
+    u32le(b, 0x0009c8afu);   // piso der
+    u16le(b, 2);             // estampa: 2 piezas
+    b.insert(b.end(), {0, 0, 16}); u32le(b, 0x0000101eu);  // pieza dx=0 dy=0 capa=16
+    b.insert(b.end(), {1, 0, 16}); u32le(b, 0x0000101fu);  // pieza dx=1 dy=0 capa=16
+    for (int ly = 0; ly < 64; ++ly)
+        for (int lx = 0; lx < 64; ++lx)
+            b.push_back(lx == 2 && ly == 3 ? 1 : 0);  // una sola pared
+
+    SegmentoMapa s;
+    REQUIRE(decodificar_mg(b, 0x8000, 0x8000, s));
+    CHECK(s.base_x == 0x8000);
+    CHECK(s.base_y == 0x8000);
+    // Piso uniforme en toda celda.
+    CHECK(s.suelo_en(10, 10, 0) == 0x0009c8aeu);
+    CHECK(s.suelo_en(10, 10, 1) == 0x0009c8afu);
+    // Colisión: la celda (2,3) bloquea (bit0 de ambas mitades); una celda de piso no.
+    CHECK(((s.atributo_en(2, 3, 0) & 1) && (s.atributo_en(2, 3, 1) & 1)));
+    CHECK_FALSE(((s.atributo_en(10, 10, 0) & 1) && (s.atributo_en(10, 10, 1) & 1)));
+    // La estampa (2 piezas) se expande en la celda (2,3): dx se suma a lx*2, dy a ly.
+    REQUIRE(s.tiles_objetos.size() == 2);
+    REQUIRE(s.objetos.size() == 1);
+    CHECK(s.objetos[0].cantidad == 2);
+    CHECK(s.tiles_objetos[0].x == 4);   // lx*2 + dx(0)
+    CHECK(s.tiles_objetos[0].y == 3);   // ly + dy(0)
+    CHECK(s.tiles_objetos[0].tile == 0x0000101eu);
+    CHECK(s.tiles_objetos[1].x == 5);   // lx*2 + dx(1)
+    CHECK(s.tiles_objetos[1].tile == 0x0000101fu);
+}
+
+TEST_CASE("Mapa generado .mg: cabecera inválida") {
+    std::vector<u8> malo = {'X', 'X', 'X', 'X', 0, 0, 0, 0};
+    SegmentoMapa s;
+    CHECK_FALSE(decodificar_mg(malo, 0, 0, s));  // magic equivocado
+}
+
 TEST_CASE("Mapa 2005: la copa de un árbol se ordena con el pie del tronco" * doctest::skip(carpeta_juego().empty())) {
     // Árbol junto al punto de inicio (32691, 32864): su pieza más alta está en (110, 32) del segmento.
     std::vector<u8> d;

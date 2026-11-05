@@ -379,6 +379,8 @@ struct App {
     TextoCombate textos_combate[6];
     u8 n_textos_combate = 0;
     i32 hp_anterior = 0;  // detectar daño recibido: caída de HP tras aplicar los eventos del frame
+    // Render no interactivo a PNG (LIN_RENDER=id,x,y,salida.bmp): dibuja el mapa y sale. Ver app.cpp.
+    struct { bool activo = false; MapId mapa = 0; int x = 0, y = 0; std::string salida; } render;
     bool ventana_social = false;
     std::vector<Pregunta> preguntas;
     Intercambio intercambio;
@@ -417,6 +419,9 @@ void frame_login(App& a);
 void frame_personajes(App& a);
 void frame_crear(App& a);
 void frame_juego(App& a);
+// Modo no interactivo (LIN_RENDER): dibuja un mapa centrado en una celda y, tras unos frames,
+// guarda un PNG y sale. Sin red ni login. Reusa el dibujo de mapa de frame_juego.
+void dibujar_captura(App& a);
 
 const char* nombre_clase(int clase);
 

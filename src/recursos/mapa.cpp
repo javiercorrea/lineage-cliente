@@ -92,4 +92,61 @@ bool decodificar_s32(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
     return true;  // los objetos son opcionales: un error ahí no invalida el suelo
 }
 
+bool decodificar_mg(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
+    constexpr int N = CELDAS_SEGMENTO;
+    LectorBinario l{datos};
+    if (l.u8_() != 'M' || l.u8_() != 'G' || l.u8_() != '0' || l.u8_() != '2') return false;
+    l.u16_();  // base_x del archivo
+    l.u16_();  // base_y del archivo (se usa el pasado por parámetro, como en decodificar_s32)
+    const u32 piso_izq = l.u32_(), piso_der = l.u32_();
+    // Estampa de pared: piezas relativas (dx en medias celdas, dy en celdas) de un chunk de roca real.
+    const u16 n_estampa = l.u16_();
+    std::vector<TileObjetoMapa> estampa;
+    estampa.reserve(n_estampa);
+    for (u16 i = 0; i < n_estampa; ++i) {
+        const u8 dx = l.u8_(), dy = l.u8_(), capa = l.u8_();
+        const u32 tile = l.u32_();
+        estampa.push_back({dx, dy, capa, 0, tile});
+    }
+    if (l.error) return false;
+    s.base_x = static_cast<u16>(base_x);
+    s.base_y = static_cast<u16>(base_y);
+    s.suelo.resize(static_cast<size_t>(N) * N * 2);
+    s.atributos.assign(static_cast<size_t>(N) * N * 2, 0);
+    s.tiles_objetos.clear();
+    s.objetos.clear();
+    s.portales.clear();
+    // Suelo uniforme, atributos de colisión, y la estampa de pared entera en cada celda bloqueada.
+    // El solapamiento entre celdas vecinas forma la masa de roca; cada celda es su propio objeto para
+    // que la oclusión del jugador sea local (una pared tapa solo cuando está delante).
+    for (int ly = 0; ly < N; ++ly) {
+        for (int lx = 0; lx < N; ++lx) {
+            const size_t c = (static_cast<size_t>(ly) * N + lx) * 2;
+            s.suelo[c] = piso_izq;
+            s.suelo[c + 1] = piso_der;
+            if (!l.u8_()) continue;  // piso
+            s.atributos[c] = 1;
+            s.atributos[c + 1] = 1;
+            if (estampa.empty()) continue;
+            const u32 inicio = static_cast<u32>(s.tiles_objetos.size());
+            u8 x0 = 63, y0 = 63, x1 = 0, y1 = 0;
+            for (const TileObjetoMapa& e : estampa) {
+                const u8 px = static_cast<u8>(lx * 2 + e.x), py = static_cast<u8>(ly + e.y);
+                s.tiles_objetos.push_back({px, py, e.capa, 0, e.tile});
+                x0 = std::min<u8>(x0, px / 2); x1 = std::max<u8>(x1, px / 2);
+                y0 = std::min<u8>(y0, py);     y1 = std::max<u8>(y1, py);
+            }
+            calcular_bases(s.tiles_objetos.data() + inicio, estampa.size());
+            s.objetos.push_back({inicio, static_cast<u32>(estampa.size()), x0, y0, x1, y1});
+        }
+    }
+    return !l.error;
+}
+
+bool decodificar_segmento(std::string_view ruta, Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
+    if (ruta.size() >= 3 && ruta.substr(ruta.size() - 3) == ".mg")
+        return decodificar_mg(datos, base_x, base_y, s);
+    return decodificar_s32(datos, base_x, base_y, s);
+}
+
 }  // namespace lin

@@ -1251,6 +1251,23 @@ int direccion_de(int dx, int dy) {
 }
 
 
+void dibujar_captura(App& a) {
+    // Render no interactivo (LIN_RENDER): dibuja el mapa centrado en la celda pedida y, pasados unos
+    // frames (para que el atlas transmita los tiles, como el explorador), guarda el PNG y sale.
+    const Vista vi = vista(a);
+    const double cam_x = a.render.x, cam_y = a.render.y;
+    segmento(a.mundo, a.rec, a.render.x, a.render.y);  // fuerza el segmento central (síncrono) ya en el 1er frame
+    const double ox = vi.cx - 24 - mundo_px(cam_x, cam_y);
+    const double oy = vi.cy - 12 - mundo_py(cam_x, cam_y);
+    actualizar_segmentos(a.mundo, a.render.x, a.render.y, radio_segmentos(vi));
+    dibujar_suelo(a, cam_x, cam_y, ox, oy);
+    dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
+    if (a.frames_en_pantalla >= 45) {
+        a.gpu.pedir_captura(a.render.salida);
+        a.salir = true;
+    }
+}
+
 void frame_juego(App& a) {
     Graficos& g = *a.g;
     u64 ahora = a.entrada.ahora_ms;

@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include "mundo/mundo.h"
 
 namespace lin {
@@ -437,12 +439,26 @@ void guardar_segmento(Mundo& m, u64 k, SegmentoMapa&& s) {
 
 }  // namespace
 
+// LIN_MAPAS: carpeta de mapas generados (ver generador_mapas/). Si el segmento existe ahí como .mg,
+// se usa en vez de la instalación, sin ensuciarla. Solo desarrollo; si no, el .s32 de la instalación.
+static std::string ruta_segmento(const Recursos& rec, MapId mapa, int x, int y) {
+    if (const char* base = std::getenv("LIN_MAPAS"); base && *base) {
+        char seg[48];
+        std::snprintf(seg, sizeof seg, "/%u/%04x%04x.mg", static_cast<unsigned>(mapa),
+                      (x >> 6) + 0x7E00, (y >> 6) + 0x7E00);
+        std::string ruta = base;
+        ruta += seg;
+        if (std::filesystem::exists(ruta)) return ruta;
+    }
+    return rec.carpeta() + nombre_segmento(mapa, x, y);
+}
+
 const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y) {
     if (x < 0 || y < 0) return nullptr;
     const u64 k = clave_segmento(m.mapa, x, y);
     if (const u32* i = m.indice_segmentos.buscar(k)) return *i >= SEG_CARGANDO ? nullptr : &m.segmentos[*i];
     if (!m.cargador) m.cargador = std::make_unique<CargadorSegmentos>();
-    m.cargador->pedir(rec.carpeta() + nombre_segmento(m.mapa, x, y), k, x & ~63, y & ~63);
+    m.cargador->pedir(ruta_segmento(rec, m.mapa, x, y), k, x & ~63, y & ~63);
     m.indice_segmentos.poner(k, SEG_CARGANDO);
     return nullptr;
 }
@@ -482,8 +498,8 @@ const SegmentoMapa* segmento(Mundo& m, const Recursos& rec, int x, int y) {
         return *i == SEG_NO_EXISTE ? nullptr : &m.segmentos[*i];
     std::vector<u8> datos;
     SegmentoMapa s;
-    bool ok = leer_archivo(rec.carpeta() + nombre_segmento(m.mapa, x, y), datos) &&
-              decodificar_s32(datos, x & ~63, y & ~63, s);
+    const std::string ruta = ruta_segmento(rec, m.mapa, x, y);
+    bool ok = leer_archivo(ruta, datos) && decodificar_segmento(ruta, datos, x & ~63, y & ~63, s);
     // MULTIPLATAFORMA (Linux): la carpeta "map" puede venir como "Map"; ver carpeta_juego_valida.
     if (!ok) {
         m.indice_segmentos.poner(k, SEG_NO_EXISTE);
