@@ -94,19 +94,26 @@ bool decodificar_s32(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
 
 bool decodificar_mg(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
     constexpr int N = CELDAS_SEGMENTO;
+    constexpr int N_CLASES = 4;  // horizontal, vertical, esquina, interior (ver generador_mapas)
     LectorBinario l{datos};
-    if (l.u8_() != 'M' || l.u8_() != 'G' || l.u8_() != '0' || l.u8_() != '2') return false;
+    if (l.u8_() != 'M' || l.u8_() != 'G' || l.u8_() != '0' || l.u8_() != '3') return false;
     l.u16_();  // base_x del archivo
     l.u16_();  // base_y del archivo (se usa el pasado por parámetro, como en decodificar_s32)
-    const u32 piso_izq = l.u32_(), piso_der = l.u32_();
-    // Estampa de pared: piezas relativas (dx en medias celdas, dy en celdas) de un chunk de roca real.
-    const u16 n_estampa = l.u16_();
-    std::vector<TileObjetoMapa> estampa;
-    estampa.reserve(n_estampa);
-    for (u16 i = 0; i < n_estampa; ++i) {
-        const u8 dx = l.u8_(), dy = l.u8_(), capa = l.u8_();
-        const u32 tile = l.u32_();
-        estampa.push_back({dx, dy, capa, 0, tile});
+    // Paleta de piso: varios pares (izq, der); el byte de cada celda-piso elige uno (menos repetitivo).
+    const u16 n_piso = l.u16_();
+    if (n_piso == 0 || l.error) return false;
+    std::vector<u32> piso_izq(n_piso), piso_der(n_piso);
+    for (u16 i = 0; i < n_piso; ++i) { piso_izq[i] = l.u32_(); piso_der[i] = l.u32_(); }
+    // Una estampa de pared por clase de orientación (piezas relativas: dx medias celdas, dy celdas).
+    std::vector<TileObjetoMapa> estampa[N_CLASES];
+    for (int c = 0; c < N_CLASES; ++c) {
+        const u16 n = l.u16_();
+        estampa[c].reserve(n);
+        for (u16 i = 0; i < n; ++i) {
+            const u8 dx = l.u8_(), dy = l.u8_(), capa = l.u8_();
+            const u32 tile = l.u32_();
+            estampa[c].push_back({dx, dy, capa, 0, tile});
+        }
     }
     if (l.error) return false;
     s.base_x = static_cast<u16>(base_x);
@@ -116,29 +123,39 @@ bool decodificar_mg(Bytes datos, int base_x, int base_y, SegmentoMapa& s) {
     s.tiles_objetos.clear();
     s.objetos.clear();
     s.portales.clear();
-    // Primera pasada: leer la grilla (0=piso, 1=pared), el suelo uniforme y la colisión.
-    std::vector<u8> pared(static_cast<size_t>(N) * N);
-    for (size_t i = 0; i < pared.size(); ++i) {
-        s.suelo[i * 2] = piso_izq;
-        s.suelo[i * 2 + 1] = piso_der;
-        pared[i] = l.u8_() ? 1 : 0;
-        if (pared[i]) {
+    // Primera pasada: leer la grilla. 1 byte/celda: bit7 = pared; bits0-6 = índice de piso (celda-piso)
+    // o clase de pared (celda-pared). Suelo y colisión.
+    std::vector<u8> cel(static_cast<size_t>(N) * N);
+    for (size_t i = 0; i < cel.size(); ++i) {
+        const u8 b = l.u8_();
+        cel[i] = b;
+        if (b & 0x80) {  // pared
             s.atributos[i * 2] = 1;
             s.atributos[i * 2 + 1] = 1;
+            s.suelo[i * 2] = piso_izq[0];  // piso bajo la pared (casi no se ve)
+            s.suelo[i * 2 + 1] = piso_der[0];
+        } else {
+            const u16 p = (b & 0x7F) < n_piso ? (b & 0x7F) : 0;
+            s.suelo[i * 2] = piso_izq[p];
+            s.suelo[i * 2 + 1] = piso_der[p];
         }
     }
     if (l.error) return false;
-    // Segunda pasada: en cada celda-pared, estampar la roca, pero SOLO las piezas que caen sobre otra
-    // celda-pared (máscara). Así la roca no invade los pasillos y la estructura (laberinto) se lee.
+    // Segunda pasada: en cada celda-pared, estampar la roca de SU clase, pero SOLO las piezas que caen
+    // sobre otra celda-pared (máscara). Así la roca no invade los pasillos y la estructura se lee.
     // Cada celda es su propio objeto, para que la oclusión del jugador sea local.
+    auto es_pared = [&](int x, int y) { return x >= 0 && x < N && y >= 0 && y < N && (cel[static_cast<size_t>(y) * N + x] & 0x80); };
     for (int ly = 0; ly < N; ++ly) {
         for (int lx = 0; lx < N; ++lx) {
-            if (!pared[static_cast<size_t>(ly) * N + lx] || estampa.empty()) continue;
+            if (!es_pared(lx, ly)) continue;
+            const int clase = cel[static_cast<size_t>(ly) * N + lx] & 0x7F;
+            const std::vector<TileObjetoMapa>& est = estampa[clase < N_CLASES ? clase : 0];
+            if (est.empty()) continue;
             const u32 inicio = static_cast<u32>(s.tiles_objetos.size());
             u8 x0 = 63, y0 = 63, x1 = 0, y1 = 0;
-            for (const TileObjetoMapa& e : estampa) {
+            for (const TileObjetoMapa& e : est) {
                 const int cx = lx + e.x / 2, cy = ly + e.y;  // celda donde cae la pieza
-                if (cx < 0 || cx >= N || cy < 0 || cy >= N || !pared[static_cast<size_t>(cy) * N + cx]) continue;
+                if (!es_pared(cx, cy)) continue;
                 const u8 px = static_cast<u8>(lx * 2 + e.x), py = static_cast<u8>(cy);
                 s.tiles_objetos.push_back({px, py, e.capa, 0, e.tile});
                 x0 = std::min<u8>(x0, px / 2); x1 = std::max<u8>(x1, px / 2);
