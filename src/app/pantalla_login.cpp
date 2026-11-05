@@ -11,6 +11,33 @@ namespace lin {
 
 namespace {
 
+// Parte `t` en renglones que caben en `ancho` píxeles (corta entre palabras; un carácter no se parte)
+// y llama a `f` con cada uno. Los '\n' son renglones aparte; una línea vacía da un renglón vacío.
+template <class F>
+void renglones(std::string_view t, int ancho, F&& f) {
+    while (true) {
+        const size_t fin = t.find('\n');
+        std::string_view linea = t.substr(0, fin);
+        do {
+            size_t k = linea.empty() ? 0 : bytes_que_caben(linea.data(), linea.size(), ancho);
+            if (k == 0) k = linea.size();
+            f(linea.substr(0, k));
+            linea = linea.substr(k);
+            while (!linea.empty() && linea.front() == ' ') linea.remove_prefix(1);
+        } while (!linea.empty());
+        if (fin == std::string_view::npos) return;
+        t = t.substr(fin + 1);
+    }
+}
+
+// Renglón de arriba tras aplicar la rueda y Re/Av Pág, acotado a [0, total - visibles].
+int desplazar(const EntradaFrame& e, int actual, int total, int visibles) {
+    int s = actual - e.rueda * 2;
+    if (e.pagina_arriba) s -= visibles;
+    if (e.pagina_abajo) s += visibles;
+    return std::clamp(s, 0, std::max(0, total - visibles));
+}
+
 // Las cajas del 59.img de esta instalación están unos píxeles más abajo que en l1j-client.
 constexpr int X_CAJAS = 520, Y_USUARIO = 340, Y_CLAVE = 362, ANCHO_CAJA = 100;
 constexpr int X_BOTONES = 0x213;
@@ -78,6 +105,7 @@ void eventos_login(App& a, const Evento& e) {
     case Ev::NOTICIAS:
         a.noticias.assign(e.s[0]);
         a.mostrando_noticias = true;
+        a.scroll_texto = 0;
         break;
     default: break;
     }
@@ -105,9 +133,19 @@ void frame_login(App& a) {
         ui::texto_centrado(g, tr(Tx::UI_F2_ORIGINAL), 0, 456, 640, rgba(120, 110, 90));
     } else {
         g.gpu().dibujar(g.png(814), 0, 0, clave_orden(CAPA_FONDO, 0));
-        // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda.
-        for (size_t i = 0; i < a.intro.cantidad() && i < 18; ++i)
-            g.texto(a.intro.linea(i), 34, 59 + 12 * static_cast<int>(i), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
+        // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda: se parte en renglones que
+        // caben en el pergamino y se desplaza con la rueda o Re/Av Pág (si no, las últimas líneas se salen).
+        constexpr int X = 34, Y = 59, ANCHO = 190, VISIBLES = 16;
+        int total = 0;
+        for (size_t i = 0; i < a.intro.cantidad(); ++i) renglones(a.intro.linea(i), ANCHO, [&](std::string_view) { ++total; });
+        if (!a.mostrando_noticias) a.scroll_texto = desplazar(e, a.scroll_texto, total, VISIBLES);
+        int n = 0;
+        for (size_t i = 0; i < a.intro.cantidad(); ++i)
+            renglones(a.intro.linea(i), ANCHO, [&](std::string_view r) {
+                if (n >= a.scroll_texto && n < a.scroll_texto + VISIBLES)
+                    g.texto(r, X, Y + ALTO_GLIFO * (n - a.scroll_texto), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
+                ++n;
+            });
         ui::imagen(g, 59, 0x1a9, 0x138);
         g.texto_sombra(tr(Tx::LOGIN_SERVIDOR), static_cast<float>(x_servidor - 46), static_cast<float>(y_servidor), clave_orden(CAPA_UI_TEXTO, 0),
                        rgba(214, 190, 140));
@@ -165,15 +203,17 @@ void frame_login(App& a) {
         const int x = 150, y = 120, w = 340, h = 220;
         g.gpu().nivel_ventana(31);
         ui::recuadro(g, x, y, w, h, 255);
-        std::string_view t = a.noticias;
-        int fila = 0;
-        while (!t.empty() && fila < 14) {
-            size_t fin = t.find('\n');
-            std::string_view l = t.substr(0, std::min<size_t>(fin, 54));
-            g.texto(l, x + 10, y + 10 + fila * 13, clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
-            t = (fin == std::string_view::npos) ? std::string_view{} : t.substr(fin + 1);
-            ++fila;
-        }
+        // Noticias: partidas en renglones que caben en el recuadro; el alto deja sitio para el botón OK.
+        const int ancho = w - 20, visibles = (h - 40) / ALTO_GLIFO;
+        int total = 0;
+        renglones(a.noticias, ancho, [&](std::string_view) { ++total; });
+        a.scroll_texto = desplazar(e, a.scroll_texto, total, visibles);
+        int n = 0;
+        renglones(a.noticias, ancho, [&](std::string_view r) {
+            if (n >= a.scroll_texto && n < a.scroll_texto + visibles)
+                g.texto(r, x + 10, y + 10 + ALTO_GLIFO * (n - a.scroll_texto), clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
+            ++n;
+        });
         if (ui::boton_texto(g, e, "OK", x + w / 2 - 40, y + h - 26, 80, 18) || e.enter) {
             a.mostrando_noticias = false;
             enviar(a, cmd::lista_personajes(a.op));
