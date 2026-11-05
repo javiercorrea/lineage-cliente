@@ -45,7 +45,7 @@ void HiloRed::leer() {
         if (primero) {
             // INITPACKET: [opcode][u32 semilla][...] sin cifrar
             if (n < 5 || buf[0] != tabla_.cable_init) {
-                error_ = "El servidor no envió el paquete inicial esperado";
+                error_ = "El servidor no envió el paquete inicial esperado. Recibido " + std::to_string(buf[0]) + " vs Esperado " + std::to_string(tabla_.cable_init);
                 estado_ = EstadoRed::ERROR;
                 socket_.cerrar();
                 return;
