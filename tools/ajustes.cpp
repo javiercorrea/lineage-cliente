@@ -301,19 +301,26 @@ void pestana_personajes(Pantalla& p, Formulario& f) {
 
 // Barra de botones de abajo: guardar, recargar el archivo y salir.
 void barra_inferior(Pantalla& p, Formulario& f, const std::string& ruta, bool& salir) {
-    if (boton(p, 180, 440, 110, tr(Tx::AJ_GUARDAR))) {
+    // Tres botones centrados, cada uno tan ancho como su texto (mínimo 110 px): "Annuler les modifications" entra.
+    auto ancho_de = [](Tx clave) {
+        const std::string_view t = tr(clave);
+        return std::max(110, ancho_texto(t.data(), t.size()) + 24);
+    };
+    const int w1 = ancho_de(Tx::AJ_GUARDAR), w2 = ancho_de(Tx::AJ_REVERTIR), w3 = ancho_de(Tx::AJ_SALIR);
+    const int x1 = (LOGICO_W - (w1 + w2 + w3 + 20)) / 2, x2 = x1 + w1 + 10, x3 = x2 + w2 + 10;
+    if (boton(p, x1, 440, w1, tr(Tx::AJ_GUARDAR))) {
         const std::string error = volcar(f);
         if (!error.empty()) estado(p, error, true);
         else if (guardar_config_en(ruta, f.cfg)) estado(p, tr(Tx::AJ_GUARDADO), false);
         else estado(p, tr(Tx::AJ_NO_ESCRIBE), true);
     }
-    if (boton(p, 300, 440, 110, tr(Tx::AJ_REVERTIR))) {
+    if (boton(p, x2, 440, w2, tr(Tx::AJ_REVERTIR))) {
         f.cfg = cargar_config_de(ruta);
         cargar_campos(f);
         aplicar_idioma(f.cfg.idioma);
         estado(p, tr(Tx::AJ_RELEIDO), false);
     }
-    if (boton(p, 420, 440, 110, tr(Tx::AJ_SALIR))) salir = true;
+    if (boton(p, x3, 440, w3, tr(Tx::AJ_SALIR))) salir = true;
 }
 
 // --- Entrada y bucle ---------------------------------------------------------------------------

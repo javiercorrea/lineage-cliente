@@ -132,13 +132,13 @@ X(AJ_COMPENSAR, "Compensar ataque", "Attack compensation", "Compensar ataque", "
   "Compensation d'attaque")
 X(AJ_TEXTO_DANO, "Texto de daño", "Damage text", "Texto de dano", "Schadenstext", "Texte de dégâts")
 X(AJ_BARRA_PJ, "Barra HP/MP sobre el personaje", "HP/MP bar over the character", "Barra HP/MP sobre o personagem",
-  "HP/MP-Leiste über dem Charakter", "Barre PV/PM au-dessus du personnage")
+  "HP/MP-Leiste am Charakter", "Barre PV/PM sur le personnage")
 X(AJ_UI_SIMPLE, "Interfaz simple (F2)", "Simple interface (F2)", "Interface simples (F2)",
   "Einfache Oberfläche (F2)", "Interface simple (F2)")
 X(AJ_OPACIDAD, "Opacidad de ventanas (0-255)", "Window opacity (0-255)", "Opacidade das janelas (0-255)",
   "Fensterdeckkraft (0-255)", "Opacité des fenêtres (0-255)")
-X(AJ_LOGO, "Logo PNG del login (vacío = texto)", "Login PNG logo (empty = text)",
-  "Logo PNG do login (vazio = texto)", "PNG-Logo am Login (leer = Text)", "Logo PNG de connexion (vide = texte)")
+X(AJ_LOGO, "Logo PNG (vacío = texto)", "Login PNG logo (empty = text)",
+  "Logo PNG (vazio = texto)", "PNG-Logo (leer = Text)", "Logo PNG (vide = texte)")
 X(AJ_VENTANA_ANCHO, "Ventana: ancho", "Window: width", "Janela: largura", "Fenster: Breite", "Fenêtre : largeur")
 X(AJ_VENTANA_ALTO, "Ventana: alto", "Window: height", "Janela: altura", "Fenster: Höhe", "Fenêtre : hauteur")
 X(AJ_ZOOM, "Zoom (0 = automático)", "Zoom (0 = automatic)", "Zoom (0 = automático)", "Zoom (0 = automatisch)",

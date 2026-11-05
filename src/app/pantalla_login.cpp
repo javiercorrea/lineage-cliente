@@ -126,9 +126,14 @@ void frame_login(App& a) {
         g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
         dibujar_logo(a, 40, 24, 560, 190);
         ui::recuadro(g, 190, 222, 260, 138);
-        g.texto(tr(Tx::LOGIN_SERVIDOR), 206, y_servidor, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        g.texto(tr(Tx::LOGIN_CUENTA), 206, y_usuario, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        g.texto(tr(Tx::LOGIN_CLAVE), 206, y_clave, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        // Etiquetas pegadas a la izquierda de su caja (no en un x fijo): "Mot de passe" no toca el campo.
+        auto etiqueta = [&](Tx clave, int y) {
+            const std::string_view t = tr(clave);
+            g.texto(t, x_cajas - 10 - ancho_texto(t.data(), t.size()), y, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        };
+        etiqueta(Tx::LOGIN_SERVIDOR, y_servidor);
+        etiqueta(Tx::LOGIN_CUENTA, y_usuario);
+        etiqueta(Tx::LOGIN_CLAVE, y_clave);
         ui::texto_centrado(g, pie, 0, 440, 640, rgba(120, 110, 90));
         ui::texto_centrado(g, tr(Tx::UI_F2_ORIGINAL), 0, 456, 640, rgba(120, 110, 90));
     } else {

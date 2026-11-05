@@ -389,20 +389,15 @@ Identifiers and comments in the code are in Spanish.
 
 ## Known issues
 
-- **Text overflow since the interface font changed.** Departure Mono is 7 px per letter, against the original's 6, and
-  fixed layouts have not all been revised:
-  - the F1 help window: long lines leave the window and the columns overlap;
-  - the Options window: the last rows fall outside its frame, and "HP/MP bar over char" is tight;
-  - French: the editor's buttons overflow ("Annuler les modifications"), its logo label overlaps the field, and at login
-    "Mot de passe" touches its field.
-
-  Other in-game windows have not been reviewed one by one.
+- **Text overflow after the font change, partly fixed.** Departure Mono is 7 px per letter, against the original's 6.
+  The F1 help window, the Options window, the editor's buttons and labels, and the login labels were adjusted to fit
+  (the editor's labels are checked in `tests/test_textos.cpp`). The other in-game windows have not been reviewed one by one.
 - **Partial translation:** the in-game windows are not translated yet ([Languages](#languages)), and the translations
   have not been reviewed by native speakers.
 
 | F1 help | French editor |
 |---|---|
-| ![F1 help window with overflowing text](docs/capturas/readme_known_issue_help.png) | ![French settings editor with overflowing buttons](docs/capturas/readme_known_issue_editor_fr.png) |
+| ![F1 help window, fitted](docs/capturas/readme_fixed_help.png) | ![French settings editor, fitted](docs/capturas/readme_fixed_editor_fr.png) |
 
 ## Missing for Windows and Linux
 
