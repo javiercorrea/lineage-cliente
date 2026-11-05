@@ -27,6 +27,9 @@ constexpr int X_ETIQUETA = 32, X_CAMPO = 250, ANCHO_CAMPO = 340, Y_PRIMERA = 78,
 const u32 COLOR_ERROR = rgba(255, 120, 100), COLOR_OK = rgba(170, 230, 150);
 const std::vector<std::string> PESTANAS = {"Juego", "Interfaz", "Audio", "Servidores", "Personajes"};
 const std::vector<std::string> PROTOCOLOS = {"jp363", "tw380"};  // los que entiende el cliente (opcodes.cpp)
+// Idiomas del juego: nombre en su propio idioma, y el código que va a settings.ini ("" = el del sistema).
+const std::vector<std::string> IDIOMAS_NOMBRES = {"Automático (sistema)", "Español", "English", "Português", "Deutsch", "Français"};
+const std::vector<std::string> IDIOMAS_CODIGOS = {"", "es", "en", "pt", "de", "fr"};
 
 // --- Carpeta del juego: diálogo nativo. Es asíncrono; el callback corre en el hilo principal. ---
 std::string g_carpeta_elegida;
@@ -146,7 +149,7 @@ struct Pantalla {
     Pantalla(Graficos& g_, EntradaFrame& e_, SDL_Window* v) : g(g_), e(e_), ventana(v) {}
     int foco = -1;                    // campo de texto con foco (su número dentro de la pestaña)
     int campos = 0, campos_antes = 0;  // campos de texto de este frame y del anterior (para Tab)
-    bool abre_sv = false, abre_proto = false, abre_ini = false, abre_pj = false;  // desplegables abiertos
+    bool abre_sv = false, abre_proto = false, abre_ini = false, abre_pj = false, abre_idioma = false;  // desplegables abiertos
     std::string aviso;  // lo que pasó con el último botón; sale en la línea de abajo
     bool aviso_error = false;
 };
@@ -211,6 +214,11 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
     campo(p, fila(3), "Ventana: ancho", f.ancho, 4);
     campo(p, fila(4), "Ventana: alto", f.alto, 4);
     campo(p, fila(5), "Zoom (0 = automatico)", f.zoom, 2);
+    // Idioma del juego: "" = el del sistema. Se aplica al abrir el juego, no en vivo.
+    size_t idx = 0;
+    for (size_t i = 0; i < IDIOMAS_CODIGOS.size(); ++i)
+        if (IDIOMAS_CODIGOS[i] == c.idioma) idx = i;
+    if (lista(p, fila(6), "Idioma del juego", IDIOMAS_NOMBRES, idx, p.abre_idioma)) c.idioma = IDIOMAS_CODIGOS[idx];
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
