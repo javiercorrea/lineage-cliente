@@ -1,4 +1,5 @@
 #include <SDL3/SDL.h>
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <string_view>
@@ -110,14 +111,15 @@ Config leer_config(std::string_view t) {
     return c;
 }
 
-Config cargar_config() {
+Config cargar_config_de(const std::string& ruta) {
     std::vector<u8> ini;
-    Config c = leer_archivo(ruta_configuracion(), ini)
-                   ? leer_config({reinterpret_cast<const char*>(ini.data()), ini.size()})
-                   : leer_config({});
+    Config c = leer_archivo(ruta, ini) ? leer_config({reinterpret_cast<const char*>(ini.data()), ini.size()})
+                                       : leer_config({});
     if (!c.carpeta_juego.empty() && c.carpeta_juego.back() != '/') c.carpeta_juego += '/';
     return c;
 }
+
+Config cargar_config() { return cargar_config_de(ruta_configuracion()); }
 
 std::string_view valor_de_personaje(std::string_view opcion, std::string_view personaje) {
     while (!opcion.empty()) {
@@ -139,6 +141,31 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
     }
     ((nuevo += personaje) += ':') += valor;
     opcion = std::move(nuevo);
+}
+
+void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje) {
+    std::string nuevo;
+    std::string_view t = opcion;
+    while (!t.empty()) {
+        std::string_view par = t.substr(0, t.find(';'));
+        t = par.size() < t.size() ? t.substr(par.size() + 1) : std::string_view{};
+        if (!par.empty() && par.substr(0, par.find(':')) != personaje) (nuevo += par) += ';';
+    }
+    opcion = std::move(nuevo);
+}
+
+std::vector<std::string> personajes_con_datos(const Config& c) {
+    std::vector<std::string> nombres;
+    for (std::string_view opcion : {std::string_view{c.atajos}, std::string_view{c.barra}}) {
+        while (!opcion.empty()) {
+            std::string_view par = opcion.substr(0, opcion.find(';'));
+            opcion = par.size() < opcion.size() ? opcion.substr(par.size() + 1) : std::string_view{};
+            std::string_view nombre = par.substr(0, par.find(':'));
+            if (!nombre.empty() && std::none_of(nombres.begin(), nombres.end(), [&](const std::string& n) { return n == nombre; }))
+                nombres.emplace_back(nombre);
+        }
+    }
+    return nombres;
 }
 
 std::string escribir_config(const Config& c) {
@@ -173,8 +200,10 @@ std::string escribir_config(const Config& c) {
     return t;
 }
 
-bool guardar_config(const Config& c) {
-    FILE* f = std::fopen(ruta_configuracion().c_str(), "wb");
+bool guardar_config(const Config& c) { return guardar_config_en(ruta_configuracion(), c); }
+
+bool guardar_config_en(const std::string& ruta, const Config& c) {
+    FILE* f = std::fopen(ruta.c_str(), "wb");
     if (!f) return false;
     const std::string t = escribir_config(c);
     const bool ok = std::fwrite(t.data(), 1, t.size(), f) == t.size();
