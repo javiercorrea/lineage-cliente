@@ -1,6 +1,8 @@
 // Editor visual de settings.ini: formulario con pestañas (Juego, Interfaz, Audio, Servidores,
 // Personajes) dibujado con la misma UI simple del juego (recuadros, cajas de texto y desplegables de
 // lin_ui). Se usa antes de jugar; escribe el mismo archivo que lee el cliente. No necesita el juego.
+// Los textos salen del catálogo (i18n/textos.h) en el idioma del juego; al cambiar el selector de
+// idioma, el editor cambia de idioma en vivo.
 //
 // Uso: ajustes [--config=RUTA]   (por defecto, el settings.ini del usuario)
 // Tab: siguiente campo de texto. Enter: cierra el campo. Esc: sale sin guardar (en un desplegable, lo cierra).
@@ -9,10 +11,12 @@
 #include <algorithm>
 #include <cctype>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
 #include <memory>
 #include <string>
 #include <vector>
+#include "i18n/textos.h"
 #include "plataforma/rutas.h"
 #include "render/graficos.h"
 #include "ui/ui.h"
@@ -25,11 +29,25 @@ constexpr int VENTANA_W = 1280, VENTANA_H = 960;  // la lógica es 640×480, com
 constexpr int LOGICO_W = 640, LOGICO_H = 480;
 constexpr int X_ETIQUETA = 32, X_CAMPO = 250, ANCHO_CAMPO = 340, Y_PRIMERA = 78, PASO = 28;
 const u32 COLOR_ERROR = rgba(255, 120, 100), COLOR_OK = rgba(170, 230, 150);
-const std::vector<std::string> PESTANAS = {"Juego", "Interfaz", "Audio", "Servidores", "Personajes"};
 const std::vector<std::string> PROTOCOLOS = {"jp363", "tw380"};  // los que entiende el cliente (opcodes.cpp)
-// Idiomas del juego: nombre en su propio idioma, y el código que va a settings.ini ("" = el del sistema).
-const std::vector<std::string> IDIOMAS_NOMBRES = {"Automático (sistema)", "Español", "English", "Português", "Deutsch", "Français"};
+// Idiomas del juego: el código que va a settings.ini ("" = el del sistema). El nombre de cada uno se
+// escribe en su propio idioma, salvo la primera opción, que sigue el idioma activo.
 const std::vector<std::string> IDIOMAS_CODIGOS = {"", "es", "en", "pt", "de", "fr"};
+
+std::vector<std::string> pestanas() {
+    return {tr(Tx::AJ_PESTANA_JUEGO), tr(Tx::AJ_PESTANA_INTERFAZ), tr(Tx::AJ_PESTANA_AUDIO),
+            tr(Tx::AJ_PESTANA_SERVIDORES), tr(Tx::AJ_PESTANA_PERSONAJES)};
+}
+
+std::vector<std::string> idiomas_nombres() {
+    return {tr(Tx::AJ_IDIOMA_AUTO), "Español", "English", "Português", "Deutsch", "Français"};
+}
+
+// Pone el idioma del editor: el de settings.ini, o el del sistema si está vacío o no lo tenemos.
+void aplicar_idioma(const std::string& codigo) {
+    Idioma i = Idioma::EN;
+    fijar_idioma(idioma_de_codigo(codigo, i) ? i : idioma_del_sistema());
+}
 
 // --- Carpeta del juego: diálogo nativo. Es asíncrono; el callback corre en el hilo principal. ---
 std::string g_carpeta_elegida;
@@ -97,19 +115,19 @@ void cargar_campos(Formulario& f) {
 std::string volcar(Formulario& f) {
     Config& c = f.cfg;
     int n = 0;
-    if (!entero(f.ancho, 320, 7680, n)) return "Ventana: el ancho debe estar entre 320 y 7680";
+    if (!entero(f.ancho, 320, 7680, n)) return tr(Tx::AJ_ERR_ANCHO);
     c.ventana_ancho = n;
-    if (!entero(f.alto, 240, 4320, n)) return "Ventana: el alto debe estar entre 240 y 4320";
+    if (!entero(f.alto, 240, 4320, n)) return tr(Tx::AJ_ERR_ALTO);
     c.ventana_alto = n;
-    if (!entero(f.zoom, 0, 16, n)) return "Zoom: entre 0 (automatico) y 16";
+    if (!entero(f.zoom, 0, 16, n)) return tr(Tx::AJ_ERR_ZOOM);
     c.zoom = n;
-    if (!entero(f.opacidad, 0, 255, n)) return "Opacidad de ventanas: entre 0 y 255";
+    if (!entero(f.opacidad, 0, 255, n)) return tr(Tx::AJ_ERR_OPACIDAD);
     c.opacidad_ventanas = n;
-    if (!entero(f.musica, 0, 100, n)) return "Volumen de musica: entre 0 y 100";
+    if (!entero(f.musica, 0, 100, n)) return tr(Tx::AJ_ERR_MUSICA);
     c.volumen_musica = n;
-    if (!entero(f.efectos, 0, 100, n)) return "Volumen de efectos: entre 0 y 100";
+    if (!entero(f.efectos, 0, 100, n)) return tr(Tx::AJ_ERR_EFECTOS);
     c.volumen_efectos = n;
-    if (!entero(f.puerto, 1, 65535, n)) return "Servidor: el puerto debe estar entre 1 y 65535";
+    if (!entero(f.puerto, 1, 65535, n)) return tr(Tx::AJ_ERR_PUERTO);
     c.servidores[f.sv].puerto = static_cast<u16>(n);
     return "";
 }
@@ -124,7 +142,7 @@ void cambiar_servidor(Formulario& f, size_t nuevo) {
 
 void agregar_servidor(Formulario& f) {
     Servidor s;
-    s.nombre = "Nuevo";
+    s.nombre = tr(Tx::AJ_NUEVO_NOMBRE);
     s.host = "127.0.0.1";
     f.cfg.servidores.push_back(s);
     cambiar_servidor(f, f.cfg.servidores.size() - 1);
@@ -176,7 +194,7 @@ void campo(Pantalla& p, int y, std::string_view nombre, std::string& valor, size
 
 void si_no(Pantalla& p, int y, std::string_view nombre, bool& valor) {
     etiqueta(p, y, nombre);
-    if (ui::boton_texto(p.g, p.e, valor ? "Si" : "No", X_CAMPO, y, 90, 20)) valor = !valor;
+    if (ui::boton_texto(p.g, p.e, valor ? tr(Tx::AJ_SI) : tr(Tx::AJ_NO), X_CAMPO, y, 90, 20)) valor = !valor;
 }
 
 // Desplegable con etiqueta. Devuelve true si cambió el elegido.
@@ -194,36 +212,40 @@ int fila(int i) { return Y_PRIMERA + i * PASO; }
 
 void pestana_juego(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
-    campo(p, fila(0), "Carpeta del juego", c.carpeta_juego, 300);
-    if (boton(p, X_CAMPO, fila(1), 160, "Buscar carpeta...")) SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, p.ventana, nullptr, false);
-    if (carpeta_juego_valida(c.carpeta_juego)) texto(p, fila(2), "Carpeta correcta: estan los .pak del juego.", COLOR_OK);
-    else texto(p, fila(2), "Aqui no estan Sprite.pak, Text.pak y Tile.pak.", COLOR_ERROR);
-    si_no(p, fila(3), "Camara a saltos (F4)", c.camara_a_saltos);
-    si_no(p, fila(4), "Enter abre el chat", c.chat_con_enter);
-    si_no(p, fila(5), "Sombra en personajes", c.sombra_personajes);
-    si_no(p, fila(6), "Compensar ataque", c.compensar_ataque);
-    si_no(p, fila(7), "Texto de dano", c.texto_dano);
-    si_no(p, fila(8), "Barra HP/MP sobre el personaje", c.barra_personaje);
+    campo(p, fila(0), tr(Tx::AJ_CARPETA), c.carpeta_juego, 300);
+    if (boton(p, X_CAMPO, fila(1), 160, tr(Tx::AJ_BUSCAR))) SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, p.ventana, nullptr, false);
+    if (carpeta_juego_valida(c.carpeta_juego)) texto(p, fila(2), tr(Tx::AJ_CARPETA_OK), COLOR_OK);
+    else texto(p, fila(2), tr(Tx::AJ_CARPETA_MAL), COLOR_ERROR);
+    si_no(p, fila(3), tr(Tx::AJ_CAMARA), c.camara_a_saltos);
+    si_no(p, fila(4), tr(Tx::AJ_CHAT_ENTER), c.chat_con_enter);
+    si_no(p, fila(5), tr(Tx::AJ_SOMBRA), c.sombra_personajes);
+    si_no(p, fila(6), tr(Tx::AJ_COMPENSAR), c.compensar_ataque);
+    si_no(p, fila(7), tr(Tx::AJ_TEXTO_DANO), c.texto_dano);
+    si_no(p, fila(8), tr(Tx::AJ_BARRA_PJ), c.barra_personaje);
 }
 
 void pestana_interfaz(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
-    si_no(p, fila(0), "Interfaz simple (F2)", c.ui_simple);
-    campo(p, fila(1), "Opacidad de ventanas (0-255)", f.opacidad, 3);
-    campo(p, fila(2), "Logo PNG del login (vacio = texto)", c.logo, 200);
-    campo(p, fila(3), "Ventana: ancho", f.ancho, 4);
-    campo(p, fila(4), "Ventana: alto", f.alto, 4);
-    campo(p, fila(5), "Zoom (0 = automatico)", f.zoom, 2);
-    // Idioma del juego: "" = el del sistema. Se aplica al abrir el juego, no en vivo.
+    si_no(p, fila(0), tr(Tx::AJ_UI_SIMPLE), c.ui_simple);
+    campo(p, fila(1), tr(Tx::AJ_OPACIDAD), f.opacidad, 3);
+    campo(p, fila(2), tr(Tx::AJ_LOGO), c.logo, 200);
+    campo(p, fila(3), tr(Tx::AJ_VENTANA_ANCHO), f.ancho, 4);
+    campo(p, fila(4), tr(Tx::AJ_VENTANA_ALTO), f.alto, 4);
+    campo(p, fila(5), tr(Tx::AJ_ZOOM), f.zoom, 2);
+    // Idioma del juego. Se guarda con Guardar; el editor ya cambia de idioma al elegirlo.
+    const std::vector<std::string> nombres = idiomas_nombres();
     size_t idx = 0;
     for (size_t i = 0; i < IDIOMAS_CODIGOS.size(); ++i)
         if (IDIOMAS_CODIGOS[i] == c.idioma) idx = i;
-    if (lista(p, fila(6), "Idioma del juego", IDIOMAS_NOMBRES, idx, p.abre_idioma)) c.idioma = IDIOMAS_CODIGOS[idx];
+    if (lista(p, fila(6), tr(Tx::AJ_IDIOMA), nombres, idx, p.abre_idioma)) {
+        c.idioma = IDIOMAS_CODIGOS[idx];
+        aplicar_idioma(c.idioma);
+    }
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
-    campo(p, fila(0), "Musica (0-100)", f.musica, 3);
-    campo(p, fila(1), "Efectos (0-100)", f.efectos, 3);
+    campo(p, fila(0), tr(Tx::AJ_MUSICA), f.musica, 3);
+    campo(p, fila(1), tr(Tx::AJ_EFECTOS), f.efectos, 3);
 }
 
 void pestana_servidores(Pantalla& p, Formulario& f) {
@@ -231,63 +253,67 @@ void pestana_servidores(Pantalla& p, Formulario& f) {
     std::vector<std::string> nombres;
     for (const Servidor& s : c.servidores) nombres.push_back(s.nombre);
     size_t a_editar = f.sv;
-    if (lista(p, fila(0), "Servidor a editar", nombres, a_editar, p.abre_sv)) cambiar_servidor(f, a_editar);
-    if (boton(p, X_CAMPO, fila(1), 100, "Agregar")) agregar_servidor(f);
-    if (boton(p, X_CAMPO + 110, fila(1), 100, "Quitar")) quitar_servidor(f);
+    if (lista(p, fila(0), tr(Tx::AJ_SERVIDOR_EDITAR), nombres, a_editar, p.abre_sv)) cambiar_servidor(f, a_editar);
+    if (boton(p, X_CAMPO, fila(1), 100, tr(Tx::AJ_AGREGAR))) agregar_servidor(f);
+    if (boton(p, X_CAMPO + 110, fila(1), 100, tr(Tx::AJ_QUITAR))) quitar_servidor(f);
     Servidor& sv = c.servidores[f.sv];
-    campo(p, fila(2), "Nombre", sv.nombre, 32);
-    campo(p, fila(3), "Host (IP o nombre)", sv.host, 64);
-    campo(p, fila(4), "Puerto", f.puerto, 5);
+    campo(p, fila(2), tr(Tx::AJ_NOMBRE), sv.nombre, 32);
+    campo(p, fila(3), tr(Tx::AJ_HOST), sv.host, 64);
+    campo(p, fila(4), tr(Tx::AJ_PUERTO), f.puerto, 5);
     size_t proto = posicion(f.protocolos, sv.protocolo);
-    if (lista(p, fila(5), "Protocolo", f.protocolos, proto, p.abre_proto)) sv.protocolo = f.protocolos[proto];
-    campo(p, fila(6), "Cuenta (la ultima usada)", sv.usuario, 32);
+    if (lista(p, fila(5), tr(Tx::AJ_PROTOCOLO), f.protocolos, proto, p.abre_proto)) sv.protocolo = f.protocolos[proto];
+    campo(p, fila(6), tr(Tx::AJ_CUENTA), sv.usuario, 32);
     size_t entrar = c.servidor;
-    if (lista(p, fila(7), "Servidor al entrar", nombres, entrar, p.abre_ini)) c.servidor = entrar;
+    if (lista(p, fila(7), tr(Tx::AJ_SERVIDOR_ENTRAR), nombres, entrar, p.abre_ini)) c.servidor = entrar;
 }
 
 void pestana_personajes(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
     const std::vector<std::string> nombres = personajes_con_datos(c);
+    char buf[160];
     if (nombres.empty()) {
-        texto(p, fila(0), "Todavia no hay datos guardados por personaje.");
-        texto(p, fila(1), "Se crean al asignar hechizos a F5-F12 o a la barra Alt+1..0.");
+        texto(p, fila(0), tr(Tx::AJ_SIN_DATOS));
+        texto(p, fila(1), tr(Tx::AJ_SIN_DATOS_2));
     } else {
         f.personaje = std::min(f.personaje, nombres.size() - 1);
         size_t elegido = f.personaje;
-        if (lista(p, fila(0), "Personaje", nombres, elegido, p.abre_pj)) f.personaje = elegido;
+        if (lista(p, fila(0), tr(Tx::AJ_PERSONAJE), nombres, elegido, p.abre_pj)) f.personaje = elegido;
         const std::string& nombre = nombres[f.personaje];
-        texto(p, fila(1), valor_de_personaje(c.atajos, nombre).empty() ? "Atajos F5-F12: ninguno" : "Atajos F5-F12: guardados");
-        texto(p, fila(2), valor_de_personaje(c.barra, nombre).empty() ? "Barra Alt+1..0: ninguna" : "Barra Alt+1..0: guardada");
-        if (boton(p, X_CAMPO, fila(3), 160, "Quitar atajos F5-F12")) {
+        texto(p, fila(1), valor_de_personaje(c.atajos, nombre).empty() ? tr(Tx::AJ_ATAJOS_NO) : tr(Tx::AJ_ATAJOS_SI));
+        texto(p, fila(2), valor_de_personaje(c.barra, nombre).empty() ? tr(Tx::AJ_BARRA_NO) : tr(Tx::AJ_BARRA_SI));
+        if (boton(p, X_CAMPO, fila(3), 160, tr(Tx::AJ_QUITAR_ATAJOS))) {
             quitar_valor_de_personaje(c.atajos, nombre);
-            estado(p, nombre + ": atajos quitados (al pulsar Guardar)", false);
+            std::snprintf(buf, sizeof buf, tr(Tx::AJ_ATAJOS_QUITADOS), nombre.c_str());
+            estado(p, buf, false);
         }
-        if (boton(p, X_CAMPO + 170, fila(3), 160, "Quitar barra")) {
+        if (boton(p, X_CAMPO + 170, fila(3), 160, tr(Tx::AJ_QUITAR_BARRA))) {
             quitar_valor_de_personaje(c.barra, nombre);
-            estado(p, nombre + ": barra quitada (al pulsar Guardar)", false);
+            std::snprintf(buf, sizeof buf, tr(Tx::AJ_BARRA_QUITADA), nombre.c_str());
+            estado(p, buf, false);
         }
     }
-    texto(p, fila(5), c.ventanas.empty() ? "Posiciones de ventanas: por defecto" : "Posiciones de ventanas: guardadas");
-    if (boton(p, X_CAMPO, fila(6), 220, "Restablecer posiciones")) {
+    texto(p, fila(5), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
+    if (boton(p, X_CAMPO, fila(6), 220, tr(Tx::AJ_RESTABLECER))) {
         c.ventanas.clear();
-        estado(p, "Posiciones de ventanas restablecidas (al pulsar Guardar)", false);
+        estado(p, tr(Tx::AJ_VENTANAS_RESET), false);
     }
 }
 
 // Barra de botones de abajo: guardar, recargar el archivo y salir.
 void barra_inferior(Pantalla& p, Formulario& f, const std::string& ruta, bool& salir) {
-    if (boton(p, 180, 440, 110, "Guardar")) {
+    if (boton(p, 180, 440, 110, tr(Tx::AJ_GUARDAR))) {
         const std::string error = volcar(f);
         if (!error.empty()) estado(p, error, true);
-        else if (guardar_config_en(ruta, f.cfg)) estado(p, "Guardado. El juego lo usa al arrancar.", false);
-        else estado(p, "No se pudo escribir el archivo de ajustes.", true);
+        else if (guardar_config_en(ruta, f.cfg)) estado(p, tr(Tx::AJ_GUARDADO), false);
+        else estado(p, tr(Tx::AJ_NO_ESCRIBE), true);
     }
-    if (boton(p, 300, 440, 110, "Revertir")) {
+    if (boton(p, 300, 440, 110, tr(Tx::AJ_REVERTIR))) {
         f.cfg = cargar_config_de(ruta);
         cargar_campos(f);
-        estado(p, "Se volvieron a leer los ajustes guardados.", false);
+        aplicar_idioma(f.cfg.idioma);
+        estado(p, tr(Tx::AJ_RELEIDO), false);
     }
-    if (boton(p, 420, 440, 110, "Salir")) salir = true;
+    if (boton(p, 420, 440, 110, tr(Tx::AJ_SALIR))) salir = true;
 }
 
 // --- Entrada y bucle ---------------------------------------------------------------------------
@@ -344,18 +370,20 @@ int main(int argc, char** argv) {
     const std::string ruta = ruta_de_argumentos(argc, argv);
     std::string captura;
     size_t pestana = 0;
+    const size_t cantidad_pestanas = pestanas().size();
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a.rfind("--captura=", 0) == 0) captura = a.substr(10);
-        if (a.rfind("--pestana=", 0) == 0) pestana = std::min<size_t>(std::atoi(a.c_str() + 10), PESTANAS.size() - 1);
+        if (a.rfind("--pestana=", 0) == 0) pestana = std::min<size_t>(std::atoi(a.c_str() + 10), cantidad_pestanas - 1);
     }
 
     Formulario f;
     f.cfg = cargar_config_de(ruta);
     cargar_campos(f);
+    aplicar_idioma(f.cfg.idioma);  // antes de crear la ventana: el título también sale en el idioma
 
     if (!SDL_Init(SDL_INIT_VIDEO)) return 1;
-    SDL_Window* v = SDL_CreateWindow("Ajustes del cliente Lineage", VENTANA_W, VENTANA_H,
+    SDL_Window* v = SDL_CreateWindow(tr(Tx::AJ_TITULO_VENTANA), VENTANA_W, VENTANA_H,
                                      SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     Gpu gpu;
     if (!v || !gpu.iniciar(v, LOGICO_W, LOGICO_H)) {
@@ -395,8 +423,8 @@ int main(int argc, char** argv) {
         if (g_carpeta_nueva) {  // resultado de "Buscar carpeta..."
             g_carpeta_nueva = false;
             const std::string nueva = g_carpeta_elegida + "/";
-            if (!g_carpeta_elegida.empty() && carpeta_juego_valida(nueva)) estado(p, "Carpeta del juego cambiada.", false);
-            else if (!g_carpeta_elegida.empty()) estado(p, "Esa carpeta no tiene los .pak del juego.", true);
+            if (!g_carpeta_elegida.empty() && carpeta_juego_valida(nueva)) estado(p, tr(Tx::AJ_CARPETA_CAMBIADA), false);
+            else if (!g_carpeta_elegida.empty()) estado(p, tr(Tx::AJ_CARPETA_NO), true);
             if (carpeta_juego_valida(nueva)) f.cfg.carpeta_juego = nueva;
         }
 
@@ -405,10 +433,11 @@ int main(int argc, char** argv) {
         if (entrada.clic) p.foco = -1;  // un clic fuera de un campo le quita el foco
         if (entrada.tab && p.campos_antes > 0) p.foco = (p.foco + 1) % p.campos_antes;
 
+        const std::vector<std::string> nombres_pestanas = pestanas();
         gpu.rectangulo(0, 0, LOGICO_W, LOGICO_H, clave_orden(CAPA_FONDO, 0), rgba(24, 20, 16));
-        ui::texto_centrado(*g, "AJUSTES DEL CLIENTE", 0, 10, LOGICO_W, ui::COLOR_TITULO);
-        for (size_t i = 0; i < PESTANAS.size(); ++i) {
-            const std::string t = i == pestana ? "> " + PESTANAS[i] + " <" : PESTANAS[i];
+        ui::texto_centrado(*g, tr(Tx::AJ_TITULO), 0, 10, LOGICO_W, ui::COLOR_TITULO);
+        for (size_t i = 0; i < nombres_pestanas.size(); ++i) {
+            const std::string t = i == pestana ? "> " + nombres_pestanas[i] + " <" : nombres_pestanas[i];
             if (ui::boton_texto(*g, entrada, t, 16 + static_cast<int>(i) * 122, 34, 118, 22)) {
                 pestana = i;
                 p.foco = -1;
