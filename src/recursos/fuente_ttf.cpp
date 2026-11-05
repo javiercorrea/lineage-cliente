@@ -14,6 +14,9 @@ namespace {
 // (0,8 em sobre la base) y el descendente (0,2 em bajo ella) tienen que caber: 13 px lo logra.
 // shortcut: a 16 px los descendentes se recortan; si se cambia el alto de celda, revisar este valor.
 constexpr float PX_EM = 13.0f;
+// Cobertura a partir de la cual un píxel se enciende (0–255). Bajo, la letra se engorda; alto, se
+// adelgaza. Es lo que da el aspecto de píxel duro de la fuente original.
+constexpr unsigned char UMBRAL_TRAZO = 128;
 
 struct Ttf {
     stbtt_fontinfo info{};
@@ -77,8 +80,9 @@ bool rasterizar_ttf(u32 cp, ImagenRGBA& salida) {
         for (int x = 0; x < w; ++x) {
             const int cx = x0 + x;
             if (cx < 0 || cy < 0 || cx >= ancho || cy >= ALTO_GLIFO) continue;
-            const u32 a = alfa[static_cast<size_t>(y) * w + x];
-            // Premultiplicado (el blend de la GPU lo es): blanco con alfa a es a en los cuatro bytes.
+            // Sin suavizado: como la fuente original, cada píxel está encendido o apagado.
+            const u32 a = alfa[static_cast<size_t>(y) * w + x] >= UMBRAL_TRAZO ? 255u : 0u;
+            // Premultiplicado (el blend de la GPU lo es): con a = 0 o 255 es blanco opaco o transparente.
             salida.px[static_cast<size_t>(cy) * ancho + cx] = a * 0x01010101u;
         }
     }
