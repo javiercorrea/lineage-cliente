@@ -37,9 +37,13 @@ Para pruebas sin tocar el `settings.ini` del usuario, usar `LIN_CONFIG=/ruta/pro
 
 ## Estado
 
-- **Compatibilidad de protocolo verificada por código** (handshake, cifrado y opcodes coinciden con
-  `jp363`). Lo que falta es la verificación **en vivo** de los cuerpos de los paquetes (login, mover,
-  chat, combate, tienda, estados…), con la misma disciplina de "pendiente de probar": `jp363` se modeló
-  sobre l1j-jp (japonés) y esta rama es l1j-en, así que algún formato de cuerpo podría diferir.
+- **Compatibilidad verificada en vivo.** Con el perfil `jp363` el cliente conecta al 2001, hace el
+  handshake, loguea (cuenta nueva autocreada), crea personaje y **entra al juego**: mapa, posición,
+  estado del personaje, NPCs (nombres en inglés OK), monstruos, HUD y minimapa, todo correcto
+  (`docs/capturas/classic363_en_juego.png`). El handshake, el cifrado y los opcodes ya coincidían por
+  código.
+- **Pendiente de probar en vivo** (misma disciplina que el resto): los cuerpos de paquetes de funciones
+  más allá del arranque — tienda (compra/venta), estados alterados, correo/tablón, clan/guerra — porque
+  `jp363` se modeló sobre l1j-jp (japonés) y esta rama es l1j-en; algún formato podría diferir.
 - Para volver a GM una cuenta: igual que el s3ep1 pero con el socket de la base 3310
   (`--socket=servidor_classic363/datos/my.sock -uroot l1jdb`, `UPDATE accounts SET access_level=200 ...`).
