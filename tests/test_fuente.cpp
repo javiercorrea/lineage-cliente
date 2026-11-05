@@ -30,6 +30,11 @@ TEST_CASE("glifos_de_texto: un carácter UTF-8 es un solo glifo TTF") {
     CHECK(g[0].ancho == ancho_ttf(0xF1));
 }
 
+TEST_CASE("ancho_ttf: el avance de una letra es el de la fuente original (6 px)") {
+    CHECK(ancho_ttf('a') == ANCHO_GLIFO_ASCII);
+    CHECK(ancho_ttf('M') == ANCHO_GLIFO_ASCII);
+}
+
 TEST_CASE("ancho_texto: suma los avances de cada carácter") {
     const std::string t = "ñaé";
     CHECK(ancho_texto(t.data(), t.size()) == ancho_ttf(0xF1) + ancho_ttf('a') + ancho_ttf(0xE9));
