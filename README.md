@@ -1,238 +1,425 @@
-# Cliente Lineage (C++20 + SDL3)
+# Lineage Client (C++20 + SDL3)
 
-Cliente nuevo de Lineage 1 que usa los recursos de la instalación original (abandonware) y habla
-el protocolo L1J. Implementa los **entregables 1 a 10** del plan (`docs/analisis/PLAN_CLIENTE.md`):
-login, selección y creación de personaje, entrar al juego y moverse, chat y estado, combate,
-inventario e ítems, hechizos y polymorph, NPCs y comercio, magia, lo social (grupo, intercambio, clan) y
-el mundo completo (música por zona, sonidos, clima y portales). Por ahora se probó
-**solo en macOS** (Apple Silicon); los puntos que faltan para Windows y Linux están marcados en el
-código con `MULTIPLATAFORMA` (ver la sección final).
+A new client for Lineage 1. It reads the resources of an original game installation (abandonware) and
+speaks the L1J protocol. It implements **deliverables 1 to 10** of the plan
+(`docs/analisis/PLAN_CLIENTE.md`): login, character selection and creation, moving in the world, chat
+and status, combat, inventory and items, spells and polymorph, NPCs and trading, magic, social features
+(party, trade, clan), and the complete world (zone music, sounds, weather and portals). Houses, castles
+and sieges, the bulletin board and mail, and player shops are also in.
 
-Estado detallado y evidencia de cada entregable: **[ENTREGABLES.md](ENTREGABLES.md)**.
-Descubrimientos (formatos, tiempos, dibujo, servidor) y decisiones de diseño: **[docs/DESCUBRIMIENTOS.md](docs/DESCUBRIMIENTOS.md)**.
-Para trabajar en el proyecto (personas o agentes, también en paralelo): **[AGENTS.md](AGENTS.md)**.
+So far it has been tested **only on macOS** (Apple Silicon). What is missing for Windows and Linux is
+marked in the code with `MULTIPLATAFORMA` and listed [below](#missing-for-windows-and-linux).
 
-![Juego](docs/capturas/3_juego.png)
+![The game, with the simple interface](docs/capturas/readme_game.png)
 
-## Requisitos (macOS)
+| Simple interface (default) | Original interface (F2) |
+|---|---|
+| ![Status and inventory windows](docs/capturas/readme_windows.png) | ![The original panel](docs/capturas/readme_game_original.png) |
+| ![Login, simple interface](docs/capturas/readme_login.png) | ![Login, original interface](docs/capturas/readme_login_original.png) |
 
-- Xcode Command Line Tools (Apple Clang con C++20)
-- CMake ≥ 3.25 y Ninja: `brew install cmake ninja`
-- La instalación del juego (la carpeta con `Sprite*.pak`, `Tile.pak`, `Text.pak`, `map/`, `font/`)
+| Character selection | Character creation |
+|---|---|
+| ![Character selection](docs/capturas/readme_character_select.png) | ![Character creation](docs/capturas/readme_character_create.png) |
 
-SDL3 3.4.18, stb_image, dr_mp3 y doctest se descargan solos en la primera configuración (FetchContent,
-versiones fijas). No hace falta instalar nada más.
+More documentation, mostly in Spanish, the working language of the project:
 
-## Compilar y probar
+- **[ENTREGABLES.md](ENTREGABLES.md):** detailed status and evidence for each deliverable.
+- **[docs/DESCUBRIMIENTOS.md](docs/DESCUBRIMIENTOS.md):** what was learned about formats, timing,
+  drawing and the servers, and the design decisions that followed.
+- **[AGENTS.md](AGENTS.md):** how to work on the project, for people and agents, also in parallel.
+
+## Requirements (macOS)
+
+- Xcode Command Line Tools (Apple Clang with C++20)
+- CMake 3.25 or newer, and Ninja: `brew install cmake ninja`
+- The game installation (the folder with `Sprite*.pak`, `Tile.pak`, `Text.pak`, `map/`, `font/`)
+
+SDL3 3.4.18, stb (`stb_image`, `stb_truetype`), dr_mp3 and doctest are downloaded on the first configure
+(FetchContent, pinned versions). Nothing else needs installing.
+
+## Build and test
 
 ```sh
 cd cliente
-cmake --preset debug          # o release / debug-asan
+cmake --preset debug          # or release / debug-asan
 cmake --build --preset debug
-LINEAGE_DIR="/ruta/al/juego" ctest --preset debug   # sin LINEAGE_DIR se saltan los tests con recursos
+LINEAGE_DIR="/path/to/game" ctest --preset debug   # without LINEAGE_DIR, tests that need resources are skipped
 ```
 
-## Servidor local de pruebas
+| Program | What it is |
+|---|---|
+| `build/<preset>/lineage` | The game |
+| `build/<preset>/ajustes` | [Settings editor](#settings-editor) |
+| `build/<preset>/explorador` | [Resource explorer](#resource-explorer) |
+| `build/<preset>/lin_tests` | Tests |
 
-Todo el desarrollo se hace contra un servidor L1J-JP 3.63c local (puerto 2000); no se toca el
-servidor privado.
+## Local test servers
+
+All development and testing happens against local servers; the real private server is never touched.
+Each server has `instalar.sh` (once), `arrancar.sh` and `detener.sh` in its own folder.
+
+| Folder | Server | Port | Protocol |
+|---|---|---|---|
+| `servidor_local/` | L1J-JP 3.63c (the reference for the tests) | 2000 | `jp363` |
+| `servidor_classic363/` | l1j-en/classic, 3.63 branch ([notes](servidor_classic363/README.md)) | 2001 | `jp363` |
+| `servidor_classic/` | l1j-en/classic (3.0 English / US 2009) | 2000 | `s3ep1` |
+| `servidor_380/` | L1JGO-Whale (3.80C) | 7001 | `tw380` |
 
 ```sh
-servidor_local/instalar.sh    # una vez: baja el servidor, crea la base en MariaDB (puerto 3307)
-servidor_local/arrancar.sh    # arranca MariaDB y el servidor (Ctrl+C para detenerlo)
-servidor_local/detener.sh     # detiene MariaDB
+servidor_local/instalar.sh    # once: downloads the server and creates the database in MariaDB (port 3307)
+servidor_local/arrancar.sh    # starts MariaDB and the server (Ctrl+C to stop)
+servidor_local/detener.sh     # stops MariaDB
 ```
 
-`instalar.sh` corrige lo necesario para que ese servidor (de 2013) funcione con Java y MariaDB
-actuales:
+`servidor_local/instalar.sh` fixes what that 2013 server needs to work with current Java and MariaDB:
 
-- reemplaza el conector MySQL 5.1.25 por la versión 5.1.49;
-- agrega JAXB, que ya no viene con Java;
-- usa `zeroDateTimeBehavior=round` para las fechas `0000-00-00`;
-- arranca con idioma inglés y zona horaria `Asia/Tokyo`;
-- arregla filas inválidas de la base (`corregir_db.sql`).
+- replaces the MySQL 5.1.25 connector with version 5.1.49;
+- adds JAXB, no longer shipped with Java;
+- uses `zeroDateTimeBehavior=round` for `0000-00-00` dates;
+- starts with English language and the `Asia/Tokyo` time zone;
+- fixes invalid database rows (`corregir_db.sql`).
 
-Las cuentas se crean solas al primer login.
+Accounts are created automatically on first login (user = password).
 
-`herramientas/prueba_login.py` es un cliente mínimo en Python: recorre login, lista, creación de
-personaje y entrada al juego, e imprime cada paquete. Sirve para depurar el servidor o el protocolo.
+`herramientas/prueba_login.py` is a minimal Python client: it goes through login, character list,
+creation and entering the game, printing each packet. It helps debugging the server or the protocol.
 
-## Ejecutar
+## Running
 
 ```sh
 build/debug/lineage
 ```
 
-- **Sin parámetros:** todo sale de `settings.ini`
-  (`~/Library/Application Support/Lineage/LineageCliente/settings.ini`) y de la interfaz.
-- **Editor de ajustes:** `build/<preset>/ajustes` abre un formulario con pestañas (Juego, Interfaz,
-  Audio, Servidores, Personajes) para editar `settings.ini` sin texto plano. Usa la misma UI simple
-  del juego y escribe el mismo archivo. `--config=RUTA` edita otro archivo.
-- **Carpeta del juego:** en el primer arranque se elige con el diálogo nativo y queda guardada
-  (`juego=`).
-- **Servidores:** se eligen en el menú del login. Hay uno por línea en `settings.ini`:
+The client takes **no command-line parameters**: everything comes from `settings.ini`
+(`~/Library/Application Support/Lineage/LineageCliente/settings.ini`) and from the interface.
+
+- **Game folder:** chosen with the native dialog on first launch, then saved (`juego=`).
+- **Servers:** chosen in the login menu. There is one per line in `settings.ini`:
 
   ```ini
-  servidor=Local de pruebas|127.0.0.1|2000|jp363|cuenta
-  servidor=Otro|play.ejemplo.com|2000|s3ep1|
-  servidor_elegido=Local de pruebas
+  servidor=Local test|127.0.0.1|2000|jp363|account
+  servidor=Other|play.example.com|2000|s3ep1|
+  servidor_elegido=Local test
   ```
 
-  Los campos son nombre, host, puerto, versión de protocolo (`jp363` o `tw380`, el 3.80C de Taiwán) y
-  la última cuenta usada en ese servidor.
-  La clave no se guarda. Un `settings.ini` viejo (`host=`, `puerto=`...) se convierte solo.
-- **El tamaño de la ventana** se guarda al cerrar (`ventana=AxB`).
-- **Controles en el juego:** mantener el clic izquierdo para caminar hacia el puntero, o las flechas
-  (combinadas dan las diagonales).
-- **Atacar:** mantener el clic sobre un monstruo (o cualquier personaje). Si está lejos, el personaje camina hacia él; al lado, ataca con el ritmo de su animación de ataque. Soltar el clic deja de atacar. El objetivo se marca con el nombre en amarillo.
-- **Atacar** (ajuste del entregable 6): el clic ataca solo a monstruos (tipo de gfx 10). A otros personajes y NPCs, solo con Ctrl/⌘ apretado.
-- **Al morir:** aparece un aviso con el botón **Restart**, que manda `C_Restart`.
-- **Alt+I:** abre y cierra el inventario.
-  - Muestra los íconos originales (`N.tbt`), el nombre al pasar el mouse, los equipados con una "E" y el peso.
-  - Doble clic usa el ítem: equipa o quita armas y armaduras, bebe pociones.
-  - Arrastrar un ítem fuera de la ventana lo suelta al suelo.
-  - **Detalle de un ítem:** al pasar el mouse se ve el nombre y, si está identificado, sus atributos (daño o defensa, material, peso, encantamiento, clases que lo usan, bonos de atributos, MR, resistencias...). Si no lo está, dice "Unidentified".
-  - **Pergaminos que se usan sobre otro ítem** (identificar, encantar arma o armadura): doble clic en el pergamino y después clic en el ítem; Esc cancela.
-  - **Basurero** (abajo a la derecha del inventario): arrastrar un ítem encima lo elimina, para lo que no se puede soltar ni vender. Siempre pregunta antes: cuántos de una pila, o que confirme si es uno. El servidor rechaza lo equipado y lo que no se puede borrar.
-- **Techos y árboles:** al entrar a una casa o pasar detrás de un árbol, lo que tapa al personaje se vuelve translúcido y se ve su silueta.
-- **Puertas:** clic sobre una puerta para abrirla o cerrarla (se camina hasta ella). Las cerradas no se pueden atravesar.
-- **Dar ítems:** arrastrar un ítem del inventario sobre un NPC o una mascota se lo da; de una pila, pregunta cuántos.
-- **Mascotas e invocaciones:** su lista va a la izquierda de la barra de atajos, con la vida. Clic en el nombre abre su menú de órdenes (atacar, defender, quedarse...); "Bag" muestra su inventario, donde un clic usa o equipa el ítem. Con "Attack", el próximo clic elige su objetivo.
-- **Reparar armas:** en un herrero, el vínculo de reparar muestra las armas dañadas con su costo; un clic repara.
-- **Marcadores:** "/bookmark nombre" guarda el lugar (si el mapa lo permite) y "/delbookmark nombre" lo borra. Con marcadores, el pergamino de teleport y Teleport preguntan el destino.
-- **Cambiar de personaje:** Exit > "Character select".
-- **Estados alterados:** envenenado (verde), congelado (gris), ciego (pantalla negra salvo el propio personaje) y un aviso arriba si está paralizado, dormido, aturdido o atado (no se puede mover ni actuar).
-- **Monstruos sin sprite:** los que faltan en esta instalación se ven como un bloque magenta y se atacan con el clic como cualquier otro.
-- **Atacar:** clic sobre un monstruo y mantener: el personaje camina hasta él y lo ataca aunque la cámara se mueva y el puntero ya no esté encima (el objetivo se fija al apretar). Soltar deja de atacar, salvo con **A** (con el chat cerrado): sigue atacando al objetivo, o al monstruo bajo el puntero, hasta que muera, se camine con las flechas o se haga otro clic.
-- **Forzar ataque:** Ctrl+clic (o ⌘+clic) ataca a un NPC o a otro jugador. **Modo PK:** "/pk" en el chat lo activa o desactiva (indicador rojo "PK" arriba a la derecha): un clic sobre otro jugador lo ataca sin Ctrl. Es del cliente; el servidor decide si el ataque vale (en zonas seguras no hace daño).
-- **Ítems del suelo:** clic sobre un ítem para recogerlo; si está lejos, el personaje camina hasta él. El nombre aparece al pasar el mouse por encima.
-- **Chat:**
-  - **Enter abre la línea del chat** (abajo dice "Enter: chat"); se escribe y Enter envía y la cierra; Esc la vacía y la cierra. Mientras está cerrada, las teclas son acciones (1–0 usan la barra). En Options, "Chat: Always typing" vuelve a escribir siempre, con la barra en Alt+número (`chat_con_enter=0` en `settings.ini`);
-  - rueda del mouse sobre el panel, o Re Pág / Av Pág, para ver mensajes anteriores;
-  - prefijos: `!` grito, `&` global, `$` comercio, `@` clan, `#` grupo, `%` alianza, `*` grupo de chat, `"nombre texto` susurro.
-- **Alt+C:** abre y cierra la ventana de estado (a la izquierda del inventario si los dos están abiertos).
-- **Vista del juego:** se adapta a la ventana. Si la agrandas o la estiras se ve más mapa, y el panel queda centrado abajo. Las pantallas de login y personajes siguen en 640×480.
-- **Ctrl/⌘ + y Ctrl/⌘ −:** acercan y alejan el zoom (escala entera; alejarlo muestra más mapa).
-- **Ctrl/⌘ 0:** vuelve al zoom automático, el mayor con el que entran 640×480.
-- **Zoom guardado:** queda en `settings.ini` (`zoom=`, 0 = automático).
-- **F2:** cambia la UI del juego entre la simple (por defecto: franja de texto con chat, entrada y barras ASCII, y ventana de estado de texto) y el panel original con sus imágenes. Se guarda en `settings.ini` (`ui_simple=1/0`). También vale para el login, la selección y la creación de personaje: con la UI simple son recuadros de texto (la lista de todos los personajes con sus datos, borrar pide confirmación).
-- **Logo propio en el login (UI simple):** `logo=mi_logo.png` en `settings.ini`: un PNG con transparencia de hasta 2048×2048, ruta absoluta o relativa a la carpeta de `settings.ini`. Se achica para entrar en 560×190 (mejor darlo de ese tamaño, porque se escala sin suavizado). Sin logo, o si no se puede leer, se muestra el título en texto.
-- **F3:** fps, CPU por frame (promedio, peor frame y decodificación), allocations del peor frame, instancias, llamadas de dibujo, objetos y posición.
-- **F4:** cambia la cámara entre "suave" (por defecto: sigue la posición continua y el personaje queda centrado) y "a saltos" (como el original: sigue los frames de caminar, de a ¼ de celda). Se guarda en `settings.ini` (`camara_a_saltos=0/1`).
-- **1..0 (o Alt+1..Alt+0):** barra de atajos (abajo al centro). Se arrastra un hechizo (desde Alt+S) o un ítem (desde Alt+I) a un casillero; clic, el número o Alt+número lo usa, clic derecho lo vacía, arrastrar entre casilleros los mueve. Clic del medio (rueda) sobre un casillero lo elige (marco dorado) y el botón del medio sobre un personaje o monstruo usa ahí el hechizo elegido; mantenido, lo repite cada vez que termina la espera (un ítem, cada medio segundo). Los casilleros de hechizos (barra y F5–F12) muestran la espera hasta el próximo hechizo: una sombra que se vacía y los segundos que faltan. Se guarda por personaje (`barra=` en `settings.ini`).
-- **Clic sobre un NPC:** camina hasta él y le habla (su página aparece arriba a la izquierda; Escape la cierra). En la tienda o el almacén: clic suma 1, Shift+clic 10, clic derecho resta; OK confirma.
-- **Ventanas:** se mueven arrastrando la barra de título (la posición se guarda). Al abrirse buscan un lugar libre para no tapar a las otras; si se superponen, el clic trae una adelante y solo esa recibe el mouse. Se abren también con los botones: los del panel original o los de texto a la derecha del chat (UI simple). **Options** tiene la interfaz, la cámara, la sombra, la opacidad de las ventanas, el zoom y "Reset" de posiciones.
-- **Aprender magia:** en el maestro de magia (Gereng en Talking Island...), "Learn magic" abre la lista: clic elige y OK compra. Los libros de magia se usan con doble clic dentro de un templo.
-- **Alt+S:** ventana de hechizos (clic lanza; con el puntero sobre un hechizo, F5–F12 lo asigna a esa tecla).
-- **F5–F12:** lanzan el hechizo asignado (se guardan por personaje en `settings.ini`, `atajos=`). Un hechizo con objetivo espera el clic sobre el objetivo; clic derecho cancela.
-- **Social** (botón, o el del panel original): grupo, intercambio y clan con botones y ayuda. Las preguntas del servidor (invitaciones, pedidos de intercambio o de entrar al clan) aparecen con **Yes/No** (Enter/Escape).
-- **Intercambio:** hay que estar al lado del otro y mirándolo. Se arrastra un ítem del inventario a la ventana (o doble clic con el intercambio abierto), y OK cuando los dos están conformes.
-- **Comandos de chat:** `/invite Nombre`, `/party`, `/leave`, `/kick Nombre` (grupo); `/trade`; `/clan Nombre` (crear, príncipe con 30000 adena), `/join` (frente a un príncipe), `/pledge`, `/leaveclan`, `/banclan Nombre`, `/emblem` (sube un emblema de muestra); `/title [Nombre] Título`; `/who [Nombre]`; `/exclude Nombre` (bloquea o desbloquea; sin nombre, la lista); `/buddy`, `/addbuddy Nombre`, `/delbuddy Nombre` (amigos); `/chatparty`, `/chatoutparty`, `/chatbanish Nombre` (grupo de chat). Lo que no es un comando va al chat.
-- **Tienda de jugadores** (en las salas del mercado): clic en un vendedor (sentado, con el título encima) muestra lo que vende y lo que compra; clic en una línea pregunta cuántos. `/shop Título` arma la propia: clic en un ítem del inventario pide el precio; "Open" la abre y `/shop` otra vez la cierra.
-- **Tablón de los pueblos:** clic en el tablón: los temas, leerlos, "Write" publica (300 adena) y el autor borra el suyo. **Correo:** `/mail` (bandejas Inbox, Clan y Saved; "Write" a un personaje por 50 adena o a todo el clan).
-- **Grupo:** a la izquierda, a media altura, la lista de los otros miembros con su vida; el líder con "*".
-- **Nombres:** azul con alineamiento ≥ 500, rojo con ≤ −500; el título arriba y el emblema del clan a la izquierda.
-- **F1:** ayuda con todas las teclas.
-- **Sonido:** música por zona, efectos de las animaciones y ambiente. El volumen de música y efectos está en **Options**.
-- **Portales:** para entrar a una mazmorra o subir una escalera, caminar hacia la entrada con las flechas o hacer clic justo sobre ella.
-- **Shift+F4:** oscurece a los personajes parados en la sombra de un árbol (por defecto) o no. Se guarda en `settings.ini` (`sombra_personajes=1/0`).
-- **Shift+F12:** guarda `captura.bmp`.
-- **Esc:** en el login, sale.
+  The fields are name, host, port, protocol version (`jp363`, `s3ep1` or `tw380`) and the last account
+  used on that server. The password is not saved. An old `settings.ini` (`host=`, `puerto=`...) is
+  converted automatically.
 
-### Control en vivo (pruebas y capturas; solo en desarrollo)
+### Settings editor
 
-Las versiones `debug` y `debug-asan` (opción de CMake `LIN_CONTROL`) abren un socket de archivo
-(Unix domain socket) y reciben comandos de a una línea. La versión `release` no lo incluye: un paso
-de CMake (`cmake/sin_control.cmake`) falla si se cuela.
+`build/<preset>/ajustes` edits `settings.ini` in a form with tabs (Game, Interface, Audio, Servers,
+Characters), without touching the text file. It uses the same simple interface as the game, writes the
+same file and validates numeric fields before saving. In the Characters tab, you can remove a
+character's saved shortcuts and bar, and reset window positions. `--config=PATH` edits another file.
 
-- **Socket:** `$LIN_CONTROL`, o `$TMPDIR/lineage-control-<pid>.sock`. Al arrancar, la ruta se escribe
-  en la salida.
-- **Respuestas:** cada respuesta termina con `ok` o `error <motivo>`.
-- **Esperas:** los comandos que esperan algo (`login`, `personaje`, `esperar`, `captura`) responden
-  cuando se cumple o vence el plazo, sin frenar el juego.
-- **Codificación:** el texto va en CP949, como el del juego.
-- **`LIN_CONFIG=/tmp/x.ini`** (solo en desarrollo): usa otro `settings.ini`, para no pisar el del
-  usuario y correr varios clientes a la vez.
+Run it while the game is closed: the game saves `settings.ini` too and can overwrite your changes.
 
-| Comandos | Qué hacen |
+| Interface tab | Servers tab |
 |---|---|
-| `ayuda` | Lista los comandos |
-| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `grupo`, `chat [n]`, `paquetes [n]` | Consultas: pantalla, vista y personaje (y asedios), objetos cercanos (id, nombre, gfx, celda y posición en pantalla), ítems, la página del NPC con sus vínculos, ventanas abiertas (y dónde están las móviles), el grupo, el chat, los últimos paquetes |
-| `login <cuenta> <clave> [servidor]`, `personaje <nombre>`, `crear <nombre> <clase>` | Entrar (esperan la lista de personajes o estar en el juego) |
-| `decir "texto"` | Como escrito en el chat (comandos `/` y `.` del GM incluidos) |
-| `hablar <obj>`, `atacar <obj>`, `parar`, `clic-objeto <obj> [der]` | `<obj>`: id, `#gfx` o parte del nombre (el más cercano) |
-| `accion <vínculo>`, `responder si\|no\|"texto"`, `cantidad <n>` | Página del NPC, preguntas del servidor, diálogo de cantidad |
-| `usar <ítem> [sobre <ítem>]`, `soltar`, `dar <ítem> <obj>`, `borrar`, `lanzar <hechizo> [obj]` | Ítems y hechizos |
-| `girar <0-7>`, `ofrecer <ítem>`, `aceptar-intercambio`, `cancelar-intercambio` | Intercambio entre dos clientes |
-| `abrir\|cerrar inventario\|estado\|hechizos\|opciones\|social\|salida\|teclas` | Ventanas |
-| `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <nombre>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Entrada cruda (coordenadas lógicas) |
-| `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Esperar algo en vez de contar frames (`paquete=` y `chat=` cuentan también lo llegado desde el comando anterior) |
-| `captura <ruta.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Capturas y depuración |
+| ![Settings editor, Interface tab](docs/capturas/readme_settings_editor.png) | ![Settings editor, Servers tab](docs/capturas/readme_settings_servers.png) |
 
-`herramientas/lin_ctl.py` lo usa desde la terminal (`lin_ctl.py <socket> estado`, o interactivo) o
-como módulo para escribir pruebas.
+### Languages
 
-**Pruebas en vivo** (`herramientas/pruebas/`):
-- una por tema: login, moverse, chat y estado, combate y hechizos, inventario, equipo, NPC, tablón y
-  correo, subastas, social (dos clientes);
-- **las que modifican y reinician el servidor local:** casas, castillos y guerra. Las restauran solas
-  con `herramientas/pruebas/servidor.py`.
+The interface is available in **Spanish, English, Portuguese, German and French**. Choose it in the
+settings editor (Interface tab) or with `idioma=es|en|pt|de|fr` in `settings.ini`. With no value it follows
+the system language, and falls back to English if that is not one of the five. The game applies it at
+startup; the editor switches as soon as you pick it.
+
+| Español | Português |
+|---|---|
+| ![Login in Spanish](docs/capturas/readme_login_es.png) | ![Login in Portuguese](docs/capturas/readme_login_pt.png) |
+
+| Deutsch | Français |
+|---|---|
+| ![Login in German](docs/capturas/readme_login_de.png) | ![Login in French](docs/capturas/readme_login_fr.png) |
+
+- **What is translated so far:** login, character selection and creation, and the settings editor. The
+  in-game windows are not migrated yet and keep their current text. Text sent by the server is shown as
+  it arrives.
+- **Translations** live in `src/i18n/catalogo.def`, one line per text with its five languages. The tests
+  check that every text has all five and the same `%d` / `%s` in each.
+- **Font:** interface text uses [Departure Mono](https://departuremono.com/) (SIL OFL 1.1, see
+  `licencias/DepartureMono-OFL.txt`), because the game's bitmap font only has ASCII and Korean. It is
+  embedded in the binary and drawn at 11 px, where its pixel grid lands exactly on the screen, without
+  smoothing. Text in CP949 (Korean from the server) still uses the original font.
+  `tools/generar_fuente_ui.py` regenerates the embedded data (needs `fonttools`).
+
+### Settings reference
+
+All of these can be changed from the editor; most can also be changed in the game.
+
+| Key | Meaning |
+|---|---|
+| `juego` | Game folder |
+| `servidor`, `servidor_elegido` | Server list and the selected one |
+| `idioma` | Interface language; empty = the system's |
+| `ventana` | Window size (`WIDTHxHEIGHT`), saved on close |
+| `zoom` | Game scale; 0 = automatic |
+| `ui_simple` | `1` simple interface, `0` original panel (F2) |
+| `camara_a_saltos` | `1` camera follows the walking frames, like the original (F4) |
+| `sombra_personajes` | Darken characters standing in a tree's shadow (Shift+F4) |
+| `opacidad_ventanas` | Window background opacity (0–255) |
+| `volumen_musica`, `volumen_efectos` | Volume (0–100) |
+| `chat_con_enter` | `1` Enter opens the chat line, `0` always typing |
+| `barra_personaje` | HP/MP bar over your own character |
+| `texto_dano` | Floating damage and "Miss" over your character |
+| `compensar_ataque` | Show your swing at once, without waiting for the server's echo |
+| `logo` | PNG for the simple login screen, see below |
+| `atajos`, `barra` | F5–F12 spells and shortcut bar, per character |
+| `ventanas` | Saved window positions |
+
+**Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
+as an absolute path or relative to the `settings.ini` folder. It is shrunk to fit 560×190 (best to supply
+it at that size, because it is scaled without smoothing). Without a logo, or if it can't be read, the
+title is shown as text.
+
+## Controls
+
+**F1** shows all the keys in the game.
+
+### Interface and view
+
+- **F2:** switches between the simple interface (default: a text strip with chat, input and ASCII bars,
+  and a text status window) and the original panel with its images. It also applies to login, character
+  selection and creation: with the simple interface they are text boxes (a list of all characters with
+  their data; deleting asks for confirmation).
+- **F3:** fps, CPU per frame (average, worst frame and decoding), allocations of the worst frame,
+  instances, draw calls, objects and position.
+- **F4:** camera, "smooth" (default: follows the continuous position, with the character centered) or
+  "stepped" (like the original: follows the walking frames, a ¼ cell at a time).
+- **Shift+F4:** darken characters standing in a tree's shadow (default) or not.
+- **Shift+F12:** saves `captura.bmp`.
+- **Ctrl/⌘ + and Ctrl/⌘ −:** zoom in and out (integer scale; zooming out shows more map).
+- **Ctrl/⌘ 0:** automatic zoom, the largest that fits 640×480.
+- **Game view:** adapts to the window. Enlarging it shows more map, with the panel centered at the
+  bottom. The login and character screens stay at 640×480.
+- **Windows:** drag the title bar to move them (the position is saved). They look for a free spot when
+  opened; if they overlap, a click brings one forward and only that one gets the mouse. They also open with
+  buttons: those of the original panel, or the text ones to the right of the chat (simple interface).
+- **Options** has the interface, camera, shade, window opacity, zoom, music and effects volume, and
+  a "Reset" for window positions.
+- **Welcome text and server news at login:** wrapped to fit; the mouse wheel or Page Up / Page Down scrolls them.
+- **Esc:** at login, quits.
+
+### Moving
+
+- **Walk:** hold the left button to walk toward the pointer, or use the arrow keys (combine them for diagonals).
+- **Doors:** click a door to open or close it (the character walks to it). Closed doors block the way.
+- **Portals:** to enter a dungeon or climb stairs, walk toward the entrance with the arrows, or click right on it.
+- **Roofs and trees:** when you enter a house or pass behind a tree, whatever covers the character becomes
+  translucent and its silhouette shows.
+- **Change character:** Exit > "Character select".
+
+### Combat
+
+- **Attack:** click a monster and hold. The character walks to it and attacks at the pace of its attack
+  animation, even if the camera moves and the pointer is no longer over it (the target is fixed when
+  pressing). Releasing stops. The target's name turns yellow.
+- **A** (chat closed): keeps attacking the target, or the monster under the pointer, until it dies, you walk
+  with the arrows, or you click elsewhere.
+- **Force attack:** Ctrl+click (or ⌘+click) attacks an NPC or another player. A plain click only attacks monsters.
+- **PK mode:** `/pk` in the chat toggles it (a red "PK" indicator at the top right): clicking another
+  player attacks without Ctrl. This is client-side; the server decides whether the attack counts (it does no
+  damage in safe zones).
+- **Monsters without a sprite:** those missing from this installation show as a magenta block and are
+  attacked like any other.
+- **On death:** a notice appears with a **Restart** button, which sends `C_Restart`.
+- **Status effects:** poisoned (green), frozen (gray), blind (black screen except your own character), and a
+  notice at the top if paralyzed, asleep, stunned or bound (you can't move or act).
+
+### Items
+
+- **Alt+I:** opens and closes the inventory.
+  - Shows the original icons (`N.tbt`), the name on hover, equipped items with an "E", and the weight.
+  - Double-click uses an item: equips or removes weapons and armor, drinks potions.
+  - Drag an item out of the window to drop it on the ground.
+  - **Item details:** hovering shows the name and, if identified, its attributes (damage or defense,
+    material, weight, enchantment, classes that use it, attribute bonuses, MR, resistances...). Otherwise it
+    says "Unidentified".
+  - **Scrolls used on another item** (identify, enchant weapon or armor): double-click the scroll, then click the
+    item; Esc cancels.
+  - **Trash can** (bottom right of the inventory): drag an item onto it to destroy it, for what can't be dropped
+    or sold. It always asks first: how many from a stack, or to confirm a single one. The server rejects equipped
+    and undeletable items.
+- **Items on the ground:** click one to pick it up; if it is far, the character walks to it. The name shows on hover.
+- **Giving items:** drag an item from the inventory onto an NPC or pet; from a stack, it asks how many.
+- **1..0 (or Alt+1..Alt+0):** shortcut bar (bottom center). Drag a spell (from Alt+S) or an item (from Alt+I) onto
+  a slot. Clicking it, or its number or Alt+number, uses it; right-click empties it; dragging between slots moves
+  it. Middle-click on a slot selects it (gold frame), and the middle button on a character or monster uses the
+  selected spell there; held, it repeats each time the wait ends (for an item, every half second). Spell slots
+  (bar and F5–F12) show the wait until the next spell: a shrinking shade and the seconds left. Saved per character.
+
+### Magic
+
+- **Alt+S:** spell window (click casts; with the pointer over a spell, F5–F12 assigns it to that key).
+- **F5–F12:** cast the assigned spell (saved per character). A spell with a target waits for a click on the target;
+  right-click cancels.
+- **Learning magic:** at the magic teacher (Gereng on Talking Island...), "Learn magic" opens the list: click
+  chooses and OK buys. Spellbooks are used with a double-click inside a temple.
+
+### NPCs and trading
+
+- **Clicking an NPC:** walks to it and talks (its page appears at the top left; Esc closes it). In a shop or warehouse:
+  click adds 1, Shift+click adds 10, right-click subtracts; OK confirms.
+- **Repairing weapons:** at a blacksmith, the repair link shows damaged weapons with their cost; a click repairs.
+- **Pets and summons:** their list is to the left of the shortcut bar, with their health. Clicking a name opens its
+  orders menu (attack, defend, stay...); "Bag" shows its inventory, where a click uses or equips the item. With
+  "Attack", the next click picks its target.
+- **Player shops** (in the market rooms): clicking a seller (seated, with the title above) shows what they sell and
+  buy; clicking a line asks how many. `/shop Title` sets up your own: click an inventory item to set its price;
+  "Open" opens it and `/shop` again closes it.
+- **Town bulletin boards:** click the board: topics, reading, "Write" posts (300 adena), and authors can delete theirs.
+- **Mail:** `/mail` (Inbox, Clan and Saved; "Write" to a character for 50 adena, or to the whole clan).
+
+### Chat and social
+
+- **Chat:**
+  - **Enter opens the chat line** (the bottom says "Enter: chat"). Type, and Enter sends and closes it; Esc clears
+    and closes it. While closed, keys are actions (1–0 use the bar). In Options, "Chat: Always typing" goes back
+    to always typing, with the bar on Alt+number;
+  - mouse wheel over the panel, or Page Up / Page Down, for older messages;
+  - prefixes: `!` shout, `&` global, `$` trade, `@` clan, `#` party, `%` alliance, `*` chat group, `"name text` whisper.
+- **Alt+C:** opens and closes the status window (left of the inventory if both are open).
+- **Social** (button, or the one on the original panel): party, trade and clan, with buttons and help. Server
+  questions (invitations, trade or clan requests) appear with **Yes/No** (Enter/Esc).
+- **Trade:** stand next to the other player, facing them. Drag an item from the inventory to the window (or double-click
+  with the trade open), and OK when both agree.
+- **Party:** at mid-height on the left, the list of other members with their health; the leader has a "*".
+- **Names:** blue with alignment ≥ 500, red with ≤ −500; the title above and the clan emblem to the left.
+- **Bookmarks:** `/bookmark name` saves the place (if the map allows it) and `/delbookmark name` deletes it. With
+  bookmarks, the teleport scroll and Teleport ask for the destination.
+- **Chat commands:** anything that isn't a command goes to the chat.
+
+| Area | Commands |
+|---|---|
+| Party | `/invite Name`, `/party`, `/leave`, `/kick Name` |
+| Trade | `/trade` |
+| Clan | `/clan Name` (create; prince with 30000 adena), `/join` (facing a prince), `/pledge`, `/leaveclan`, `/banclan Name`, `/emblem` (uploads a sample emblem) |
+| Players | `/title [Name] Title`, `/who [Name]`, `/exclude Name` (block or unblock; no name: the list) |
+| Friends | `/buddy`, `/addbuddy Name`, `/delbuddy Name` |
+| Chat group | `/chatparty`, `/chatoutparty`, `/chatbanish Name` |
+
+### Sound
+
+Zone music, animation effects and ambience. Music and effects volume are in **Options**.
+
+## Live control (tests and screenshots; development only)
+
+The `debug` and `debug-asan` builds (CMake option `LIN_CONTROL`) open a Unix domain socket and take one-line
+commands. The `release` build doesn't include it: a CMake step (`cmake/sin_control.cmake`) fails if it slips in.
+
+- **Socket:** `$LIN_CONTROL`, or `$TMPDIR/lineage-control-<pid>.sock`. The path is printed at startup.
+- **Responses:** each ends with `ok` or `error <reason>`.
+- **Waits:** commands that wait for something (`login`, `personaje`, `esperar`, `captura`) respond when it
+  happens or the time limit passes, without blocking the game.
+- **Encoding:** text goes in CP949, like the game's.
+- **`LIN_CONFIG=/tmp/x.ini`** (development only): uses another `settings.ini`, so as not to overwrite the user's and
+  to run several clients at once.
+
+| Commands | What they do |
+|---|---|
+| `ayuda` | Lists the commands |
+| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `grupo`, `chat [n]`, `paquetes [n]` | Queries: screen, view and character (and sieges), nearby objects (id, name, gfx, cell and screen position), items, the NPC page with its links, open windows (and where the movable ones are), the party, the chat, the latest packets |
+| `login <account> <password> [server]`, `personaje <name>`, `crear <name> <class>` | Enter (they wait for the character list or for being in the game) |
+| `decir "text"` | As if typed in the chat (`/` commands and the GM's `.` included) |
+| `hablar <obj>`, `atacar <obj>`, `parar`, `clic-objeto <obj> [der]` | `<obj>`: id, `#gfx` or part of the name (the nearest one) |
+| `accion <link>`, `responder si\|no\|"text"`, `cantidad <n>` | NPC page, server questions, quantity dialog |
+| `usar <item> [sobre <item>]`, `soltar`, `dar <item> <obj>`, `borrar`, `lanzar <spell> [obj]` | Items and spells |
+| `girar <0-7>`, `ofrecer <item>`, `aceptar-intercambio`, `cancelar-intercambio` | Trade between two clients |
+| `abrir\|cerrar inventario\|estado\|hechizos\|opciones\|social\|salida\|teclas` | Windows |
+| `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <name>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Raw input (logical coordinates) |
+| `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Wait for something instead of counting frames (`paquete=` and `chat=` also count what arrived since the previous command) |
+| `captura <path.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Screenshots and debugging |
+
+`herramientas/lin_ctl.py` uses it from the terminal (`lin_ctl.py <socket> estado`, or interactively) or as a module
+for writing tests.
+
+**Live tests** (`herramientas/pruebas/`):
+
+- one per topic: login, moving, chat and status, combat and spells, inventory, equipment, NPC, bulletin board and
+  mail, auctions, social (two clients);
+- **those that modify and restart the local server:** houses, castles and war. They restore it themselves with
+  `herramientas/pruebas/servidor.py`.
 
 ```sh
-herramientas/pruebas/todas.py /tmp/prueba.ini /tmp/capturas              # las que no dejan cambios
-herramientas/pruebas/todas.py /tmp/prueba.ini /tmp/capturas --servidor   # todas
-herramientas/pruebas/npc.py /tmp/prueba.ini /tmp/capturas                # una sola
+herramientas/pruebas/todas.py /tmp/test.ini /tmp/screenshots              # those that leave no changes
+herramientas/pruebas/todas.py /tmp/test.ini /tmp/screenshots --servidor   # all of them
+herramientas/pruebas/npc.py /tmp/test.ini /tmp/screenshots                # just one
 ```
 
-El `settings.ini` de prueba necesita `juego=`. Cada prueba deja a los personajes donde estaban y
-cierra sus clientes aunque falle. Por ejemplo, el comienzo de `subastas.py`:
+The test `settings.ini` needs `juego=`. Each test puts characters back where they were and closes its clients even
+if it fails. For example, the beginning of `subastas.py`:
 
 ```python
-c = Control.arrancar(config="/tmp/prueba.ini")
+c = Control.arrancar(config="/tmp/test.ini")
 c("mudo on"); c("login prueba2 prueba2"); c("personaje Charla")
 c("hablar Auction"); c("esperar ventana=subastas")
-c("captura /tmp/subastas.bmp"); c.cerrar()
+c("captura /tmp/auctions.bmp"); c.cerrar()
 ```
 
-### Explorador de recursos
+## Resource explorer
 
 ```sh
-build/debug/explorador --juego="$LINEAGE_DIR" --gfx=0 --accion=3   # ←/→ gfx, ↑/↓ acción
-build/debug/explorador --juego="$LINEAGE_DIR" --png=814            # imagen suelta (--img=N)
+build/debug/explorador --juego="$LINEAGE_DIR" --gfx=0 --accion=3   # ←/→ gfx, ↑/↓ action
+build/debug/explorador --juego="$LINEAGE_DIR" --png=814            # a single image (--img=N)
 ```
 
-Muestra un gfx en las 8 direcciones sobre rombos de referencia. Con él se calibró el ancla de los
-sprites.
+Shows a gfx in the 8 directions over reference diamonds. It was used to calibrate the sprite anchor.
 
-## Estructura (diseño orientado a datos)
+## Structure (data-oriented design)
 
-| Módulo | Contenido |
+Identifiers and comments in the code are in Spanish.
+
+| Module | Contents |
 |---|---|
-| `src/core` | Tipos, `Arena` (asignación lineal por frame), `MapaHash` (direccionamiento abierto), `TablaSoa` (tabla columnar con borrado por intercambio), `AnilloBytes` (cola SPSC sin locks), lector binario acotado |
-| `src/plataforma` | Archivos mapeados en memoria, socket TCP y configuración. Solo este módulo y `render` dependen del sistema o de SDL |
-| `src/proto` | Cifrado, tabla de opcodes (JP 3.63c), decodificador con tabla de punteros a función (paquete → `Evento` POD), comandos e hilos de red (lector y escritor) |
-| `src/recursos` | `.idx/.pak` (búsqueda por hash del nombre en `SpriteNN.pak`), DES de `Text.pak`, `.img`/`.png` (incluido el PNG ofuscado), `.til`, `.spr` (frames compuestos), tabla de sprites, `.s32`, fuentes `eng.fnt`/`kor.fnt`, tablas de texto |
-| `src/mundo` | Tabla de objetos SoA, estado del jugador, segmentos de mapa y aplicación de eventos en lote. La posición interpolada y el frame de animación son funciones puras del tiempo. `chat.h`: registro en anillo de tamaño fijo, globos, mensajes del servidor con `string-e.tbl` y prefijos de canal |
-| `src/render` | SDL_GPU: atlas en *texture array*, lista de dibujo con radix sort y **una sola llamada instanciada por frame**; render a 640×480 escalado con factor entero |
-| `src/ui` | UI inmediata: botones con imagen N/N+1 y cajas de texto |
-| `src/app` | Bucle principal y pantallas (login, personajes, creación, juego) |
-| `tools/explorador.cpp` | Explorador de recursos |
-| `tests/` | doctest: core, cifrado (vectores de `docs/analisis/scripts/lineage_proto.py`), DES, protocolo, recursos reales, mapa contra el servidor, mundo y chat |
-| `datos/sprite_table.txt` | Tabla de acciones de sprites de l1j-client (GPLv3); esta instalación solo trae `list.enx`, cifrado |
+| `src/core` | Types, `Arena` (per-frame linear allocation), `MapaHash` (open addressing), `TablaSoa` (columnar table with swap removal), `AnilloBytes` (lock-free SPSC queue), bounded binary reader |
+| `src/plataforma` | Memory-mapped files, TCP socket and configuration. Only this module, `render` and `audio` depend on the system or on SDL |
+| `src/i18n` | Interface languages: the text catalog and `tr()` |
+| `src/proto` | Encryption, opcode tables per protocol version, decoder with a function-pointer table (packet → POD `Evento`), commands and network threads (reader and writer) |
+| `src/recursos` | `.idx/.pak` (lookup by name hash in `SpriteNN.pak`), `Text.pak` DES, `.img`/`.png` (including the obfuscated PNG), `.til`, `.spr` (composite frames), sprite table, `.s32`, `eng.fnt`/`kor.fnt` fonts and the interface font, text tables |
+| `src/mundo` | SoA object table, player state, map segments and batched event application. Interpolated position and animation frame are pure functions of time. `chat.h`: fixed-size ring log, bubbles, server messages with `string-e.tbl`, and channel prefixes |
+| `src/render` | SDL_GPU: atlas in a *texture array*, draw list with radix sort and **a single instanced draw call per frame**; integer scaling |
+| `src/audio` | SDL3 device and streams: MP3 music (dr_mp3), WAV effects, ambience |
+| `src/ui` | Immediate-mode UI: image buttons (N/N+1), text boxes, simple-interface controls |
+| `src/app` | Main loop, screens (login, characters, creation, game) and one `*_ui.cpp` per game feature |
+| `tools/` | `ajustes.cpp` (settings editor), `explorador.cpp` (resource explorer), `generar_fuente_ui.py` (embedded font) |
+| `tests/` | doctest: core, encryption (vectors from `docs/analisis/scripts/lineage_proto.py`), DES, protocol, real resources, map against the server, world, chat, fonts and texts |
+| `datos/` | `sprite_table.txt` (sprite action table from l1j-client, GPLv3; this installation only has an encrypted `list.enx`) and the interface font |
 
-## Pendiente para Windows y Linux (`grep -rn MULTIPLATAFORMA`)
+## Known issues
 
-| Lugar | Qué falta |
+- **Text overflow since the interface font changed.** Departure Mono is 7 px per letter, against the original's 6, and
+  fixed layouts have not all been revised:
+  - the F1 help window: long lines leave the window and the columns overlap;
+  - the Options window: the last rows fall outside its frame, and "HP/MP bar over char" is tight;
+  - French: the editor's buttons overflow ("Annuler les modifications"), its logo label overlaps the field, and at login
+    "Mot de passe" touches its field.
+
+  Other in-game windows have not been reviewed one by one.
+- **Partial translation:** the in-game windows are not translated yet ([Languages](#languages)), and the translations
+  have not been reviewed by native speakers.
+
+| F1 help | French editor |
 |---|---|
-| `src/render/gpu.cpp` | El shader está en MSL (Metal). Escribirlo en HLSL, compilarlo con SDL_shadercross a SPIR-V (Vulkan/Linux) y DXIL (D3D12/Windows) y elegir el formato con `SDL_GetGPUShaderFormats()` |
-| `src/plataforma/archivo_mapeado.cpp` | Windows: `CreateFileMappingW` / `MapViewOfFile`, y rutas UTF-8 → UTF-16 (`_wfopen`). Hoy hay un `#error` |
-| `src/plataforma/socket.cpp` / `socket.h` | Windows: Winsock2 (`WSAStartup`, `closesocket`, tipo `SOCKET`). Hoy hay un `#error`. Linux ya está cubierto (POSIX y `MSG_NOSIGNAL`) |
-| `src/plataforma/rutas.cpp`, `src/mundo/mundo.cpp` | Linux distingue mayúsculas: buscar `Sprite.pak`, `map/`... sin distinguirlas |
-| `CMakeLists.txt` | MSVC: opciones equivalentes ya puestas, sin probar. Empaquetado `.app` / `.exe` / AppImage (entregable 11) |
-| `servidor_local/*.sh` | Linux: paquetes del sistema en lugar de brew. Windows: los `.bat` del propio servidor |
+| ![F1 help window with overflowing text](docs/capturas/readme_known_issue_help.png) | ![French settings editor with overflowing buttons](docs/capturas/readme_known_issue_editor_fr.png) |
 
-## Licencia
+## Missing for Windows and Linux
 
-El código de formatos se escribió a partir de la lectura de l1j-client (GPLv3), y
-`datos/sprite_table.txt` viene de ese proyecto. Por eso este cliente debe distribuirse como
-**GPLv3**. Los recursos del juego no se incluyen: se leen de la instalación del usuario.
+`grep -rn MULTIPLATAFORMA` lists them in the code.
+
+| Where | What's missing |
+|---|---|
+| `src/render/gpu.cpp` | The shader is in MSL (Metal). Write it in HLSL, compile it with SDL_shadercross to SPIR-V (Vulkan/Linux) and DXIL (D3D12/Windows), and choose the format with `SDL_GetGPUShaderFormats()` |
+| `src/plataforma/archivo_mapeado.cpp` | Windows: `CreateFileMappingW` / `MapViewOfFile`, and UTF-8 → UTF-16 paths (`_wfopen`). Currently an `#error` |
+| `src/plataforma/socket.cpp` / `socket.h` | Windows: Winsock2 (`WSAStartup`, `closesocket`, `SOCKET` type). Currently an `#error`. Linux is already covered (POSIX and `MSG_NOSIGNAL`) |
+| `src/plataforma/rutas.cpp`, `src/mundo/mundo.cpp` | Linux is case-sensitive: look for `Sprite.pak`, `map/`... ignoring case |
+| `CMakeLists.txt` | MSVC: equivalent options are in place, untested. `.app` / `.exe` / AppImage packaging (deliverable 11) |
+| `servidor_local/*.sh` | Linux: system packages instead of brew. Windows: the server's own `.bat` files |
+
+## License
+
+The format code was written by reading l1j-client (GPLv3), and `datos/sprite_table.txt` comes from that project, so
+this client must be distributed as **GPLv3** ([LICENSE](LICENSE)). The interface font, Departure Mono, is under the SIL
+Open Font License 1.1 (`licencias/DepartureMono-OFL.txt`). Game resources are not included: they are read from the
+user's installation.
