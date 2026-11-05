@@ -65,6 +65,9 @@ build/debug/lineage
 
 - **Sin parámetros:** todo sale de `settings.ini`
   (`~/Library/Application Support/Lineage/LineageCliente/settings.ini`) y de la interfaz.
+- **Editor de ajustes:** `build/<preset>/ajustes` abre un formulario con pestañas (Juego, Interfaz,
+  Audio, Servidores, Personajes) para editar `settings.ini` sin texto plano. Usa la misma UI simple
+  del juego y escribe el mismo archivo. `--config=RUTA` edita otro archivo.
 - **Carpeta del juego:** en el primer arranque se elige con el diálogo nativo y queda guardada
   (`juego=`).
 - **Servidores:** se eligen en el menú del login. Hay uno por línea en `settings.ini`:

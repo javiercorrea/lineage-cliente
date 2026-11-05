@@ -53,15 +53,21 @@ struct Config {
 // Valores por personaje dentro de una opción ("Nombre:valor;Otro:valor").
 std::string_view valor_de_personaje(std::string_view opcion, std::string_view personaje);
 void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, std::string_view valor);
+// Quita las entradas de un personaje de una opción (el editor de ajustes las borra con esto).
+void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje);
+// Personajes que tienen datos guardados (atajos o barra), sin repetir y en orden de aparición.
+std::vector<std::string> personajes_con_datos(const Config& c);
 
 // Ruta del archivo de configuración del usuario (settings.ini).
 // macOS: ~/Library/Application Support/LineageCliente/settings.ini (vía SDL_GetPrefPath).
 // MULTIPLATAFORMA: SDL_GetPrefPath ya devuelve %APPDATA% en Windows y ~/.local/share en Linux.
 std::string ruta_configuracion();
 
-// Carga settings.ini (no hay parámetros de línea de comandos).
+// Carga y guarda settings.ini (el del usuario, o el de la ruta dada: lo usa el editor de ajustes).
 Config cargar_config();
+Config cargar_config_de(const std::string& ruta);
 bool guardar_config(const Config& c);
+bool guardar_config_en(const std::string& ruta, const Config& c);
 // El texto de settings.ini, sin archivos (para los tests). leer_config migra el formato anterior
 // (host=, puerto=, protocolo=, usuario=: un servidor "Servidor") y, sin ninguno, agrega el local.
 Config leer_config(std::string_view texto);
