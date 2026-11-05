@@ -4,6 +4,8 @@
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
 #include "proto/comandos.h"
+#include "recursos/fuente.h"
+#include "recursos/fuente_ttf.h"
 #include "proto/decodificar.h"
 #include "recursos/fuente.h"
 
@@ -216,7 +218,8 @@ TEST_CASE("Estado: porcentaje de experiencia y ajuste de línea") {
     CHECK(porcentaje_exp(2, 300) == doctest::Approx(100.0f));
     CHECK(porcentaje_exp(0, 10) == 0.0f);
     const char* t = "uno dos tres";
-    CHECK(bytes_que_caben(t, 12, 6 * 12) == 12);
-    CHECK(bytes_que_caben(t, 12, 6 * 9) == 8);   // corta después de "dos "
-    CHECK(bytes_que_caben("abcdef", 6, 6 * 3) == 3);  // sin espacios: corta en el ancho
+    const int a = ancho_ttf('a');  // avance de una letra en la fuente de la interfaz (ahora 7 px)
+    CHECK(bytes_que_caben(t, 12, a * 12) == 12);
+    CHECK(bytes_que_caben(t, 12, a * 9) == 8);   // corta después de "dos "
+    CHECK(bytes_que_caben("abcdef", 6, a * 3) == 3);  // sin espacios: corta en el ancho
 }

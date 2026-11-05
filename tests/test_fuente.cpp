@@ -30,6 +30,12 @@ TEST_CASE("glifos_de_texto: un carácter UTF-8 es un solo glifo TTF") {
     CHECK(g[0].ancho == ancho_ttf(0xF1));
 }
 
+TEST_CASE("ancho_ttf: Departure Mono a 11 px avanza 7 px por letra (cuadrícula entera)") {
+    // 350 unidades de avance x 11 px / 550 de em = 7 px exactos. La bitmap original usa 6 (no es lo mismo).
+    CHECK(ancho_ttf('a') == 7);
+    CHECK(ancho_ttf('M') == 7);
+}
+
 TEST_CASE("ancho_texto: suma los avances de cada carácter") {
     const std::string t = "ñaé";
     CHECK(ancho_texto(t.data(), t.size()) == ancho_ttf(0xF1) + ancho_ttf('a') + ancho_ttf(0xE9));
@@ -70,7 +76,8 @@ TEST_CASE("rasterizar_ttf: la tilde y el descendente caben en la celda") {
     REQUIRE(rasterizar_ttf(0xC9, acentuada));  // É
     REQUIRE(rasterizar_ttf('g', descendente));
     CHECK(fila_con_trazo(acentuada, 0));            // la tilde llega hasta la primera fila
-    CHECK(fila_con_trazo(descendente, ALTO_GLIFO - 1));  // el descendente llega a la última
+    // El descendente baja de la línea base (fila 11 con em 14) y se ve en la fila siguiente.
+    CHECK(fila_con_trazo(descendente, ALTO_GLIFO - 2));
 }
 
 TEST_CASE("FuenteBitmap: los glifos TTF no necesitan la carpeta del juego") {

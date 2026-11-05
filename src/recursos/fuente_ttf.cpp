@@ -10,15 +10,19 @@
 namespace lin {
 namespace {
 
-// Tamaño del em en píxeles. Con la celda de ALTO_GLIFO (12) la tilde de una mayúscula acentuada
-// (0,8 em sobre la base) y el descendente (0,2 em bajo ella) tienen que caber: 13 px lo logra.
-// shortcut: a 16 px los descendentes se recortan; si se cambia el alto de celda, revisar este valor.
-constexpr float PX_EM = 13.0f;
+// Departure Mono está dibujada sobre una cuadrícula de 50 unidades por píxel y su em son 550 unidades:
+// a 11 px de em, cada píxel de la fuente cae exacto en un píxel de pantalla, sin suavizado.
+// Avance 7 px, mayúsculas 8, x-height 6, tilde hasta 11 y descendente 2: cabe en ALTO_GLIFO (14).
+// shortcut: si se cambia la fuente o el alto de celda, revisar el em (debe dar una cuadrícula entera).
+constexpr float PX_EM = 11.0f;
+// Cobertura a partir de la cual un píxel se enciende (0–255). Con la cuadrícula alineada, casi todo
+// cae en 0 o 255 de todos modos; el umbral solo recorta los bordes de los píxeles que no caen exactos.
+constexpr unsigned char UMBRAL_TRAZO = 128;
 
 struct Ttf {
     stbtt_fontinfo info{};
-    float escala = 0;
-    int ascenso = 0;  // píxeles desde el tope de la celda hasta la línea base
+    float escala = 0;  // el em en píxeles
+    int ascenso = 0;   // píxeles desde el tope de la celda hasta la línea base
     bool ok = false;
 };
 
@@ -28,7 +32,8 @@ const Ttf& ttf() {
         Ttf r;
         r.ok = stbtt_InitFont(&r.info, FUENTE_UI_DATOS, 0) != 0;
         if (r.ok) {
-            r.escala = stbtt_ScaleForPixelHeight(&r.info, PX_EM);
+            // Em, no altura ascendente+descendente (ScaleForPixelHeight daría otra escala con esta fuente).
+            r.escala = stbtt_ScaleForMappingEmToPixels(&r.info, PX_EM);
             int asc = 0, desc = 0, gap = 0;
             stbtt_GetFontVMetrics(&r.info, &asc, &desc, &gap);
             r.ascenso = static_cast<int>(std::lround(asc * r.escala));
@@ -77,8 +82,9 @@ bool rasterizar_ttf(u32 cp, ImagenRGBA& salida) {
         for (int x = 0; x < w; ++x) {
             const int cx = x0 + x;
             if (cx < 0 || cy < 0 || cx >= ancho || cy >= ALTO_GLIFO) continue;
-            const u32 a = alfa[static_cast<size_t>(y) * w + x];
-            // Premultiplicado (el blend de la GPU lo es): blanco con alfa a es a en los cuatro bytes.
+            // Sin suavizado: como la fuente original, cada píxel está encendido o apagado.
+            const u32 a = alfa[static_cast<size_t>(y) * w + x] >= UMBRAL_TRAZO ? 255u : 0u;
+            // Premultiplicado (el blend de la GPU lo es): con a = 0 o 255 es blanco opaco o transparente.
             salida.px[static_cast<size_t>(cy) * ancho + cx] = a * 0x01010101u;
         }
     }
