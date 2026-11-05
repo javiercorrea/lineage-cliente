@@ -3,6 +3,7 @@
 // base + bonus de la clase, y la suma de los seis debe ser 75. Con la UI simple (F2), lo mismo en
 // recuadros de texto.
 #include "app/app.h"
+#include "i18n/textos.h"
 
 namespace lin {
 
@@ -52,10 +53,10 @@ int puntos_libres(const App& a) {
 
 const char* motivo_crear(int c) {
     switch (c) {
-    case 6: return "Ese nombre ya existe.";
-    case 9: return "Nombre inválido.";
-    case 21: return "Reparto de puntos inválido o sin ranuras libres.";
-    default: return "No se pudo crear el personaje.";
+    case 6: return tr(Tx::CREAR_ERR_NOMBRE_EXISTE);
+    case 9: return tr(Tx::CREAR_ERR_NOMBRE_INVALIDO);
+    case 21: return tr(Tx::CREAR_ERR_REPARTO);
+    default: return tr(Tx::CREAR_ERR_GENERICO);
     }
 }
 
@@ -129,10 +130,10 @@ bool crear_simple(App& a, bool& volver) {
     const u32 tenue = rgba(170, 160, 140);
     char t[32];
     g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
-    g.texto("New character", 20, 18, kt, ui::COLOR_TITULO);
+    g.texto(tr(Tx::CREAR_TITULO), 20, 18, kt, ui::COLOR_TITULO);
 
     ui::recuadro(g, 20, 38, 180, 384);
-    g.texto("Class", 32, 48, kt, ui::COLOR_TITULO);
+    g.texto(tr(Tx::CREAR_CLASE), 32, 48, kt, ui::COLOR_TITULO);
     for (int c = 0; c < 7; ++c) {
         const int y = 66 + c * 26;
         const bool encima = ui::sobre(e, 26, y, 168, 22);
@@ -141,8 +142,8 @@ bool crear_simple(App& a, bool& volver) {
         g.texto(nombre_clase(c), 36, y + 5, kt, c == a.clase_nueva ? ui::COLOR_TEXTO : tenue);
         if (encima && e.clic) elegir_clase(a, c);
     }
-    g.texto("Sex", 32, 262, kt, ui::COLOR_TITULO);
-    const char* sexos[2] = {"Male", "Female"};
+    g.texto(tr(Tx::CREAR_SEXO), 32, 262, kt, ui::COLOR_TITULO);
+    const char* sexos[2] = {tr(Tx::CREAR_HOMBRE), tr(Tx::CREAR_MUJER)};
     for (int s = 0; s < 2; ++s) {
         const int y = 280 + s * 26;
         const bool encima = ui::sobre(e, 26, y, 168, 22);
@@ -158,7 +159,7 @@ bool crear_simple(App& a, bool& volver) {
 
     // Atributos en el orden del paquete: fue, des, con, sab, car, int.
     const char* nombres[6] = {"STR", "DEX", "CON", "WIS", "CHA", "INT"};
-    g.texto("Attributes", 228, 48, kt, ui::COLOR_TITULO);
+    g.texto(tr(Tx::CREAR_ATRIBUTOS), 228, 48, kt, ui::COLOR_TITULO);
     for (int i = 0; i < 6; ++i) {
         const int y = 70 + i * 28;
         g.texto(nombres[i], 232, y + 4, kt, tenue);
@@ -167,16 +168,16 @@ bool crear_simple(App& a, bool& volver) {
         g.texto(t, 312, y + 4, kt, a.extra[i] ? rgba(255, 230, 150) : ui::COLOR_TEXTO);
         if (ui::boton_texto(g, e, "+", 336, y, 22, 20)) subir_stat(a, i);
     }
-    std::snprintf(t, sizeof t, "Points left: %d", puntos_libres(a));
+    std::snprintf(t, sizeof t, tr(Tx::CREAR_PUNTOS_LIBRES), puntos_libres(a));
     g.texto(t, 232, 244, kt, puntos_libres(a) ? rgba(255, 230, 150) : tenue);
 
-    g.texto("Name", 232, 300, kt, ui::COLOR_TITULO);
+    g.texto(tr(Tx::CREAR_NOMBRE), 232, 300, kt, ui::COLOR_TITULO);
     ui::campo(g, e, a.nombre_nuevo, 280, 300, 150, true, false, 16);
     if (!a.aviso.empty()) g.texto(a.aviso, 232, 334, kt, rgba(255, 120, 100));
-    g.texto("F2: original interface", 20, 449, kt, rgba(120, 110, 90));
+    g.texto(tr(Tx::UI_F2_ORIGINAL), 20, 449, kt, rgba(120, 110, 90));
 
-    volver = ui::boton_texto(g, e, "Back", 528, 444, 92, 22);
-    return ui::boton_texto(g, e, "Create", 428, 444, 92, 22);
+    volver = ui::boton_texto(g, e, tr(Tx::UI_VOLVER), 528, 444, 92, 22);
+    return ui::boton_texto(g, e, tr(Tx::CREAR_CREAR), 428, 444, 92, 22);
 }
 
 }  // namespace
@@ -190,9 +191,9 @@ void frame_crear(App& a) {
 
     if (aceptar) {
         if (puntos_libres(a) != 0) {
-            a.aviso = "Hay que repartir todos los puntos.";
+            a.aviso = tr(Tx::CREAR_FALTA_PUNTOS);
         } else if (a.nombre_nuevo.empty()) {
-            a.aviso = "Falta el nombre.";
+            a.aviso = tr(Tx::CREAR_FALTA_NOMBRE);
         } else {
             u8 stats[6];
             for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(BASE[a.clase_nueva][i] + a.extra[i]);

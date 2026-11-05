@@ -45,7 +45,8 @@ target_include_directories(lin_core INTERFACE src)
 add_library(lin_plataforma STATIC
     src/plataforma/archivo_mapeado.cpp
     src/plataforma/socket.cpp
-    src/plataforma/rutas.cpp)
+    src/plataforma/rutas.cpp
+    src/i18n/textos.cpp)
 target_link_libraries(lin_plataforma PUBLIC lin_core PRIVATE SDL3::SDL3)
 
 add_library(lin_proto STATIC
@@ -65,6 +66,7 @@ add_library(lin_recursos STATIC
     src/recursos/tabla_sprites.cpp
     src/recursos/mapa.cpp
     src/recursos/fuente.cpp
+    src/recursos/fuente_ttf.cpp
     src/recursos/cp949.cpp
     src/recursos/textos.cpp
     src/recursos/precarga.cpp
@@ -160,6 +162,8 @@ if(LIN_TESTS)
         tests/test_hechizos.cpp
         tests/test_npc.cpp
         tests/test_sonidos.cpp
+        tests/test_fuente.cpp
+        tests/test_textos.cpp
         tests/test_ajustes.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)

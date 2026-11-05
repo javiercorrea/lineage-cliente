@@ -25,6 +25,8 @@ struct Config {
     bool camara_a_saltos = false;  // la cámara sigue los frames de caminar, como el original (F4)
     bool ui_simple = true;         // UI de texto (estilo ASCII) en el juego; false = panel original (F2)
     bool sombra_personajes = true; // los personajes parados en la sombra de un árbol se oscurecen (Shift+F4)
+    // Idioma de la interfaz: "es", "en", "pt", "de" o "fr". Vacío = el del sistema (ver i18n/textos.h).
+    std::string idioma;
     // Atajos de hechizos F5–F12 por personaje: "Nombre:4,3,0,0,0,0,0,0;Otro:..." (skill ids, 0 = vacío).
     std::string atajos;
     // Barra de atajos Alt+1..Alt+0 por personaje: "Nombre:h4,i40308:268435461,0,...;Otro:..."

@@ -1,0 +1,79 @@
+// Catálogo de textos de la interfaz del cliente. Cada línea: X(clave, es, en, pt, de, fr).
+// Orden de los idiomas: es, en, pt, de, fr (ver textos.h). Los %d / %s se conservan en todas.
+// Se agrega una línea por texto nuevo; no hace falta tocar nada más (tests/test_textos.cpp
+// verifica que cada clave tenga los cinco idiomas).
+
+// --- Comunes -------------------------------------------------------------------------------
+X(UI_F2_ORIGINAL, "F2: interfaz original", "F2: original interface", "F2: interface original",
+  "F2: Originaloberfläche", "F2 : interface d'origine")
+X(UI_VOLVER, "Volver", "Back", "Voltar", "Zurück", "Retour")
+
+// --- Login ---------------------------------------------------------------------------------
+X(LOGIN_SERVIDOR, "Servidor", "Server", "Servidor", "Server", "Serveur")
+X(LOGIN_CUENTA, "Cuenta", "Account", "Conta", "Konto", "Compte")
+X(LOGIN_CLAVE, "Clave", "Password", "Senha", "Passwort", "Mot de passe")
+X(LOGIN_ENTRAR, "Entrar", "Login", "Entrar", "Anmelden", "Connexion")
+X(LOGIN_SALIR, "Salir", "Quit", "Sair", "Beenden", "Quitter")
+X(LOGIN_CONECTANDO, "Conectando...", "Connecting...", "Conectando...", "Verbinde...", "Connexion...")
+X(LOGIN_ERR_CUENTA_EXISTE, "La cuenta ya existe.", "The account already exists.", "A conta já existe.",
+  "Das Konto existiert bereits.", "Le compte existe déjà.")
+X(LOGIN_ERR_CLAVE, "Usuario o clave incorrectos.", "Wrong account or password.", "Conta ou senha incorretas.",
+  "Konto oder Passwort falsch.", "Compte ou mot de passe incorrect.")
+X(LOGIN_ERR_EN_USO, "La cuenta ya está en uso.", "The account is already in use.", "A conta já está em uso.",
+  "Das Konto wird bereits verwendet.", "Le compte est déjà utilisé.")
+X(LOGIN_ERR_RECHAZO, "El servidor rechazó el ingreso.", "The server rejected the login.",
+  "O servidor recusou o acesso.", "Der Server hat die Anmeldung abgelehnt.", "Le serveur a refusé la connexion.")
+X(LOGIN_ERR_PROTOCOLO, "Versión de protocolo desconocida: ", "Unknown protocol version: ",
+  "Versão de protocolo desconhecida: ", "Unbekannte Protokollversion: ", "Version de protocole inconnue : ")
+
+// --- Crear personaje -----------------------------------------------------------------------
+X(CREAR_TITULO, "Nuevo personaje", "New character", "Novo personagem", "Neuer Charakter", "Nouveau personnage")
+X(CREAR_CLASE, "Clase", "Class", "Classe", "Klasse", "Classe")
+X(CREAR_SEXO, "Sexo", "Sex", "Sexo", "Geschlecht", "Sexe")
+X(CREAR_HOMBRE, "Hombre", "Male", "Masculino", "Männlich", "Homme")
+X(CREAR_MUJER, "Mujer", "Female", "Feminino", "Weiblich", "Femme")
+X(CREAR_ATRIBUTOS, "Atributos", "Attributes", "Atributos", "Attribute", "Attributs")
+X(CREAR_PUNTOS_LIBRES, "Puntos libres: %d", "Points left: %d", "Pontos livres: %d", "Freie Punkte: %d",
+  "Points restants : %d")
+X(CREAR_NOMBRE, "Nombre", "Name", "Nome", "Name", "Nom")
+X(CREAR_CREAR, "Crear", "Create", "Criar", "Erstellen", "Créer")
+X(CREAR_FALTA_PUNTOS, "Hay que repartir todos los puntos.", "Spend all the points.",
+  "Distribua todos os pontos.", "Alle Punkte verteilen.", "Répartissez tous les points.")
+X(CREAR_FALTA_NOMBRE, "Falta el nombre.", "The name is missing.", "Falta o nome.", "Der Name fehlt.",
+  "Il manque le nom.")
+X(CREAR_ERR_NOMBRE_EXISTE, "Ese nombre ya existe.", "That name already exists.", "Esse nome já existe.",
+  "Dieser Name existiert bereits.", "Ce nom existe déjà.")
+X(CREAR_ERR_NOMBRE_INVALIDO, "Nombre inválido.", "Invalid name.", "Nome inválido.", "Ungültiger Name.",
+  "Nom invalide.")
+X(CREAR_ERR_REPARTO, "Reparto de puntos inválido o sin ranuras libres.",
+  "Invalid point allocation or no free slots.", "Distribuição de pontos inválida ou sem vagas livres.",
+  "Ungültige Punkteverteilung oder keine freien Plätze.",
+  "Répartition des points invalide ou aucun emplacement libre.")
+X(CREAR_ERR_GENERICO, "No se pudo crear el personaje.", "The character could not be created.",
+  "Não foi possível criar o personagem.", "Der Charakter konnte nicht erstellt werden.",
+  "Impossible de créer le personnage.")
+
+// --- Selección de personaje ----------------------------------------------------------------
+X(PJ_TITULO, "Elige un personaje", "Select a character", "Escolha um personagem", "Charakter wählen",
+  "Choisir un personnage")
+X(PJ_NUEVO, "+ Nuevo personaje", "+ New character", "+ Novo personagem", "+ Neuer Charakter",
+  "+ Nouveau personnage")
+X(PJ_LINEA, "Nv %d %s%s%s", "Lv %d %s%s%s", "Nv %d %s%s%s", "Stufe %d %s%s%s", "Niv %d %s%s%s")
+X(PJ_ELEGIR, "Elige un personaje de la lista", "Choose a character from the list",
+  "Escolha um personagem da lista", "Wähle einen Charakter aus der Liste",
+  "Choisissez un personnage dans la liste")
+X(PJ_ENTRAR, "Entrar", "Enter", "Entrar", "Betreten", "Entrer")
+X(PJ_BORRAR, "Borrar", "Delete", "Apagar", "Löschen", "Supprimer")
+X(PJ_SEGURO, "¿Seguro?", "Sure?", "Tem certeza?", "Sicher?", "Sûr ?")
+X(PJ_NIVEL, "Nivel", "Level", "Nível", "Stufe", "Niveau")
+X(PJ_LEGAL, "Legal", "Lawful", "Ordeiro", "Rechtschaffen", "Loyal")
+
+// --- Clases (nombres del juego) ------------------------------------------------------------
+X(CLASE_PRINCIPE, "Príncipe", "Prince", "Príncipe", "Prinz", "Prince")
+X(CLASE_CABALLERO, "Caballero", "Knight", "Cavaleiro", "Ritter", "Chevalier")
+X(CLASE_ELFO, "Elfo", "Elf", "Elfo", "Elf", "Elfe")
+X(CLASE_MAGO, "Mago", "Wizard", "Mago", "Magier", "Magicien")
+X(CLASE_ELFO_OSCURO, "Elfo oscuro", "Dark Elf", "Elfo sombrio", "Dunkelelf", "Elfe noir")
+X(CLASE_CABALLERO_DRAGON, "Caballero dragón", "Dragon Knight", "Cavaleiro dragão", "Drachenritter",
+  "Chevalier dragon")
+X(CLASE_ILUSIONISTA, "Ilusionista", "Illusionist", "Ilusionista", "Illusionist", "Illusionniste")

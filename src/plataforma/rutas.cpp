@@ -58,6 +58,7 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "camara_a_saltos") c.camara_a_saltos = valor == "1";
     else if (clave == "ui_simple") c.ui_simple = valor != "0";
     else if (clave == "sombra_personajes") c.sombra_personajes = valor != "0";
+    else if (clave == "idioma") c.idioma = valor;
     else if (clave == "atajos") c.atajos = valor;
     else if (clave == "barra") c.barra = valor;
     else if (clave == "ventanas") c.ventanas = valor;
@@ -185,6 +186,7 @@ std::string escribir_config(const Config& c) {
     linea("camara_a_saltos", c.camara_a_saltos ? "1" : "0");
     linea("ui_simple", c.ui_simple ? "1" : "0");
     linea("sombra_personajes", c.sombra_personajes ? "1" : "0");
+    linea("idioma", c.idioma);
     linea("atajos", c.atajos);
     linea("barra", c.barra);
     linea("ventanas", c.ventanas);

@@ -3,6 +3,7 @@
 // fondo 815.png, 4 ranuras con la animación PNG de cada clase y sexo, panel de datos. Con la UI
 // simple (F2), una lista de texto con todos los personajes y la animación del elegido al lado.
 #include "app/app.h"
+#include "i18n/textos.h"
 
 namespace lin {
 
@@ -74,7 +75,7 @@ void seleccion_simple(App& a) {
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 0);
     char t[96];
     g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
-    g.texto("Select a character", LISTA_X, 18, kt, ui::COLOR_TITULO);
+    g.texto(tr(Tx::PJ_TITULO), LISTA_X, 18, kt, ui::COLOR_TITULO);
     ui::recuadro(g, LISTA_X, LISTA_Y - 6, LISTA_W, 384);
     ui::recuadro(g, DATOS_X, LISTA_Y - 6, DATOS_W, 384);
 
@@ -88,11 +89,11 @@ void seleccion_simple(App& a) {
                                i == a.pj_sel ? rgba(90, 70, 40, 230) : rgba(50, 40, 28, 230));
         if (p) {
             g.texto(p->nombre, LISTA_X + 12, y + 5, kt, ui::COLOR_TEXTO);
-            std::snprintf(t, sizeof t, "Lv %d %s%s%s", p->v[PJ_NIVEL], nombre_clase(p->v[PJ_CLASE]), p->clan.empty() ? "" : "  -  ",
-                          p->clan.c_str());
+            std::snprintf(t, sizeof t, tr(Tx::PJ_LINEA), p->v[PJ_NIVEL], nombre_clase(p->v[PJ_CLASE]),
+                          p->clan.empty() ? "" : "  -  ", p->clan.c_str());
             g.texto(t, LISTA_X + 12, y + 20, kt, rgba(170, 160, 140));
         } else {
-            g.texto("+ New character", LISTA_X + 12, y + 12, kt, encima ? ui::COLOR_TITULO : rgba(120, 110, 90));
+            g.texto(tr(Tx::PJ_NUEVO), LISTA_X + 12, y + 12, kt, encima ? ui::COLOR_TITULO : rgba(120, 110, 90));
         }
         if (encima && e.clic) {
             if (!p) return nuevo_personaje(a);
@@ -110,8 +111,8 @@ void seleccion_simple(App& a) {
         ui::texto_centrado(g, p.nombre, DATOS_X, LISTA_Y + 226, DATOS_W, ui::COLOR_TITULO);
         const struct { const char* n; int v; } datos[] = {
             {"HP", p.v[PJ_HP]},     {"STR", p.v[PJ_FUE]}, {"MP", p.v[PJ_MP]},   {"DEX", p.v[PJ_DES]},
-            {"AC", p.v[PJ_CA]},     {"CON", p.v[PJ_CON]}, {"Lawful", p.v[PJ_LEGAL]}, {"WIS", p.v[PJ_SAB]},
-            {"Level", p.v[PJ_NIVEL]}, {"CHA", p.v[PJ_CAR]}, {"", 0},             {"INT", p.v[PJ_INT]},
+            {"AC", p.v[PJ_CA]},     {"CON", p.v[PJ_CON]}, {tr(Tx::PJ_LEGAL), p.v[PJ_LEGAL]}, {"WIS", p.v[PJ_SAB]},
+            {tr(Tx::PJ_NIVEL), p.v[PJ_NIVEL]}, {"CHA", p.v[PJ_CAR]}, {"", 0},             {"INT", p.v[PJ_INT]},
         };
         for (int k = 0; k < 12; ++k) {
             if (!*datos[k].n) continue;
@@ -121,24 +122,26 @@ void seleccion_simple(App& a) {
             g.texto(t, x + 60, y, kt, ui::COLOR_TEXTO);
         }
     } else {
-        ui::texto_centrado(g, "Choose a character from the list", DATOS_X, LISTA_Y + 170, DATOS_W, rgba(120, 110, 90));
+        ui::texto_centrado(g, tr(Tx::PJ_ELEGIR), DATOS_X, LISTA_Y + 170, DATOS_W, rgba(120, 110, 90));
     }
 
     const int by = 444;
-    if ((ui::boton_texto(g, e, "Enter", DATOS_X, by, 92, 22) || e.enter) && hay_elegido(a)) return entrar_juego(a);
-    if (ui::boton_texto(g, e, a.confirmar_borrado ? "Sure?" : "Delete", DATOS_X + 99, by, 92, 22) && hay_elegido(a)) {
+    if ((ui::boton_texto(g, e, tr(Tx::PJ_ENTRAR), DATOS_X, by, 92, 22) || e.enter) && hay_elegido(a)) return entrar_juego(a);
+    if (ui::boton_texto(g, e, tr(a.confirmar_borrado ? Tx::PJ_SEGURO : Tx::PJ_BORRAR), DATOS_X + 99, by, 92, 22) && hay_elegido(a)) {
         if (a.confirmar_borrado) enviar(a, cmd::borrar_personaje(a.op, a.pjs[a.pj_sel].nombre));
         a.confirmar_borrado = !a.confirmar_borrado;
     }
-    if (ui::boton_texto(g, e, "Back", DATOS_X + 198, by, 92, 22) || e.escape) return volver_login(a);
-    g.texto("F2: original interface", LISTA_X, by + 5, kt, rgba(120, 110, 90));
+    if (ui::boton_texto(g, e, tr(Tx::UI_VOLVER), DATOS_X + 198, by, 92, 22) || e.escape) return volver_login(a);
+    g.texto(tr(Tx::UI_F2_ORIGINAL), LISTA_X, by + 5, kt, rgba(120, 110, 90));
 }
 
 }  // namespace
 
 const char* nombre_clase(int c) {
-    static const char* n[] = {"Prince", "Knight", "Elf", "Wizard", "Dark Elf", "Dragon Knight", "Illusionist"};
-    return (c >= 0 && c < 7) ? n[c] : "?";
+    // El orden es el de las clases del paquete (príncipe a ilusionista).
+    static const Tx n[] = {Tx::CLASE_PRINCIPE, Tx::CLASE_CABALLERO, Tx::CLASE_ELFO, Tx::CLASE_MAGO,
+                           Tx::CLASE_ELFO_OSCURO, Tx::CLASE_CABALLERO_DRAGON, Tx::CLASE_ILUSIONISTA};
+    return (c >= 0 && c < 7) ? tr(n[c]) : "?";
 }
 
 void eventos_personajes(App& a, const Evento& e) {

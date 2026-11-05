@@ -5,6 +5,7 @@
 // elige al conectar, con el protocolo del elegido. La cuenta se recuerda por servidor; la clave no.
 #include <algorithm>
 #include "app/app.h"
+#include "i18n/textos.h"
 
 namespace lin {
 
@@ -16,10 +17,10 @@ constexpr int X_BOTONES = 0x213;
 
 const char* motivo_login(int codigo) {
     switch (codigo) {
-    case 7: return "La cuenta ya existe.";
-    case 8: return "Usuario o clave incorrectos.";
-    case 22: return "La cuenta ya está en uso.";
-    default: return "El servidor rechazó el ingreso.";
+    case 7: return tr(Tx::LOGIN_ERR_CUENTA_EXISTE);
+    case 8: return tr(Tx::LOGIN_ERR_CLAVE);
+    case 22: return tr(Tx::LOGIN_ERR_EN_USO);
+    default: return tr(Tx::LOGIN_ERR_RECHAZO);
     }
 }
 
@@ -29,7 +30,7 @@ void iniciar_login(App& a) {
     if (a.usuario.empty() || a.clave.empty() || a.esperando) return;
     const Servidor& sv = servidor_elegido(a.cfg);
     if (!tabla_opcodes(sv.protocolo, a.op)) {
-        a.aviso = "Unknown protocol version: " + sv.protocolo;
+        a.aviso = std::string(tr(Tx::LOGIN_ERR_PROTOCOLO)) + sv.protocolo;
         return;
     }
     a.aviso.clear();
@@ -97,18 +98,18 @@ void frame_login(App& a) {
         g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
         dibujar_logo(a, 40, 24, 560, 190);
         ui::recuadro(g, 190, 222, 260, 138);
-        g.texto("Server", 206, y_servidor, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        g.texto("Account", 206, y_usuario, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        g.texto("Password", 206, y_clave, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        g.texto(tr(Tx::LOGIN_SERVIDOR), 206, y_servidor, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        g.texto(tr(Tx::LOGIN_CUENTA), 206, y_usuario, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        g.texto(tr(Tx::LOGIN_CLAVE), 206, y_clave, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
         ui::texto_centrado(g, pie, 0, 440, 640, rgba(120, 110, 90));
-        ui::texto_centrado(g, "F2: original interface", 0, 456, 640, rgba(120, 110, 90));
+        ui::texto_centrado(g, tr(Tx::UI_F2_ORIGINAL), 0, 456, 640, rgba(120, 110, 90));
     } else {
         g.gpu().dibujar(g.png(814), 0, 0, clave_orden(CAPA_FONDO, 0));
         // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda.
         for (size_t i = 0; i < a.intro.cantidad() && i < 18; ++i)
             g.texto(a.intro.linea(i), 34, 59 + 12 * static_cast<int>(i), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
         ui::imagen(g, 59, 0x1a9, 0x138);
-        g.texto_sombra("Server", static_cast<float>(x_servidor - 46), static_cast<float>(y_servidor), clave_orden(CAPA_UI_TEXTO, 0),
+        g.texto_sombra(tr(Tx::LOGIN_SERVIDOR), static_cast<float>(x_servidor - 46), static_cast<float>(y_servidor), clave_orden(CAPA_UI_TEXTO, 0),
                        rgba(214, 190, 140));
         g.texto_sombra(pie, static_cast<float>(x_servidor), static_cast<float>(y_servidor + 17), clave_orden(CAPA_UI_TEXTO, 0),
                        rgba(200, 190, 160));
@@ -139,8 +140,8 @@ void frame_login(App& a) {
 
     bool login = enter_clave;
     if (simple) {
-        login |= ui::boton_texto(g, e, "Login", 206, 326, 108, 20);
-        if (ui::boton_texto(g, e, "Quit", 326, 326, 108, 20)) a.salir = true;
+        login |= ui::boton_texto(g, e, tr(Tx::LOGIN_ENTRAR), 206, 326, 108, 20);
+        if (ui::boton_texto(g, e, tr(Tx::LOGIN_SALIR), 326, 326, 108, 20)) a.salir = true;
     } else {
         login |= ui::boton(g, e, 53, X_BOTONES, 0x183);
         ui::boton(g, e, 65, X_BOTONES, 0x195);  // nueva cuenta: L1J las crea solas al primer login
@@ -151,10 +152,10 @@ void frame_login(App& a) {
     if (login && !bloqueado) iniciar_login(a);
 
     if (simple) {
-        if (a.esperando && !a.mostrando_noticias) ui::texto_centrado(g, "Connecting...", 0, 372, 640, rgba(255, 230, 150));
+        if (a.esperando && !a.mostrando_noticias) ui::texto_centrado(g, tr(Tx::LOGIN_CONECTANDO), 0, 372, 640, rgba(255, 230, 150));
         if (!a.aviso.empty()) ui::texto_centrado(g, a.aviso, 0, 372, 640, rgba(255, 120, 100));
     } else {
-        if (a.esperando && !a.mostrando_noticias) g.texto("Conectando...", 0x1b8, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 230, 150));
+        if (a.esperando && !a.mostrando_noticias) g.texto(tr(Tx::LOGIN_CONECTANDO), 0x1b8, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 230, 150));
         if (!a.aviso.empty()) g.texto_sombra(a.aviso, 0x1a9, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 120, 100));
     }
 

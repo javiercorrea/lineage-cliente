@@ -25,11 +25,15 @@ struct FuenteBitmap {
     bool rasterizar(u32 glifo, ImagenRGBA& salida) const;
 };
 
-// Recorre un texto CP949 y devuelve glifos y anchos. Los bytes no representables se omiten.
+// Texto UTF-8 válido: se dibuja con la fuente TTF (recursos/fuente_ttf.h), proporcional. Cualquier
+// otro (CP949 del servidor): fuente bitmap. Los bytes no representables se omiten.
 struct GlifoTexto {
     u32 glifo;
     u8 ancho;
 };
+// Carácter UTF-8 que empieza en t[i]: devuelve sus bytes (0 si no es UTF-8 válido) y su punto en cp.
+size_t largo_utf8(const char* t, size_t n, size_t i, u32& cp);
+bool es_utf8(const char* t, size_t n);
 void glifos_de_texto(const char* texto, size_t n, std::vector<GlifoTexto>& salida);
 int ancho_texto(const char* texto, size_t n);
 // Bytes del comienzo del texto que entran en `ancho_max` píxeles, sin partir caracteres CP949 y
