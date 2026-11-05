@@ -12,8 +12,8 @@ namespace {
 
 // Tamaño del em en píxeles. La tilde de una mayúscula acentuada (0,8 em sobre la base) y el
 // descendente (0,2 em bajo ella) tienen que caber en la celda: 0,8 + 0,2 = 1 em <= ALTO_GLIFO.
-// shortcut: con ALTO_GLIFO = 14, el em máximo es 14; si se cambia el alto de celda, revisar este valor.
-constexpr float PX_EM = 14.0f;
+// shortcut: con ALTO_GLIFO = 16, el em máximo es 16; si se cambia el alto de celda, revisar este valor.
+constexpr float PX_EM = 16.0f;
 // Cobertura a partir de la cual un píxel se enciende (0–255). Bajo, la letra se engorda; alto, se
 // adelgaza. Es lo que da el aspecto de píxel duro de la fuente original.
 constexpr unsigned char UMBRAL_TRAZO = 128;

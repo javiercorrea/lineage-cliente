@@ -14,7 +14,7 @@ namespace lin {
 constexpr int ANCHO_GLIFO_ASCII = 6;
 constexpr int ANCHO_GLIFO_KOR = 12;
 // Alto de línea del texto de la interfaz (TTF). Lo usa todo el layout.
-constexpr int ALTO_GLIFO = 14;
+constexpr int ALTO_GLIFO = 16;
 // Alto de las fuentes bitmap del juego (eng.fnt y kor.fnt): sus glifos siempre son de 12 filas.
 constexpr int ALTO_GLIFO_BITMAP = 12;
 
