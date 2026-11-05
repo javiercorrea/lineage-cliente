@@ -2,6 +2,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include "app/app.h"
+#include "i18n/textos.h"
 #include "core/asignaciones.h"
 
 namespace lin {
@@ -271,6 +272,8 @@ void cambiar_pantalla(App& a, Pantalla p) {
 bool iniciar_app(App& a) {
     a.cfg = cargar_config();
     a.usuario = servidor_elegido(a.cfg).usuario;
+    Idioma idioma;  // settings.ini "idioma="; vacío o desconocido = el del sistema
+    fijar_idioma(idioma_de_codigo(a.cfg.idioma, idioma) ? idioma : idioma_del_sistema());
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         LIN_LOG("SDL_Init: %s", SDL_GetError());
         return false;
