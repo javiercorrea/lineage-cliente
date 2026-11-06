@@ -25,9 +25,11 @@ using namespace lin;
 
 namespace {
 
-constexpr int VENTANA_W = 1280, VENTANA_H = 960;  // la lógica es 640×480, como el juego
-constexpr int LOGICO_W = 640, LOGICO_H = 480;
+constexpr int LOGICO_W = 640, LOGICO_H = 480;  // la ventana mide esto en puntos: lo que se dibuja, sin sobrar
+constexpr int BARRA_H = 30, BOTON_LADO = 22;   // barra propia (la ventana no tiene borde del sistema)
+constexpr int X_BOTONES = LOGICO_W - 2 * BOTON_LADO - 10;  // el primero es el de minimizar; a la derecha, cerrar
 constexpr int X_ETIQUETA = 32, X_CAMPO = 250, ANCHO_CAMPO = 340, Y_PRIMERA = 78, PASO = 28;
+constexpr int CAJA_X = 12, CAJA_Y = 62, CAJA_ANCHO = 616, CAJA_ALTO = 340;  // recuadro del contenido
 const u32 COLOR_ERROR = rgba(255, 120, 100), COLOR_OK = rgba(170, 230, 150);
 const std::vector<std::string> PROTOCOLOS = {"jp363", "tw380"};  // los que entiende el cliente (opcodes.cpp)
 // Idiomas del juego: el código que va a settings.ini ("" = el del sistema). El nombre de cada uno se
@@ -170,6 +172,10 @@ struct Pantalla {
     bool abre_sv = false, abre_proto = false, abre_ini = false, abre_pj = false, abre_idioma = false;  // desplegables abiertos
     std::string aviso;  // lo que pasó con el último botón; sale en la línea de abajo
     bool aviso_error = false;
+    // Scroll del contenido de la pestaña: las filas se corren `desplaza` px; lo que queda fuera de la caja no se dibuja.
+    int desplaza = 0, desplaza_max = 0;  // el tope sale del alto del frame anterior
+    int alto_contenido = 0;              // alto de las filas de este frame, sin desplazar
+    bool en_tab = false;                 // dibujando el contenido de la pestaña
 };
 
 void estado(Pantalla& p, std::string t, bool error) {
@@ -177,23 +183,32 @@ void estado(Pantalla& p, std::string t, bool error) {
     p.aviso_error = error;
 }
 
+// Una fila que cae fuera de la caja (o de la parte que se ve) no se dibuja ni recibe clics.
+bool oculto(const Pantalla& p, int y, int alto) {
+    return p.en_tab && (y < CAJA_Y + 4 || y + alto > CAJA_Y + CAJA_ALTO - 4);
+}
+
 void etiqueta(Pantalla& p, int y, std::string_view t) {
+    if (oculto(p, y, 20)) return;
     p.g.texto(t, X_ETIQUETA, y + 4, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TEXTO);
 }
 
 void texto(Pantalla& p, int y, std::string_view t, u32 color = ui::COLOR_TEXTO) {
+    if (oculto(p, y, 20)) return;
     p.g.texto(t, X_ETIQUETA, y + 4, clave_orden(CAPA_UI_TEXTO, 0), color);
 }
 
 void campo(Pantalla& p, int y, std::string_view nombre, std::string& valor, size_t maximo) {
     const int id = p.campos++;
     etiqueta(p, y, nombre);
+    if (oculto(p, y, 24)) return;
     if (p.e.clic && ui::sobre(p.e, X_CAMPO - 4, y - 4, ANCHO_CAMPO + 8, 24)) p.foco = id;
     if (ui::campo(p.g, p.e, valor, X_CAMPO, y, ANCHO_CAMPO, p.foco == id, false, maximo)) p.foco = -1;  // Enter
 }
 
 void si_no(Pantalla& p, int y, std::string_view nombre, bool& valor) {
     etiqueta(p, y, nombre);
+    if (oculto(p, y, 20)) return;
     if (ui::boton_texto(p.g, p.e, valor ? tr(Tx::AJ_SI) : tr(Tx::AJ_NO), X_CAMPO, y, 90, 20)) valor = !valor;
 }
 
@@ -201,56 +216,64 @@ void si_no(Pantalla& p, int y, std::string_view nombre, bool& valor) {
 bool lista(Pantalla& p, int y, std::string_view nombre, const std::vector<std::string>& opciones, size_t& elegido,
            bool& abierto) {
     etiqueta(p, y, nombre);
+    if (oculto(p, y, 24)) return false;
     return ui::desplegable(p.g, p.e, opciones, elegido, abierto, X_CAMPO, y, ANCHO_CAMPO);
 }
 
-bool boton(Pantalla& p, int x, int y, int w, std::string_view t) { return ui::boton_texto(p.g, p.e, t, x, y, w, 22); }
+bool boton(Pantalla& p, int x, int y, int w, std::string_view t) {
+    if (oculto(p, y, 22)) return false;
+    return ui::boton_texto(p.g, p.e, t, x, y, w, 22);
+}
 
-int fila(int i) { return Y_PRIMERA + i * PASO; }
+// Fila i de la pestaña: marca hasta dónde llega el contenido (para el tope del scroll).
+int fila(Pantalla& p, int i) {
+    p.alto_contenido = std::max(p.alto_contenido, Y_PRIMERA + (i + 1) * PASO);
+    return Y_PRIMERA + i * PASO - p.desplaza;
+}
 
 // --- Pestañas ----------------------------------------------------------------------------------
 
 void pestana_juego(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
-    campo(p, fila(0), tr(Tx::AJ_CARPETA), c.carpeta_juego, 300);
-    if (boton(p, X_CAMPO, fila(1), 160, tr(Tx::AJ_BUSCAR))) SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, p.ventana, nullptr, false);
-    if (carpeta_juego_valida(c.carpeta_juego)) texto(p, fila(2), tr(Tx::AJ_CARPETA_OK), COLOR_OK);
-    else texto(p, fila(2), tr(Tx::AJ_CARPETA_MAL), COLOR_ERROR);
-    si_no(p, fila(3), tr(Tx::AJ_CAMARA), c.camara_a_saltos);
-    si_no(p, fila(4), tr(Tx::AJ_CHAT_ENTER), c.chat_con_enter);
-    si_no(p, fila(5), tr(Tx::AJ_SOMBRA), c.sombra_personajes);
-    si_no(p, fila(6), tr(Tx::AJ_COMPENSAR), c.compensar_ataque);
-    si_no(p, fila(7), tr(Tx::AJ_TEXTO_DANO), c.texto_dano);
-    si_no(p, fila(8), tr(Tx::AJ_BARRA_PJ), c.barra_personaje);
-    si_no(p, fila(9), tr(Tx::AJ_EFECTO_LUZ), c.efecto_luz);
-    si_no(p, fila(10), tr(Tx::AJ_EFECTO_AGUA), c.efecto_agua_tinte);
-    si_no(p, fila(11), tr(Tx::AJ_EFECTO_OLA), c.efecto_agua_ola);
-    si_no(p, fila(12), tr(Tx::AJ_EFECTO_INFRA), c.efecto_infravision);
+    campo(p, fila(p, 0), tr(Tx::AJ_CARPETA), c.carpeta_juego, 300);
+    if (boton(p, X_CAMPO, fila(p, 1), 160, tr(Tx::AJ_BUSCAR))) SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, p.ventana, nullptr, false);
+    if (carpeta_juego_valida(c.carpeta_juego)) texto(p, fila(p, 2), tr(Tx::AJ_CARPETA_OK), COLOR_OK);
+    else texto(p, fila(p, 2), tr(Tx::AJ_CARPETA_MAL), COLOR_ERROR);
+    si_no(p, fila(p, 3), tr(Tx::AJ_CAMARA), c.camara_a_saltos);
+    si_no(p, fila(p, 4), tr(Tx::AJ_CHAT_ENTER), c.chat_con_enter);
+    si_no(p, fila(p, 5), tr(Tx::AJ_SOMBRA), c.sombra_personajes);
+    si_no(p, fila(p, 6), tr(Tx::AJ_COMPENSAR), c.compensar_ataque);
+    si_no(p, fila(p, 7), tr(Tx::AJ_TEXTO_DANO), c.texto_dano);
+    si_no(p, fila(p, 8), tr(Tx::AJ_BARRA_PJ), c.barra_personaje);
+    si_no(p, fila(p, 9), tr(Tx::AJ_EFECTO_LUZ), c.efecto_luz);
+    si_no(p, fila(p, 10), tr(Tx::AJ_EFECTO_AGUA), c.efecto_agua_tinte);
+    si_no(p, fila(p, 11), tr(Tx::AJ_EFECTO_OLA), c.efecto_agua_ola);
+    si_no(p, fila(p, 12), tr(Tx::AJ_EFECTO_INFRA), c.efecto_infravision);
 }
 
 void pestana_interfaz(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
-    si_no(p, fila(0), tr(Tx::AJ_UI_SIMPLE), c.ui_simple);
-    si_no(p, fila(1), tr(Tx::AJ_FPS), c.mostrar_fps);
-    campo(p, fila(2), tr(Tx::AJ_OPACIDAD), f.opacidad, 3);
-    campo(p, fila(3), tr(Tx::AJ_LOGO), c.logo, 200);
-    campo(p, fila(4), tr(Tx::AJ_VENTANA_ANCHO), f.ancho, 4);
-    campo(p, fila(5), tr(Tx::AJ_VENTANA_ALTO), f.alto, 4);
-    campo(p, fila(6), tr(Tx::AJ_ZOOM), f.zoom, 2);
+    si_no(p, fila(p, 0), tr(Tx::AJ_UI_SIMPLE), c.ui_simple);
+    si_no(p, fila(p, 1), tr(Tx::AJ_FPS), c.mostrar_fps);
+    campo(p, fila(p, 2), tr(Tx::AJ_OPACIDAD), f.opacidad, 3);
+    campo(p, fila(p, 3), tr(Tx::AJ_LOGO), c.logo, 200);
+    campo(p, fila(p, 4), tr(Tx::AJ_VENTANA_ANCHO), f.ancho, 4);
+    campo(p, fila(p, 5), tr(Tx::AJ_VENTANA_ALTO), f.alto, 4);
+    campo(p, fila(p, 6), tr(Tx::AJ_ZOOM), f.zoom, 2);
     // Idioma del juego. Se guarda con Guardar; el editor ya cambia de idioma al elegirlo.
     const std::vector<std::string> nombres = idiomas_nombres();
     size_t idx = 0;
     for (size_t i = 0; i < IDIOMAS_CODIGOS.size(); ++i)
         if (IDIOMAS_CODIGOS[i] == c.idioma) idx = i;
-    if (lista(p, fila(7), tr(Tx::AJ_IDIOMA), nombres, idx, p.abre_idioma)) {
+    if (lista(p, fila(p, 7), tr(Tx::AJ_IDIOMA), nombres, idx, p.abre_idioma)) {
         c.idioma = IDIOMAS_CODIGOS[idx];
         aplicar_idioma(c.idioma);
     }
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
-    campo(p, fila(0), tr(Tx::AJ_MUSICA), f.musica, 3);
-    campo(p, fila(1), tr(Tx::AJ_EFECTOS), f.efectos, 3);
+    campo(p, fila(p, 0), tr(Tx::AJ_MUSICA), f.musica, 3);
+    campo(p, fila(p, 1), tr(Tx::AJ_EFECTOS), f.efectos, 3);
 }
 
 void pestana_servidores(Pantalla& p, Formulario& f) {
@@ -258,18 +281,18 @@ void pestana_servidores(Pantalla& p, Formulario& f) {
     std::vector<std::string> nombres;
     for (const Servidor& s : c.servidores) nombres.push_back(s.nombre);
     size_t a_editar = f.sv;
-    if (lista(p, fila(0), tr(Tx::AJ_SERVIDOR_EDITAR), nombres, a_editar, p.abre_sv)) cambiar_servidor(f, a_editar);
-    if (boton(p, X_CAMPO, fila(1), 100, tr(Tx::AJ_AGREGAR))) agregar_servidor(f);
-    if (boton(p, X_CAMPO + 110, fila(1), 100, tr(Tx::AJ_QUITAR))) quitar_servidor(f);
+    if (lista(p, fila(p, 0), tr(Tx::AJ_SERVIDOR_EDITAR), nombres, a_editar, p.abre_sv)) cambiar_servidor(f, a_editar);
+    if (boton(p, X_CAMPO, fila(p, 1), 100, tr(Tx::AJ_AGREGAR))) agregar_servidor(f);
+    if (boton(p, X_CAMPO + 110, fila(p, 1), 100, tr(Tx::AJ_QUITAR))) quitar_servidor(f);
     Servidor& sv = c.servidores[f.sv];
-    campo(p, fila(2), tr(Tx::AJ_NOMBRE), sv.nombre, 32);
-    campo(p, fila(3), tr(Tx::AJ_HOST), sv.host, 64);
-    campo(p, fila(4), tr(Tx::AJ_PUERTO), f.puerto, 5);
+    campo(p, fila(p, 2), tr(Tx::AJ_NOMBRE), sv.nombre, 32);
+    campo(p, fila(p, 3), tr(Tx::AJ_HOST), sv.host, 64);
+    campo(p, fila(p, 4), tr(Tx::AJ_PUERTO), f.puerto, 5);
     size_t proto = posicion(f.protocolos, sv.protocolo);
-    if (lista(p, fila(5), tr(Tx::AJ_PROTOCOLO), f.protocolos, proto, p.abre_proto)) sv.protocolo = f.protocolos[proto];
-    campo(p, fila(6), tr(Tx::AJ_CUENTA), sv.usuario, 32);
+    if (lista(p, fila(p, 5), tr(Tx::AJ_PROTOCOLO), f.protocolos, proto, p.abre_proto)) sv.protocolo = f.protocolos[proto];
+    campo(p, fila(p, 6), tr(Tx::AJ_CUENTA), sv.usuario, 32);
     size_t entrar = c.servidor;
-    if (lista(p, fila(7), tr(Tx::AJ_SERVIDOR_ENTRAR), nombres, entrar, p.abre_ini)) c.servidor = entrar;
+    if (lista(p, fila(p, 7), tr(Tx::AJ_SERVIDOR_ENTRAR), nombres, entrar, p.abre_ini)) c.servidor = entrar;
 }
 
 void pestana_personajes(Pantalla& p, Formulario& f) {
@@ -277,28 +300,28 @@ void pestana_personajes(Pantalla& p, Formulario& f) {
     const std::vector<std::string> nombres = personajes_con_datos(c);
     char buf[160];
     if (nombres.empty()) {
-        texto(p, fila(0), tr(Tx::AJ_SIN_DATOS));
-        texto(p, fila(1), tr(Tx::AJ_SIN_DATOS_2));
+        texto(p, fila(p, 0), tr(Tx::AJ_SIN_DATOS));
+        texto(p, fila(p, 1), tr(Tx::AJ_SIN_DATOS_2));
     } else {
         f.personaje = std::min(f.personaje, nombres.size() - 1);
         size_t elegido = f.personaje;
-        if (lista(p, fila(0), tr(Tx::AJ_PERSONAJE), nombres, elegido, p.abre_pj)) f.personaje = elegido;
+        if (lista(p, fila(p, 0), tr(Tx::AJ_PERSONAJE), nombres, elegido, p.abre_pj)) f.personaje = elegido;
         const std::string& nombre = nombres[f.personaje];
-        texto(p, fila(1), valor_de_personaje(c.atajos, nombre).empty() ? tr(Tx::AJ_ATAJOS_NO) : tr(Tx::AJ_ATAJOS_SI));
-        texto(p, fila(2), valor_de_personaje(c.barra, nombre).empty() ? tr(Tx::AJ_BARRA_NO) : tr(Tx::AJ_BARRA_SI));
-        if (boton(p, X_CAMPO, fila(3), 160, tr(Tx::AJ_QUITAR_ATAJOS))) {
+        texto(p, fila(p, 1), valor_de_personaje(c.atajos, nombre).empty() ? tr(Tx::AJ_ATAJOS_NO) : tr(Tx::AJ_ATAJOS_SI));
+        texto(p, fila(p, 2), valor_de_personaje(c.barra, nombre).empty() ? tr(Tx::AJ_BARRA_NO) : tr(Tx::AJ_BARRA_SI));
+        if (boton(p, X_CAMPO, fila(p, 3), 160, tr(Tx::AJ_QUITAR_ATAJOS))) {
             quitar_valor_de_personaje(c.atajos, nombre);
             std::snprintf(buf, sizeof buf, tr(Tx::AJ_ATAJOS_QUITADOS), nombre.c_str());
             estado(p, buf, false);
         }
-        if (boton(p, X_CAMPO + 170, fila(3), 160, tr(Tx::AJ_QUITAR_BARRA))) {
+        if (boton(p, X_CAMPO + 170, fila(p, 3), 160, tr(Tx::AJ_QUITAR_BARRA))) {
             quitar_valor_de_personaje(c.barra, nombre);
             std::snprintf(buf, sizeof buf, tr(Tx::AJ_BARRA_QUITADA), nombre.c_str());
             estado(p, buf, false);
         }
     }
-    texto(p, fila(5), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
-    if (boton(p, X_CAMPO, fila(6), 220, tr(Tx::AJ_RESTABLECER))) {
+    texto(p, fila(p, 5), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
+    if (boton(p, X_CAMPO, fila(p, 6), 220, tr(Tx::AJ_RESTABLECER))) {
         c.ventanas.clear();
         estado(p, tr(Tx::AJ_VENTANAS_RESET), false);
     }
@@ -330,14 +353,23 @@ void barra_inferior(Pantalla& p, Formulario& f, const std::string& ruta, bool& s
 
 // --- Entrada y bucle ---------------------------------------------------------------------------
 
-void leer_entrada(Gpu& gpu, EntradaFrame& e, bool& salir) {
+// La barra de arriba arrastra la ventana, salvo los dos botones (que son clics normales). Las
+// coordenadas son de la ventana, en puntos, y coinciden con las lógicas porque la ventana no cambia.
+SDL_HitTestResult zona_barra(SDL_Window*, const SDL_Point* p, void*) {
+    if (p->y >= BARRA_H) return SDL_HITTEST_NORMAL;
+    return p->x >= X_BOTONES ? SDL_HITTEST_NORMAL : SDL_HITTEST_DRAGGABLE;
+}
+
+void leer_entrada(Gpu& gpu, EntradaFrame& e, bool& salir, int& rueda) {
     e.clic = e.enter = e.tab = e.escape = e.retroceso = false;
     e.ntexto = 0;
+    rueda = 0;
     e.ahora_ms = SDL_GetTicks();
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
         switch (ev.type) {
         case SDL_EVENT_QUIT: salir = true; break;
+        case SDL_EVENT_MOUSE_WHEEL: rueda += static_cast<int>(ev.wheel.y); break;  // positivo: hacia arriba
         case SDL_EVENT_MOUSE_MOTION: gpu.a_logico(ev.motion.x, ev.motion.y, e.mx, e.my); break;
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
             gpu.a_logico(ev.button.x, ev.button.y, e.mx, e.my);
@@ -395,8 +427,9 @@ int main(int argc, char** argv) {
     aplicar_idioma(f.cfg.idioma);  // antes de crear la ventana: el título también sale en el idioma
 
     if (!SDL_Init(SDL_INIT_VIDEO)) return 1;
-    SDL_Window* v = SDL_CreateWindow(tr(Tx::AJ_TITULO_VENTANA), VENTANA_W, VENTANA_H,
-                                     SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    SDL_Window* v = SDL_CreateWindow(tr(Tx::AJ_TITULO_VENTANA), LOGICO_W, LOGICO_H,
+                                     SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (v) SDL_SetWindowHitTest(v, zona_barra, nullptr);
     Gpu gpu;
     if (!v || !gpu.iniciar(v, LOGICO_W, LOGICO_H)) {
         SDL_Quit();
@@ -431,7 +464,8 @@ int main(int argc, char** argv) {
 
     for (int frame = 0; !salir; ++frame) {
         g->nuevo_frame();
-        leer_entrada(gpu, entrada, salir);
+        int rueda = 0;
+        leer_entrada(gpu, entrada, salir, rueda);
         if (g_carpeta_nueva) {  // resultado de "Buscar carpeta..."
             g_carpeta_nueva = false;
             const std::string nueva = g_carpeta_elegida + "/";
@@ -440,6 +474,8 @@ int main(int argc, char** argv) {
             if (carpeta_juego_valida(nueva)) f.cfg.carpeta_juego = nueva;
         }
 
+        p.desplaza = std::clamp(p.desplaza - rueda * PASO, 0, p.desplaza_max);
+        p.alto_contenido = 0;
         p.campos_antes = p.campos;
         p.campos = 0;
         if (entrada.clic) p.foco = -1;  // un clic fuera de un campo le quita el foco
@@ -447,21 +483,35 @@ int main(int argc, char** argv) {
 
         const std::vector<std::string> nombres_pestanas = pestanas();
         gpu.rectangulo(0, 0, LOGICO_W, LOGICO_H, clave_orden(CAPA_FONDO, 0), rgba(24, 20, 16));
-        ui::texto_centrado(*g, tr(Tx::AJ_TITULO), 0, 10, LOGICO_W, ui::COLOR_TITULO);
+        gpu.rectangulo(0, 0, LOGICO_W, BARRA_H, clave_orden(CAPA_FONDO, 1), rgba(44, 34, 24));
+        ui::texto_centrado(*g, tr(Tx::AJ_TITULO), 0, 8, LOGICO_W, ui::COLOR_TITULO);
+        if (ui::boton_texto(*g, entrada, "-", X_BOTONES, 4, BOTON_LADO, BOTON_LADO)) SDL_MinimizeWindow(v);
+        if (ui::boton_texto(*g, entrada, "x", LOGICO_W - BOTON_LADO - 6, 4, BOTON_LADO, BOTON_LADO)) salir = true;
         for (size_t i = 0; i < nombres_pestanas.size(); ++i) {
             const std::string t = i == pestana ? "> " + nombres_pestanas[i] + " <" : nombres_pestanas[i];
             if (ui::boton_texto(*g, entrada, t, 16 + static_cast<int>(i) * 122, 34, 118, 22)) {
                 pestana = i;
                 p.foco = -1;
+                p.desplaza = 0;
             }
         }
-        ui::recuadro(*g, 12, 62, 616, 340);
+        ui::recuadro(*g, CAJA_X, CAJA_Y, CAJA_ANCHO, CAJA_ALTO);
+        p.en_tab = true;
         switch (pestana) {
         case 0: pestana_juego(p, f); break;
         case 1: pestana_interfaz(p, f); break;
         case 2: pestana_audio(p, f); break;
         case 3: pestana_servidores(p, f); break;
         default: pestana_personajes(p, f); break;
+        }
+        p.en_tab = false;
+        // Tope del scroll para el próximo frame: lo que sobra de la caja (el último renglón deja su margen).
+        p.desplaza_max = std::max(0, p.alto_contenido - (CAJA_Y + CAJA_ALTO - 4 - Y_PRIMERA));
+        if (p.desplaza_max > 0) {
+            const int x_flechas = CAJA_X + CAJA_ANCHO - 22;
+            if (ui::boton_texto(*g, entrada, "^", x_flechas, CAJA_Y + 4, 18, 18)) p.desplaza -= PASO;
+            if (ui::boton_texto(*g, entrada, "v", x_flechas, CAJA_Y + CAJA_ALTO - 22, 18, 18)) p.desplaza += PASO;
+            p.desplaza = std::clamp(p.desplaza, 0, p.desplaza_max);
         }
         barra_inferior(p, f, ruta, salir);
         if (!p.aviso.empty()) ui::texto_centrado(*g, p.aviso, 0, 412, LOGICO_W, p.aviso_error ? COLOR_ERROR : COLOR_OK);
