@@ -287,6 +287,8 @@ struct App {
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
     std::vector<u8> luz_mascara, luz_brillo;  // aplicar_luz: buffers del frame, se reusan
+    i32 hora_forzada = -1;                    // comando forzar-hora (pruebas): segundos del día, -1 = la del servidor
+    bool ambiente_agua = false;               // el ambiente que suena es el del agua (sonido 330)
     std::vector<u32> agua_filas;              // color por fila del agua (1416.img), cargado al primer uso
     bool jugador_tapado = false;  // un objeto del mapa tapa al propio personaje (se ve translúcido)
     ObjId objetivo = 0;
@@ -456,6 +458,8 @@ void aplicar_luz(App& a, u64 ahora);
 void cargar_sonidos(App& a);
 void aplicar_volumenes(App& a);
 void actualizar_sonido(App& a, u64 ahora);  // una vez por frame: música, ambiente y streams
+// Segundos de la hora de juego: la del servidor, o la forzada con forzar-hora (ver luz_ui.cpp).
+i32 hora_de_juego(const App& a);
 // Al dibujar un frame de animación: si cambió desde el anterior y tiene sonido, suena (con el
 // volumen según la distancia al personaje). `ultimo`: O_SONIDO o EfectoVisual::sonido.
 // `sonar_primero`: el primer frame también suena (los efectos de hechizos; un personaje recién

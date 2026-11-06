@@ -13,6 +13,8 @@ namespace lin {
 
 namespace {
 
+constexpr i32 SONIDO_AGUA = 330;  // el ambiente bajo el agua (0x14a en el cliente original)
+
 constexpr u64 MS_ZONA = 500;
 constexpr double CELDAS_SILENCIO = 20;
 // El valle escondido de esta versión (2005) es una copia del mapa 69, que es el que nombran
@@ -57,11 +59,14 @@ void actualizar_sonido(App& a, u64 ahora) {
             } else {
                 a.audio.musica(-1, 0, ahora);
             }
-            const u32 hora = static_cast<u32>(a.mundo.hora) % 86400 / 3600;
-            const AmbienteZona* amb = a.sonidos.ambiente_en(mapa, x, y, hora < 6 || hora >= 18);
-            if (amb != a.ambiente) {
+            // Bajo el agua suena el agua en bucle (sonido 330, de sub_4891e0) en lugar del ambiente de la zona.
+            const u32 hora = static_cast<u32>(hora_de_juego(a)) % 86400 / 3600;
+            const bool agua = a.mundo.submarino;
+            const AmbienteZona* amb = agua ? nullptr : a.sonidos.ambiente_en(mapa, x, y, hora < 6 || hora >= 18);
+            if (amb != a.ambiente || agua != a.ambiente_agua) {
                 a.ambiente = amb;
-                a.audio.ambiente(amb ? amb->principal : -1);
+                a.ambiente_agua = agua;
+                a.audio.ambiente(agua ? SONIDO_AGUA : amb ? amb->principal : -1);
                 for (u32 i = 0; amb && i < amb->n_grupos && i < 8; ++i) {
                     const GrupoSonido& g = a.sonidos.grupos[a.sonidos.grupos_ambiente[amb->primer_grupo + i]];
                     a.proximo_ambiente[i] = ahora + al_azar(g.intervalo_s * 1000ull);

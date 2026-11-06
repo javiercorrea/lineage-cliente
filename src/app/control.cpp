@@ -360,6 +360,17 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         a.intercambio.ok = true;
     } else if (cmd == "traza-html") {
         g_traza_html = p.size() < 2 || p[1] == "on";
+    } else if (cmd == "forzar-hora") {
+        // Pruebas de la luz: fija la hora de juego (segundos del día); "off" vuelve a la del servidor.
+        if (p.size() < 2) return error("uso: forzar-hora <segundos del día 0-86399> | off");
+        if (p[1] == "off") {
+            a.hora_forzada = -1;
+        } else {
+            const int s = std::atoi(p[1].c_str());
+            if (s < 0 || s > 86399) return error("la hora va de 0 a 86399");
+            a.hora_forzada = s;
+        }
+        responder(c, "ok");
     } else if (cmd == "perf") {
         a.perf = p.size() < 2 || p[1] == "on";
     } else if (cmd == "depuracion") {

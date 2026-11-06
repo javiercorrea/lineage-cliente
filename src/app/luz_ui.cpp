@@ -126,6 +126,8 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
 
 }  // namespace
 
+i32 hora_de_juego(const App& a) { return a.hora_forzada >= 0 ? a.hora_forzada : a.mundo.hora; }
+
 void aplicar_luz(App& a, u64 ahora) {
     const Mundo& m = a.mundo;
     const int w = a.gpu.ancho(), h = a.gpu.alto();
@@ -134,7 +136,7 @@ void aplicar_luz(App& a, u64 ahora) {
         return;
     }
 
-    const int seg = static_cast<int>(((m.hora % DIA) + DIA) % DIA);
+    const int seg = static_cast<int>(((hora_de_juego(a) % DIA) + DIA) % DIA);
     const bool lluvia = (m.clima >= 1 && m.clima <= 3) || (m.clima >= 17 && m.clima <= 19);
     std::time_t t = std::time(nullptr);
     std::tm local{};
