@@ -81,13 +81,28 @@ struct BotonesBarra {
     int cerrar, minimizar, lado;  // x de cada uno, en píxeles lógicos
 };
 BotonesBarra botones_barra(int ancho);
-// Dibuja la barra arriba del todo: el llamador la pone sobre lo demás con nivel_ventana. `cerrar` y
-// `minimizar` pasan a true si se hizo clic en su botón.
-void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho,
-                   bool& cerrar, bool& minimizar);
-// Para SDL_SetWindowHitTest: la barra arrastra la ventana, salvo sus botones; si `redimensionable`,
-// los bordes de 6 puntos redimensionan (la ventana sin borde no los trae).
-SDL_HitTestResult prueba_barra(SDL_Window* ventana, const Gpu& gpu, const SDL_Point* p, bool redimensionable);
+// Ventana sin borde: barra (título, minimizar, cerrar) y, si `redimensionable`, los bordes. Sus
+// eventos de ratón los maneja barra_evento, no SDL_SetWindowHitTest: en macOS, con esa prueba, el
+// ratón se pierde al soltar sobre la barra. El arrastre sigue la posición global del ratón.
+constexpr int BORDE_IZQ = 1, BORDE_DER = 2, BORDE_ARR = 4, BORDE_ABA = 8;
+enum class AccionBarra { NINGUNA, MINIMIZAR, CERRAR };
+struct Barra {
+    bool redimensionable = false;
+    bool pulsada = false;      // el press empezó en la barra o en un borde: lo que sigue es suyo
+    bool arrastrando = false;  // mover (bordes == 0) o redimensionar por `bordes`
+    int bordes = 0;            // BORDE_IZQ | BORDE_DER | BORDE_ARR | BORDE_ABA
+    int boton = 0;             // botón de la barra bajo el press: 1 minimizar, 2 cerrar, 0 ninguno
+    AccionBarra accion = AccionBarra::NINGUNA;  // al soltar sobre un botón; la toma barra_frame
+    float raton_x = 0, raton_y = 0;             // posición global del ratón al empezar
+    int vx = 0, vy = 0, vw = 0, vh = 0;         // la ventana al empezar
+};
+// Un evento de ratón: true si es de la barra o de un borde (el resto de la ventana no lo ve).
+// `activa`: la barra se ve (ventana en modo ventana).
+bool barra_evento(Gpu& gpu, SDL_Window* ventana, Barra& b, const SDL_Event& ev, bool activa);
+// Cada frame: sigue el arrastre (lo suelta si el botón ya no está) y devuelve la acción pedida.
+AccionBarra barra_frame(SDL_Window* ventana, Barra& b);
+// Dibuja la barra arriba del todo, en coordenadas del llamador (`x0`, `y0`: su esquina).
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho);
 
 }  // namespace ui
 }  // namespace lin

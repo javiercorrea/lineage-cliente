@@ -279,7 +279,7 @@ const char* AYUDA[] = {
     "usar <ítem> [sobre <ítem>]   soltar <ítem>   dar <ítem> <objeto>   borrar <ítem>   lanzar <hechizo> [objeto]",
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
     "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio   cancelar-intercambio",
-    "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>",
+    "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>   raton <x> <y> down|up",
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
@@ -498,6 +498,17 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         const int x = std::atoi(p[1].c_str()), y = std::atoi(p[2].c_str());
         for (int i = std::max(1, std::atoi(p[3].c_str())); i-- > 0;) g.mouse.push_back({x, y, 0, true, false});
         g.mouse.push_back({x, y, 0, false, true});
+    } else if (cmd == "raton") {
+        // Un evento de SDL en puntos de la ventana (no el del control del juego): para probar la barra.
+        if (p.size() < 4 || (p[3] != "down" && p[3] != "up")) return error("uso: raton <x> <y> down|up");
+        SDL_Event ev{};
+        ev.type = p[3] == "down" ? SDL_EVENT_MOUSE_BUTTON_DOWN : SDL_EVENT_MOUSE_BUTTON_UP;
+        ev.button.button = SDL_BUTTON_LEFT;
+        ev.button.down = p[3] == "down";
+        ev.button.x = static_cast<float>(std::atoi(p[1].c_str()));
+        ev.button.y = static_cast<float>(std::atoi(p[2].c_str()));
+        ev.button.windowID = SDL_GetWindowID(a.ventana);
+        SDL_PushEvent(&ev);
     } else if (cmd == "clic") {
         if (p.size() < 3) return error("uso: clic <x> <y> [der|medio]");
         clic(std::atoi(p[1].c_str()), std::atoi(p[2].c_str()), p.size() > 3 ? (p[3] == "der" ? 1 : p[3] == "medio" ? 2 : 0) : 0);
