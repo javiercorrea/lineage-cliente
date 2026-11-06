@@ -7,6 +7,7 @@
 //    línea de entrada del chat.
 #include <algorithm>
 #include <charconv>
+#include <cstring>
 #include <filesystem>
 #include "app/app.h"
 
@@ -17,7 +18,8 @@ namespace {
 constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
-constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 276;
+// Doce filas de ALTO_GLIFO + 12 px, más el título y el margen: 352 px. Con 276 (y luego 300) la última quedaba afuera.
+constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 352;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -289,7 +291,8 @@ void dibujar_opciones(App& a) {
     int y = r.y + ui::ALTO_TITULO + 8;
     auto fila = [&](std::string_view nombre, std::string_view valor) {
         g.texto(nombre, static_cast<float>(r.x + 10), static_cast<float>(y + 3), kt, rgba(230, 220, 190));
-        bool clic = ui::boton_texto(g, e, valor, r.x + r.w - 100, y, 90, ALTO_GLIFO + 6);
+        // El botón de valor tiene 120 px: "Enter to type" y sus parecidos no se salen; la etiqueta, a la izquierda.
+        bool clic = ui::boton_texto(g, e, valor, r.x + r.w - 130, y, 120, ALTO_GLIFO + 6);
         y += ALTO_GLIFO + 12;
         return clic;
     };
@@ -364,16 +367,49 @@ void dibujar_ayuda_teclas(App& a) {
         {"Enter / Esc", "Send chat / close window"},
     };
     const int n = static_cast<int>(sizeof FILAS / sizeof FILAS[0]);
-    Rect r{(a.gpu.ancho() - 360) / 2, 60, 360, ui::ALTO_TITULO + 14 + n * (ALTO_GLIFO + 6)};
+    // Columnas a medida del texto: la de la tecla mide lo que su entrada más larga; la descripción ocupa el
+    // resto (entre 160 y 300 px) y lo que no cabe se parte en renglones. Con la fuente nueva se salían.
+    auto partir = [](std::string_view t, int ancho, auto&& f) {
+        while (!t.empty()) {
+            size_t k = bytes_que_caben(t.data(), t.size(), ancho);
+            if (k == 0) k = t.size();
+            f(t.substr(0, k));
+            t = t.substr(k);
+            while (!t.empty() && t.front() == ' ') t.remove_prefix(1);
+        }
+    };
+    int col_tecla = 0, col_desc = 0;
+    for (int i = 0; i < n; ++i) {
+        col_tecla = std::max(col_tecla, ancho_texto(FILAS[i][0], std::strlen(FILAS[i][0])));
+        col_desc = std::max(col_desc, ancho_texto(FILAS[i][1], std::strlen(FILAS[i][1])));
+    }
+    col_tecla += 16;
+    const int ancho_desc = std::clamp(std::min(col_desc, a.gpu.ancho() - 20 - col_tecla - 24), 160, 300);
+    const int ancho_total = col_tecla + ancho_desc + 24;
+    constexpr int ALTO_LINEA = ALTO_GLIFO + 4, SEPARACION = 4;
+    int renglones_total = 0;
+    for (int i = 0; i < n; ++i) {
+        int lineas = 0;
+        partir(FILAS[i][1], ancho_desc, [&](std::string_view) { ++lineas; });
+        renglones_total += std::max(1, lineas);
+    }
+    Rect r{(a.gpu.ancho() - ancho_total) / 2, 60, ancho_total,
+           ui::ALTO_TITULO + 14 + renglones_total * ALTO_LINEA + n * SEPARACION};
     if (recuadro(a, r, "Keys (F1)") || a.entrada.escape) {
         a.ayuda_teclas = false;
         return;
     }
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
+    int linea = 0;
     for (int i = 0; i < n; ++i) {
-        const float y = static_cast<float>(r.y + ui::ALTO_TITULO + 8 + i * (ALTO_GLIFO + 6));
-        a.g->texto(FILAS[i][0], static_cast<float>(r.x + 12), y, kt, rgba(255, 230, 120));
-        a.g->texto(FILAS[i][1], static_cast<float>(r.x + 150), y, kt, rgba(230, 220, 190));
+        const int primera = linea;
+        partir(FILAS[i][1], ancho_desc, [&](std::string_view t) {
+            const float y = static_cast<float>(r.y + ui::ALTO_TITULO + 8 + linea * ALTO_LINEA + i * SEPARACION);
+            if (linea == primera) a.g->texto(FILAS[i][0], static_cast<float>(r.x + 12), y, kt, rgba(255, 230, 120));
+            a.g->texto(t, static_cast<float>(r.x + 12 + col_tecla), y, kt, rgba(230, 220, 190));
+            ++linea;
+        });
+        if (linea == primera) ++linea;  // fila vacía: ocupa su renglón igual que en el cálculo
     }
 }
 
