@@ -36,6 +36,9 @@ constexpr NivelFijo NIVELES_FIJOS[] = {
 constexpr u8 NIVEL_CERRADO = 3;
 
 constexpr int MINUTOS_DIA = 1440;
+// Amplitud de la ola en píxeles. El binario de 2009 usa 3.75 (apenas visible en movimiento); aquí es 6
+// para que se note. Mismo valor en el shader (gpu.cpp, fs_mundo).
+constexpr double AMPLITUD_OLA = 6.0;
 constexpr int VENTANA_TRANSICION = 40;  // minutos antes del amanecer y después del atardecer
 
 template <typename T, size_t N>
@@ -87,7 +90,7 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
 
 int desplazamiento_ola(int x, int fase) {
-    return static_cast<int>(std::trunc(std::sin((x + fase) * 3.14159265358979 / 50.0) * 3.75));
+    return static_cast<int>(std::trunc(std::sin((x + fase) * 3.14159265358979 / 50.0) * AMPLITUD_OLA));
 }
 
 int brillo_lut(int nivel, int mascara) {

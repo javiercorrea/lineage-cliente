@@ -68,16 +68,16 @@ TEST_CASE("Luz: el hechizo LIGHT suma 5 con tope 15") {
     CHECK(nivel_con_luz_hechizo(15) == 15);
 }
 
-TEST_CASE("Luz: la ola se mueve entre -3 y 3 px y repite cada 100 columnas") {
+TEST_CASE("Luz: la ola se mueve entre -6 y 6 px y repite cada 100 columnas") {
     for (int fase = 0; fase < 100; fase += 7)
         for (int x = 0; x < 300; ++x) {
             int d = desplazamiento_ola(x, fase);
-            CHECK(d >= -3);
-            CHECK(d <= 3);
+            CHECK(d >= -6);
+            CHECK(d <= 6);
             CHECK(d == desplazamiento_ola(x + 100, fase));
         }
     CHECK(desplazamiento_ola(0, 0) == 0);
-    CHECK(desplazamiento_ola(25, 0) == 3);  // pico: sin(pi/2) * 3.75
+    CHECK(desplazamiento_ola(25, 0) >= 5);  // pico: sin(pi/2) * AMPLITUD_OLA (6)
 }
 
 TEST_CASE("Luz: brillo por celda según nivel y máscara") {

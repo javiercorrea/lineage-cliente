@@ -99,7 +99,7 @@ fragment float4 fs_mundo(MundoSalida in [[stage_in]], texture2d<float> escena [[
     if (p.z >= 0.0) {
         float xl = floor(uv.x * p.x);
         float yl = floor(uv.y * p.y);
-        float dy = trunc(sin((xl + p.z) * 3.14159265 / 50.0) * 3.75);
+        float dy = trunc(sin((xl + p.z) * 3.14159265 / 50.0) * 6.0);
         float y = clamp(yl + dy, 0.0, p.y - 1.0);
         uv = float2((xl + 0.5) / p.x, (y + 0.5) / p.y);
     }

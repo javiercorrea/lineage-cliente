@@ -12,7 +12,7 @@ int brillo_lut(int nivel, int mascara);
 // Tinte fijo de algunos mapas (el original lo multiplica sobre todo el mundo). False si el mapa no tiene.
 bool tinte_mapa(MapId m, u8& r, u8& g, u8& b);
 
-// Desplazamiento horizontal de la ola bajo el agua, en píxeles (de -3 a 3) para la columna x y la fase
+// Desplazamiento vertical de la ola bajo el agua, en píxeles (de -6 a 6) para la columna x y la fase
 // (0..99, avanza cada 50 ms). El shader hace lo mismo; esta versión es la de referencia para los tests.
 int desplazamiento_ola(int x, int fase);
 

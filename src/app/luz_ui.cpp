@@ -54,29 +54,38 @@ void estampar(std::vector<u8>& mascara, int bw, int bh, const Mascara& m, int cx
     }
 }
 
-// Color por fila del agua: el promedio de los píxeles con color de cada fila de 1416.img (el degradado
-// es vertical; el transparente, valor 0, no cuenta: si no, las filas con huecos se verían negras). Se
-// carga una vez; si la imagen no está, queda un blanco (sin tinte).
+// Promedio de los píxeles con color de una fila de 1416.img (el transparente, valor 0, no cuenta).
+// 0 si la fila es toda transparente.
+u32 color_de_fila(const ImagenRGBA& img, int y) {
+    u32 sr = 0, sg = 0, sb = 0, n = 0;
+    for (int x = 0; x < img.ancho; ++x) {
+        const u32 p = img.px[static_cast<size_t>(y) * img.ancho + x];
+        if (!p) continue;
+        sr += p & 0xFF;
+        sg += (p >> 8) & 0xFF;
+        sb += (p >> 16) & 0xFF;
+        ++n;
+    }
+    return n ? rgba(static_cast<u8>(sr / n), static_cast<u8>(sg / n), static_cast<u8>(sb / n)) : 0;
+}
+
+// Color por fila del agua (el degradado es vertical). Las filas transparentes toman el color de la
+// anterior, y las de arriba del todo, el de la primera con datos (si no, quedarían sin tinte). Se carga
+// una vez; si la imagen no está, queda un blanco (sin tinte).
 void cargar_agua_filas(App& a) {
     ImagenRGBA img;
-    if (decodificar_img(a.rec.sprite("1416.img"), img) && img.alto > 0) {
-        a.agua_filas.resize(img.alto);
-        u32 anterior = BLANCO;
-        for (int y = 0; y < img.alto; ++y) {
-            u32 sr = 0, sg = 0, sb = 0, n = 0;
-            for (int x = 0; x < img.ancho; ++x) {
-                const u32 p = img.px[static_cast<size_t>(y) * img.ancho + x];
-                if (!p) continue;
-                sr += p & 0xFF;
-                sg += (p >> 8) & 0xFF;
-                sb += (p >> 16) & 0xFF;
-                ++n;
-            }
-            if (n) anterior = rgba(static_cast<u8>(sr / n), static_cast<u8>(sg / n), static_cast<u8>(sb / n));
-            a.agua_filas[y] = anterior;
-        }
-    } else {
+    if (!decodificar_img(a.rec.sprite("1416.img"), img) || img.alto <= 0) {
         a.agua_filas.assign(1, BLANCO);
+        return;
+    }
+    u32 primero = 0;
+    for (int y = 0; y < img.alto && !primero; ++y) primero = color_de_fila(img, y);
+    u32 anterior = primero ? primero : BLANCO;
+    a.agua_filas.resize(img.alto);
+    for (int y = 0; y < img.alto; ++y) {
+        const u32 c = color_de_fila(img, y);
+        if (c) anterior = c;
+        a.agua_filas[y] = anterior;
     }
 }
 
