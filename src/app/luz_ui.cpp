@@ -17,7 +17,6 @@ namespace lin {
 namespace {
 
 constexpr int CELDA = 2;          // píxeles lógicos por celda (la luz del original va a media resolución)
-constexpr int RADIO_JUGADOR = 5;  // el jugador ve a este radio aunque no tenga luz (mínimo del original)
 constexpr int DIA = 86400;        // segundos de un día de juego (S_GameTime)
 
 // source.lmp: 16 desplazamientos u32, 16 pares (ancho, alto) i32 y los datos. La máscara del radio r
@@ -103,30 +102,16 @@ void aplicar_agua(App& a, u64 ahora, int w, int h, int fase_borracho) {
 
 // Brillo por celda: la LUT del nivel sobre el máximo de las máscaras de las luces en pantalla.
 void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
-    const Mundo& m = a.mundo;
     const int bw = (w + CELDA - 1) / CELDA, bh = (h + CELDA - 1) / CELDA;
     const size_t n = static_cast<size_t>(bw) * bh;
     a.luz_mascara.assign(n, 0);
 
     const Bytes lmp = a.rec.sprite("source.lmp");
-    const auto& objs = m.objetos;
-    // Jugador: su propia luz (S_OwnCharPack no la trae) o el radio mínimo.
-    const Slot sj = objs.buscar(m.jugador.id);
-    const int radio_j = std::max(RADIO_JUGADOR, sj != SIN_SLOT ? static_cast<int>(objs.col<O_LUZ>()[sj]) : 0);
-    for (const App::ObjetoEnPantalla& r : a.en_pantalla) {
-        int radio = 0;
-        if (r.id == m.jugador.id) {
-            radio = radio_j;
-        } else {
-            const Slot s = objs.buscar(r.id);
-            if (s == SIN_SLOT) continue;
-            radio = static_cast<int>(objs.col<O_LUZ>()[s]);
-        }
-        if (radio <= 0) continue;
+    for (const App::LuzEnPantalla& l : a.luces) {
         Mascara mk;
-        if (!leer_mascara(lmp, radio, mk)) continue;
-        estampar(a.luz_mascara, bw, bh, mk, static_cast<int>(std::lround(r.pie_x / CELDA)),
-                 static_cast<int>(std::lround(r.pie_y / CELDA)));
+        if (!leer_mascara(lmp, l.radio, mk)) continue;
+        estampar(a.luz_mascara, bw, bh, mk, static_cast<int>(std::lround(l.x / CELDA)),
+                 static_cast<int>(std::lround(l.y / CELDA)));
     }
 
     a.luz_brillo.resize(n);
@@ -149,11 +134,12 @@ void aplicar_luz(App& a, u64 ahora) {
     }
 
     const int seg = static_cast<int>(((hora_de_juego(a) % DIA) + DIA) % DIA);
-    const bool lluvia = (m.clima >= 1 && m.clima <= 3) || (m.clima >= 17 && m.clima <= 19);
+    const bool lluvia = m.nieve > 0 || m.lluvia > 0;
     std::time_t t = std::time(nullptr);
     std::tm local{};
     localtime_r(&t, &local);
-    const int nivel = nivel_ambiente(m.mapa, seg / 60, local.tm_yday + 1, lluvia);
+    int nivel = nivel_ambiente(m.mapa, seg / 60, local.tm_yday + 1, lluvia);
+    if (m.jugador.luz_hechizo) nivel = nivel_con_luz_hechizo(nivel);
 
     // Elfo y elfo oscuro: la visión reemplaza a la luz (no hay luces ni mapa de brillo).
     const int clase = (a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size())) ? a.pjs[a.pj_sel].v[PJ_CLASE] : -1;

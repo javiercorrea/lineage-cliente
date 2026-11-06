@@ -45,6 +45,7 @@ void actualizar_sonido(App& a, u64 ahora) {
         a.audio.musica(a.sonidos.musica_login, 0, ahora);
         a.audio.ambiente(-1);
         a.ambiente = nullptr;
+        a.ambiente_agua = false;  // si no, al volver bajo el agua no se notaría el cambio y no sonaría
     } else if (a.pantalla == Pantalla::JUEGO && ahora >= a.t_zona_sonido + MS_ZONA) {
         a.t_zona_sonido = ahora;
         const TablaObjetos& o = a.mundo.objetos;

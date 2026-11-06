@@ -164,7 +164,9 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_ACCION>()[s] = e.v[OB_ESTADO] == ESTADO_MUERTO ? ACC_MORIR : 0xFF;
             o.col<O_TACCION>()[s] = 0;
             if (e.id == m.jugador.id) m.jugador.muerto = e.v[OB_ESTADO] == ESTADO_MUERTO;
-            o.col<O_LUZ>()[s] = static_cast<u8>(e.v[OB_LUZ]);
+            // Tres gfx traen siempre luz 14, mande lo que mande el servidor (4ccf04 del original).
+            const i32 gfx_luz = e.v[OB_GFX];
+            o.col<O_LUZ>()[s] = gfx_luz == 0x17ae || gfx_luz == 0x17b7 || gfx_luz == 0x17ba ? u8{14} : static_cast<u8>(e.v[OB_LUZ]);
             o.col<O_HP>()[s] = static_cast<u8>(e.v[OB_HP]);
             o.col<O_FLAGS>()[s] = static_cast<u8>(e.v[OB_FLAGS]);
             o.col<O_NOMBRE>()[s] = guardar_texto(m, e.s[0]);
@@ -342,11 +344,30 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
         }
         case Ev::LUZ: {
             Slot s = o.buscar(e.id);
-            if (s != SIN_SLOT) o.col<O_LUZ>()[s] = static_cast<u8>(e.v[0]);
+            if (s == SIN_SLOT) break;
+            // sub_4681f0 del original: el propio tiene mínimo 5 y su 20 es el hechizo LIGHT (radio 14);
+            // el 20 de los demás vale 5.
+            int luz = e.v[0];
+            if (e.id == m.jugador.id) {
+                m.jugador.luz_hechizo = luz == 20;
+                luz = luz == 20 ? 14 : std::max(luz, 5);
+            } else if (luz == 20) {
+                luz = 5;
+            }
+            o.col<O_LUZ>()[s] = static_cast<u8>(luz);
             break;
         }
         case Ev::HORA_JUEGO: m.hora = e.v[0]; break;
-        case Ev::CLIMA: m.clima = static_cast<u8>(e.v[0]); break;
+        case Ev::CLIMA: {
+            // S_Weather (489c82 del original): 0xTN, tipo e intensidad. Cada tipo guarda lo suyo: el
+            // servidor manda 0x13 y después 0x00, que apaga la nieve y deja la lluvia. Una intensidad
+            // mayor que 3 vale 0. El tipo 0x20 no lo manda L1J y no se sabe qué es.
+            const int tipo = e.v[0] & 0xF0, n = e.v[0] & 0x0F;
+            const u8 intensidad = static_cast<u8>(n <= 3 ? n : 0);
+            if (tipo == 0x00) m.nieve = intensidad;
+            else if (tipo == 0x10) m.lluvia = intensidad;
+            break;
+        }
         case Ev::HP: m.jugador.hp = e.v[0]; m.jugador.hp_max = e.v[1]; break;
         case Ev::MP: m.jugador.mp = e.v[0]; m.jugador.mp_max = e.v[1]; break;
         case Ev::EXPERIENCIA: m.jugador.nivel = e.v[0]; m.jugador.exp = e.v[1]; break;

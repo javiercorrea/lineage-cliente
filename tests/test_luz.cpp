@@ -129,6 +129,77 @@ TEST_CASE("Mundo: S_MapID guarda el modo submarino") {
     CHECK_FALSE(m.submarino);
 }
 
+TEST_CASE("Luz: radio de la máscara de cada objeto") {
+    CHECK(radio_de_luz(false, 0) == 0);
+    CHECK(radio_de_luz(true, 0) == 5);  // S_OwnCharPack manda 0
+    CHECK(radio_de_luz(true, 3) == 5);
+    CHECK(radio_de_luz(true, 11) == 11);
+    CHECK(radio_de_luz(false, 11) == 11);
+    CHECK(radio_de_luz(false, 15) == 14);  // la máscara 15 de source.lmp está vacía
+}
+
+TEST_CASE("Mundo: reglas de S_Light del original") {
+    Mundo m;
+    auto poner = [&](ObjId id, int gfx, int luz) {
+        Evento e{};
+        e.tipo = Ev::PONER_OBJETO;
+        e.id = id;
+        e.v[OB_GFX] = gfx;
+        e.v[OB_LUZ] = luz;
+        e.s[0] = "x";
+        Evento ev[] = {e};
+        aplicar_eventos(m, ev, 1000);
+    };
+    auto luz = [&](ObjId id, int valor) {
+        Evento e{};
+        e.tipo = Ev::LUZ;
+        e.id = id;
+        e.v[0] = valor;
+        Evento ev[] = {e};
+        aplicar_eventos(m, ev, 1000);
+        return static_cast<int>(m.objetos.col<O_LUZ>()[m.objetos.buscar(id)]);
+    };
+    m.jugador.id = 1;
+    poner(1, 100, 0);
+    poner(2, 100, 0);
+    CHECK(luz(1, 3) == 5);  // el propio, mínimo 5
+    CHECK(luz(1, 8) == 8);
+    CHECK_FALSE(m.jugador.luz_hechizo);
+    CHECK(luz(1, 20) == 14);  // hechizo LIGHT
+    CHECK(m.jugador.luz_hechizo);
+    CHECK(luz(1, 13) == 13);
+    CHECK_FALSE(m.jugador.luz_hechizo);
+    CHECK(luz(2, 3) == 3);  // los demás no tienen mínimo
+    CHECK(luz(2, 20) == 5);
+    CHECK_FALSE(m.jugador.luz_hechizo);
+    poner(3, 0x17ae, 0);  // gfx con luz fija
+    CHECK(m.objetos.col<O_LUZ>()[m.objetos.buscar(3)] == 14);
+}
+
+TEST_CASE("Mundo: S_Weather guarda la nieve y la lluvia por separado") {
+    Mundo m;
+    auto clima = [&](int valor) {
+        Evento e{};
+        e.tipo = Ev::CLIMA;
+        e.v[0] = valor;
+        Evento ev[] = {e};
+        aplicar_eventos(m, ev, 1000);
+    };
+    clima(0x13);
+    clima(0x00);  // lo que manda el servidor después de la lluvia: no la apaga
+    CHECK(m.lluvia == 3);
+    CHECK(m.nieve == 0);
+    clima(0x02);
+    CHECK(m.nieve == 2);
+    CHECK(m.lluvia == 3);
+    clima(0x00);
+    clima(0x10);  // lo que manda el servidor para despejar
+    CHECK(m.nieve == 0);
+    CHECK(m.lluvia == 0);
+    clima(0x14);  // intensidad fuera de rango: 0
+    CHECK(m.lluvia == 0);
+}
+
 TEST_CASE("Agua: 1416.img es azul arriba (B mayor que R)") {
     const std::string dir = carpeta_juego();
     if (dir.empty()) return;  // sin la instalación del juego

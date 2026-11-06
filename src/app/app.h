@@ -283,9 +283,14 @@ struct App {
         ObjId id;
         float x0, y0, x1, y1;
         u32 profundidad;
-        float pie_x = 0, pie_y = 0;  // centro del rombo donde están los pies (centro de la luz)
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
+    // Fuentes de luz del frame, en los pies. Aparte de en_pantalla, que deja afuera a los muertos.
+    struct LuzEnPantalla {
+        int radio;
+        float x, y;
+    };
+    std::vector<LuzEnPantalla> luces;
     std::vector<u8> luz_mascara, luz_brillo;  // aplicar_luz: buffers del frame, se reusan
     i32 hora_forzada = -1;                    // comando forzar-hora (pruebas): segundos del día, -1 = la del servidor
     bool ambiente_agua = false;               // el ambiente que suena es el del agua (sonido 330)

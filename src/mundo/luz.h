@@ -32,6 +32,10 @@ bool mapa_oscuro(MapId m);
 // lluvia o nieve. Mapas con nivel fijo (ver luz.cpp) ignoran la hora.
 int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia);
 
+// Radio de la máscara de un objeto a partir de su luz: el jugador nunca baja de 5 (S_OwnCharPack manda 0)
+// y el tope es 14, la última máscara de source.lmp con datos.
+int radio_de_luz(bool es_jugador, int luz);
+
 // Hechizo LIGHT: suma 5 al nivel, con tope 15.
 int nivel_con_luz_hechizo(int nivel);
 

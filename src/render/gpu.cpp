@@ -11,8 +11,9 @@ namespace {
 // (Linux) y D3D12 (Windows) hay que escribirlo en HLSL y compilarlo con SDL_shadercross a SPIR-V
 // y DXIL, y elegir el formato con SDL_GetGPUShaderFormats(). Convención de recursos de SDL_GPU
 // para MSL: buffer(0) = uniformes, buffer(1) = primer storage buffer; texture(0)/sampler(0).
-// Lado de la textura de brillo (celdas). Cubre una vista lógica de hasta 2 × LUZ_TAM píxeles con celdas de 2.
+// Tamaño inicial de la textura de brillo (celdas); crece si la vista lo pide (ver asegurar_luz).
 constexpr int LUZ_TAM = 1024;
+constexpr int FILAS_TAM = 1024;  // alto de la textura de color por fila
 // Amplitud (píxeles) del vaivén de la borrachera por filas (S_Liquor 1). Igual que desplazamiento_borracho.
 constexpr float AMPLITUD_BORRACHO = 3.5f;
 
@@ -181,13 +182,14 @@ bool Gpu::iniciar(SDL_Window* ventana, int ancho_logico, int alto_logico) {
     luz_ = SDL_CreateGPUTexture(dev_, &tl);
     tb.size = LUZ_TAM * LUZ_TAM;
     subida_luz_ = SDL_CreateGPUTransferBuffer(dev_, &tb);
+    luz_w_ = luz_h_ = LUZ_TAM;
     brillo_buf_.reserve(LUZ_TAM * LUZ_TAM);
-    brillo_filas_.reserve(LUZ_TAM);
+    brillo_filas_.reserve(FILAS_TAM);
     tl.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;  // color por fila: RGBA, no R8 como la de brillo
     tl.width = 1;
-    tl.height = LUZ_TAM;
+    tl.height = FILAS_TAM;
     filas_tex_ = SDL_CreateGPUTexture(dev_, &tl);
-    tb.size = LUZ_TAM * 4;
+    tb.size = FILAS_TAM * 4;
     subida_filas_ = SDL_CreateGPUTransferBuffer(dev_, &tb);
     if (!atlas_ || !destino_ || !muestreo_ || !instancias_gpu_ || !subida_inst_ || !subida_atlas_ || !luz_ ||
         !subida_luz_ || !filas_tex_ || !subida_filas_) {
@@ -430,10 +432,46 @@ void Gpu::ordenar() {
     while (n_mundo_ < n && (claves_[orden_[n_mundo_]] >> 56) < CAPA_EFECTOS) ++n_mundo_;
 }
 
+// Una vista lógica grande (poca escala en una pantalla de muchos píxeles) puede pedir más celdas que
+// la textura. Se agranda a la potencia de 2 siguiente: solo pasa al cambiar el tamaño de la vista.
+bool Gpu::asegurar_luz(int bw, int bh) {
+    if (bw <= luz_w_ && bh <= luz_h_) return true;
+    int w = luz_w_, h = luz_h_;
+    while (w < bw) w *= 2;
+    while (h < bh) h *= 2;
+    SDL_GPUTextureCreateInfo tl{};
+    tl.type = SDL_GPU_TEXTURETYPE_2D;
+    tl.format = SDL_GPU_TEXTUREFORMAT_R8_UNORM;
+    tl.usage = SDL_GPU_TEXTUREUSAGE_SAMPLER;
+    tl.width = static_cast<Uint32>(w);
+    tl.height = static_cast<Uint32>(h);
+    tl.layer_count_or_depth = 1;
+    tl.num_levels = 1;
+    SDL_GPUTexture* tex = SDL_CreateGPUTexture(dev_, &tl);
+    SDL_GPUTransferBufferCreateInfo tb{};
+    tb.usage = SDL_GPU_TRANSFERBUFFERUSAGE_UPLOAD;
+    tb.size = static_cast<Uint32>(w) * static_cast<Uint32>(h);
+    SDL_GPUTransferBuffer* subida = SDL_CreateGPUTransferBuffer(dev_, &tb);
+    if (!tex || !subida) {
+        LIN_LOG("Textura de brillo de %dx%d: %s", w, h, SDL_GetError());
+        if (tex) SDL_ReleaseGPUTexture(dev_, tex);
+        if (subida) SDL_ReleaseGPUTransferBuffer(dev_, subida);
+        return false;
+    }
+    SDL_ReleaseGPUTexture(dev_, luz_);  // SDL la libera cuando la GPU termina de usarla
+    SDL_ReleaseGPUTransferBuffer(dev_, subida_luz_);
+    luz_ = tex;
+    subida_luz_ = subida;
+    luz_w_ = w;
+    luz_h_ = h;
+    brillo_buf_.reserve(static_cast<size_t>(w) * h);
+    return true;
+}
+
 void Gpu::multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte, const u32* filas, int n_filas) {
-    if (!brillo || bw < 1 || bh < 1 || bw > LUZ_TAM || bh > LUZ_TAM || celda < 1) return;
+    if (!brillo || bw < 1 || bh < 1 || celda < 1 || !asegurar_luz(bw, bh)) return;
     brillo_buf_.assign(brillo, brillo + static_cast<size_t>(bw) * bh);
-    if (filas && n_filas >= 1 && n_filas <= LUZ_TAM) brillo_filas_.assign(filas, filas + n_filas);
+    if (filas && n_filas >= 1 && n_filas <= FILAS_TAM) brillo_filas_.assign(filas, filas + n_filas);
     else brillo_filas_.assign(1, BLANCO);
     brillo_w_ = bw;
     brillo_h_ = bh;
@@ -626,8 +664,8 @@ void Gpu::presentar() {
         SDL_BindGPUFragmentSamplers(pase, 0, lsb, 2);
         const float celda = static_cast<float>(brillo_celda_);
         // 0.9999: que el borde derecho e inferior caiga dentro de la última celda, no fuera.
-        float escala[4] = {ancho_ / (celda * LUZ_TAM) * 0.9999f, alto_ / (celda * LUZ_TAM) * 0.9999f,
-                           static_cast<float>(brillo_filas_.size()) / LUZ_TAM * 0.9999f, 0};
+        float escala[4] = {ancho_ / (celda * luz_w_) * 0.9999f, alto_ / (celda * luz_h_) * 0.9999f,
+                           static_cast<float>(brillo_filas_.size()) / FILAS_TAM * 0.9999f, 0};
         SDL_PushGPUVertexUniformData(cmd, 0, escala, sizeof escala);
         const u32 t = brillo_tinte_;
         float tinte[4] = {(t & 0xFF) / 255.0f, ((t >> 8) & 0xFF) / 255.0f, ((t >> 16) & 0xFF) / 255.0f, 1.0f};

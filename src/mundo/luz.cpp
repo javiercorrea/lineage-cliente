@@ -87,6 +87,10 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
     return nivel;
 }
 
+int radio_de_luz(bool es_jugador, int luz) {
+    return std::min(es_jugador ? std::max(luz, 5) : luz, 14);
+}
+
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
 
 int desplazamiento_borracho(int fila, int fase) {

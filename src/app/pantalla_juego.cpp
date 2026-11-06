@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include "app/app.h"
+#include "mundo/luz.h"
 
 namespace lin {
 
@@ -315,6 +316,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
     TablaObjetos& o = a.mundo.objetos;
     const Vista vi = vista(a);
     a.en_pantalla.clear();
+    a.luces.clear();
     for (Slot s = 0; s < o.tamano(); ++s) {
         // Posición continua (orden de dibujo, nombre, globo) y celda desde la que se dibuja el sprite:
         // la de origen del paso, porque los frames de caminar ya traen el avance (ver mundo.h).
@@ -340,8 +342,10 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         // Diferencia vertical entre el cuerpo visible y la posición continua (para el nombre).
         float desfase_y = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - sy;
         // Los pies: el centro del rombo de la celda del cuerpo (el ancla del sprite es su esquina + (24, 12)).
-        const float pie_x = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 24;
-        const float pie_y = static_cast<float>(mundo_py(vis_x, vis_y) + oy) + 12;
+        const int radio_luz = radio_de_luz(o.ids()[s] == a.mundo.jugador.id, o.col<O_LUZ>()[s]);
+        if (radio_luz > 0)
+            a.luces.push_back({radio_luz, static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 24,
+                               static_cast<float>(mundo_py(vis_x, vis_y) + oy) + 12});
         u32 prof = profundidad(static_cast<float>(mundo_py(fx, fy)) + 12.0f, ORDEN_PERSONAJE, 4);
         GfxId gfx = o.col<O_GFX>()[s];
         const AccionVisible acc = elegir_accion(a, s, ahora);
@@ -387,7 +391,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, pie_x, pie_y});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
         } else {
             // Sin sprite: un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
             const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
@@ -395,7 +399,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
             top = y0;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, pie_x, pie_y});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.

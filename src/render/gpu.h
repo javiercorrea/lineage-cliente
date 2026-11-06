@@ -116,6 +116,7 @@ private:
     };
     bool crear_pipeline();
     bool crear_destino();
+    bool asegurar_luz(int bw, int bh);
     void ordenar();
     SDL_GPUCommandBuffer* guardar_captura(SDL_GPUCommandBuffer* cmd);
 
@@ -130,10 +131,11 @@ private:
     std::vector<u32> brillo_filas_;
     bool reemplazo_activo_ = false;
     int reemplazo_fase_ = -1, reemplazo_modo_ = 0, reemplazo_fase_b_ = -1;
-    SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8), tamaño fijo
+    SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8); crece con la vista
     SDL_GPUTransferBuffer* subida_luz_ = nullptr;
     std::vector<u8> brillo_buf_;                // copia del frame, reservada al iniciar
     bool brillo_activo_ = false;
+    int luz_w_ = 0, luz_h_ = 0;                 // tamaño de luz_
     int brillo_w_ = 0, brillo_h_ = 0, brillo_celda_ = 1;
     u32 brillo_tinte_ = 0xFFFFFFFFu;
     u32 n_mundo_ = 0;                           // instancias de CAPA_FONDO..CAPA_MUNDO (prefijo de la lista)

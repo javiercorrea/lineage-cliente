@@ -101,8 +101,7 @@ Otros detalles del original:
 
 - `S_OwnCharPack` manda luz 0, pero el jugador siempre vale al menos 5.
 - Si otro objeto trae `S_Light == 20`, se trata como 5.
-- Los gfx `0x17ba` y su vecino se fuerzan a 14 (`4ccf15`). **[?]** No identifiqué el primer gfx: hay que
-  releer `4ccf0c` en la implementación.
+- Los gfx `0x17ae`, `0x17b7` y `0x17ba` traen siempre luz 14 en `S_CharPack` (`4ccf04`).
 
 ### 1.5 Bajo el agua [V] (`4891e0`, `4668c9`, `466a2f`, `4675d3`)
 
@@ -147,7 +146,7 @@ según la base, y el cliente no necesita lista propia.
 
 - **Tinte fijo por mapa** (`467653`, `49ab70`): multiplicación por un color, mapa 430 `(203,170,218)` y mapa 601
   `(253,216,225)`. Reutiliza el pipeline nuevo: se incluye.
-- **Clima:** el original no dibuja lluvia ni nieve en mapas oscuros (`4666a6`). La lista del anexo A reemplaza
+- **Clima:** el original no dibuja lluvia ni nieve en mapas oscuros (`4666a6`), y guarda cada una por separado (`489c82`: `0x0N` nieve, `0x1N` lluvia; el `00` que manda el servidor tras la lluvia no la apaga). La lista del anexo A reemplaza
   a `al_aire_libre()` de `clima.cpp:23`, cuyo comentario dice justamente que faltaba ese dato.
 - **Borrachera** (`466b31`, también mapas 67 y 420): la misma técnica por filas, `sin((y+fase)*2π/100)
   * nivel * 3.5`. **[H]** Es `S_Liquor`: lo activa el manejador `4893a0`, cuyo opcode no comprobé. Hoy se mece
@@ -277,9 +276,9 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 
 | Fase | Entrega | Se ve |
 |---|---|---|
-| **F1** Datos ✅ | `Mundo::submarino`; reglas de `S_Light`; `luz.cpp` con nivel y lista. Pendiente: `forzar-hora` | nada, solo tests |
+| **F1** Datos ✅ | `Mundo::submarino`; reglas de `S_Light` (`Ev::LUZ`) y los tres gfx con luz fija; hechizo LIGHT conectado; `luz.cpp` con nivel, lista y radio; `forzar-hora` | nada, solo tests |
 | **F2** Pipeline ✅ | `Gpu::multiplicar_mundo`: pase aparte para lo que va bajo `CAPA_EFECTOS`. Tinte 430/601 implementado, sin captura | tinte de esos 2 mapas (sin verificar) |
-| **F3** Noche y mazmorras ✅ | `luz_ui.cpp`: mapa de brillo por celda con máscaras centradas en los pies (personajes e ítems con `S_Light`). Verificado en mazmorra; noche al aire libre, velas y tinte sin verificar | **mazmorras** (ver `docs/capturas/f3_luz_mazmorra.png`) |
+| **F3** Noche y mazmorras ✅ | `luz_ui.cpp`: mapa de brillo por celda; lista propia de luces (`App::luces`, incluye muertos); clima con `mapa_oscuro` y dentro de `CAPA_MUNDO`; nieve y lluvia separadas. Verificado: mazmorra, lámpara, noche al aire libre (0,60 sin luces), muerto, vista de 2560×1654, lluvia. Sin probar: velas, linternas, ítems en el suelo | **noche, lámpara, mazmorras** (`f3_luz_mazmorra.png`, `f3_lampara_encendida.png`, `f3_lluvia_noche.png`, `f3_muerto_mazmorra.png`) |
 | **F4** Agua: tinte ✅ | sin luz bajo el agua; `1416.img` por filas (promedio de cada fila, sin transparentes). Sonido 330 sin hacer | **azul bajo el agua** (`docs/capturas/f4_agua_ola.png`) |
 | **F5** Agua: ola ✅ | copia del mundo y pase `fs_mundo` con el desplazamiento por columnas (`desplazamiento_ola`) | **distorsión** (la prueba visual es de una captura; el movimiento no se vio animado) |
 | **F5b** Infravisión ✅ | filtro de elfo (multiplicar) y de elfo oscuro (`c × (2r+7g+b)/10`) en el mismo pase; casilla en Opciones y en el editor de ajustes | **verde y oscuro uniforme** (`f5b_elfo.png`, `f5b_elfo_oscuro.png`) |
@@ -293,7 +292,7 @@ El verde del elfo solo necesita F2 y se puede adelantar. El filtro del elfo oscu
 
 - `nivel_ambiente`: mediodía → 15; medianoche → 7; 1 de enero a las 7:20 → 13; dentro de la transición,
   intermedio y monótono; un día de enero amanece más tarde que uno de junio; lluvia a mediodía → 15 y en la
-  transición un punto menos; mapa 1 → 1 (D2); 75 → 12; 0x4000 → 1.
+  transición un punto menos; mapa 1 → 3 (D2); 75 → 12; 0x4000 → 3.
 - Infravisión: función pura que decide el modo (ninguno, elfo, elfo oscuro) según clase, opción, nivel, agua
   y ceguera, con un caso por cada condición de 1.8.
 - `mapa_oscuro`: 1 y 2 sí; 0 y 4 no.
@@ -353,19 +352,14 @@ Con estos valores se puede empezar. Corregir cualquiera cuesta poco.
 
 - **D1. Ola activada por defecto**, a pesar de 1.6, porque la recuerdas así. Constante `OLA_ACTIVA` en `luz_ui.cpp`.
   **Tu comparación con el juego real es lo que la confirma.**
-- **D2. Mazmorras en nivel 1 (4/31), como `ss01.tiff`**, en lugar del 3 del binario de 2009: tu captura es la
-  única referencia visual del juego real. Las excepciones por mapa se mantienen. El nivel general es una constante:
-  si se prefiere el binario, se cambia una línea. **Noche al aire libre en 7 (18/31, 58 %),** según el
-  binario y sin captura que lo contradiga; es lo primero que conviene comparar, porque si esa captura también es
-  de una versión más oscura, la noche podría quedarse floja.
-- **D3. Sin opción para apagar la noche ni el agua.** La única opción es la infravisión, porque el original la
-  tiene (activada por defecto: `infravision=1`). No leí el valor inicial del original.
+- **D2. Mazmorras con el nivel del binario (3, 11/31)**, por decisión posterior; `ss01.tiff` sugería 1. **Noche al aire libre en 7 (18/31, 58 %)**, también del binario y confirmada en captura (0,60 sin luces cerca).
+- **D3. Cada efecto se puede apagar** (ver arriba). `efecto_infravision` viene activado; no se leyó el valor inicial del original.
 - **D4. Fuera: `shade.dat`, máscara de 303 y 606 y borrachera por filas** (F6, si hacen falta).
 
 **Resultado de F6:**
 - *Borrachera por filas:* hecha, en el mismo pase de reemplazo que la ola y la visión. Sustituye al balanceo de toda la pantalla que había en `pantalla_juego.cpp`, que se quitó. Amplitud 3,5 px (el plan), periodo 100 filas.
-- *Máscara de 303 y 606:* no se puede hacer hoy. La tabla `0x7009cc` es un búfer de 640 × 640 bytes que el binario reserva al arrancar y llena en tiempo de ejecución; no hay archivo de datos que leer, y reconstruir su contenido requiere ingeniería inversa de la rutina de llenado.
-- *`shade.dat`:* no se usa en el cliente de 2009 (la rutina que la dibuja no tiene llamadores). Solo la carga el de 2013. No aporta nada que implementar hoy.
+- *Máscara de 303 y 606:* **sin resolver.** Es una incógnita, no algo imposible: `0x7009cc` es un búfer de 0x64440 bytes (410 688) que se reserva al arrancar (`423bc5`), y no se leyó qué lo llena. Falta seguir esa rutina para decidir.
+- *`shade.dat`:* el cliente de 2009 la carga, pero la rutina que la dibuja no tiene llamadores; en 2013 la tabla tiene referencias en `0x4e12e0`, sin llamador identificado. No hay nada que implementar con lo que se sabe hoy.
 
 ## Anexo A: mapas oscuros (`0x6ddae8`, 297 entradas)
 
