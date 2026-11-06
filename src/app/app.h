@@ -283,6 +283,7 @@ struct App {
         ObjId id;
         float x0, y0, x1, y1;
         u32 profundidad;
+        float pie_x = 0, pie_y = 0;  // centro del rombo donde están los pies (centro de la luz)
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
     std::vector<u8> luz_mascara, luz_brillo;  // aplicar_luz: buffers del frame, se reusan

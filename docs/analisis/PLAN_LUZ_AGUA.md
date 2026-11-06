@@ -82,7 +82,7 @@ nivel 1 (hasta 4), que no se usa. **No hace falta copiar la tabla.**
 - **Máscaras:** archivo **`source.lmp`** de `Sprite.pak`: 16 offsets `u32`, 16 pares `(w, h)` `i32` y los datos.
   Son conos lineales elípticos 2:1.
 
-| Radio (`S_Light`) | Fuente | Alcance en pantalla (±x, ±y) |
+| Radio (`S_Light`) | Fuente | Máscara (celdas de 2 px; el alcance en píxeles es el doble) |
 |---|---|---|
 | 0, 1 | | 16 × 8 |
 | 2, 3 | | 32 × 16 |
@@ -277,9 +277,9 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 
 | Fase | Entrega | Se ve |
 |---|---|---|
-| **F1** Datos | `Mundo::submarino`; reglas de `S_Light`; `luz.cpp` con nivel, lista y máscaras; `forzar-hora` | nada, solo tests |
-| **F2** Pipeline | `Postproceso` con multiplicar y tramos; probado con un tinte fijo en mapas 430 y 601 | tinte de esos 2 mapas |
-| **F3** Noche y mazmorras | mapa de luz, jugador, NPC e ítems; clima con la lista nueva; orden de capas | **noche, velas, mazmorras** |
+| **F1** Datos ✅ | `Mundo::submarino`; reglas de `S_Light`; `luz.cpp` con nivel y lista. Pendiente: `forzar-hora` | nada, solo tests |
+| **F2** Pipeline ✅ | `Gpu::multiplicar_mundo`: pase aparte para lo que va bajo `CAPA_EFECTOS`. Tinte 430/601 implementado, sin captura | tinte de esos 2 mapas (sin verificar) |
+| **F3** Noche y mazmorras ✅ | `luz_ui.cpp`: mapa de brillo por celda con máscaras centradas en los pies (personajes e ítems con `S_Light`). Verificado en mazmorra; noche al aire libre, velas y tinte sin verificar | **mazmorras** (ver `docs/capturas/f3_luz_mazmorra.png`) |
 | **F4** Agua: tinte | saltar la luz, `1416.img`, sonido 330 | **azul bajo el agua** |
 | **F5** Agua: ola | copia, `fs_ola`, fase | **distorsión** |
 | **F5b** Infravisión | filtros de elfo y elfo oscuro, opción y ajuste | **verde y oscuro uniforme** |

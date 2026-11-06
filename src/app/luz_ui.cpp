@@ -35,21 +35,17 @@ bool leer_mascara(Bytes lmp, int radio, Mascara& m) {
     return true;
 }
 
-int fdiv(int a, int b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
-
-// Máximo de la máscara sobre cada celda cuyo centro cae dentro, con la máscara centrada en (cx, cy).
+// La máscara va a media resolución: una entrada por celda, no por píxel. Se centra en la celda
+// (cx, cy) de los pies y se toma el máximo con lo que ya había.
 void estampar(std::vector<u8>& mascara, int bw, int bh, const Mascara& m, int cx, int cy) {
     const int izq = cx - m.w / 2, arr = cy - m.h / 2;
-    const int x0 = std::max(0, fdiv(izq, CELDA)), x1 = std::min(bw - 1, fdiv(izq + m.w - 1, CELDA));
-    const int y0 = std::max(0, fdiv(arr, CELDA)), y1 = std::min(bh - 1, fdiv(arr + m.h - 1, CELDA));
+    const int x0 = std::max(0, izq), x1 = std::min(bw - 1, izq + m.w - 1);
+    const int y0 = std::max(0, arr), y1 = std::min(bh - 1, arr + m.h - 1);
     for (int y = y0; y <= y1; ++y) {
-        const int my = y * CELDA + 1 - arr;  // centro de la celda
-        if (my < 0 || my >= m.h) continue;
+        const int my = y - arr;
         for (int x = x0; x <= x1; ++x) {
-            const int mx = x * CELDA + 1 - izq;
-            if (mx < 0 || mx >= m.w) continue;
             u8& d = mascara[static_cast<size_t>(y) * bw + x];
-            d = std::max(d, m.px[static_cast<size_t>(my) * m.w + mx]);
+            d = std::max(d, m.px[static_cast<size_t>(my) * m.w + (x - izq)]);
         }
     }
 }
@@ -103,7 +99,7 @@ void aplicar_luz(App& a, u64 ahora) {
         if (radio <= 0) continue;
         Mascara mk;
         if (!leer_mascara(lmp, radio, mk)) continue;
-        const int cx = static_cast<int>(std::lround((r.x0 + r.x1) / 2)), cy = static_cast<int>(std::lround((r.y0 + r.y1) / 2));
+        const int cx = static_cast<int>(std::lround(r.pie_x / CELDA)), cy = static_cast<int>(std::lround(r.pie_y / CELDA));
         estampar(a.luz_mascara, bw, bh, mk, cx, cy);
     }
 
