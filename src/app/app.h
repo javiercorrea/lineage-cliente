@@ -459,6 +459,7 @@ void dibujar_clima(App& a, int w, int h, u64 ahora);
 // Oscuridad del mundo (noche, mazmorras, luces de objetos y tinte de mapa): multiplica lo que va
 // por debajo de CAPA_EFECTOS. Sin efecto en el agua (ahí va el tinte azul, F4).
 void aplicar_luz(App& a, u64 ahora);
+void preparar_luz(App& a);  // al arrancar, fuera del frame: color del agua y búferes
 // Sonido (sonido.cpp).
 void cargar_sonidos(App& a);
 void aplicar_volumenes(App& a);

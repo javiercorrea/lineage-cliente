@@ -45,6 +45,7 @@ bool cargar_recursos(App& a) {
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
     cargar_sonidos(a);
+    preparar_luz(a);
     return true;
 }
 

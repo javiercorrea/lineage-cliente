@@ -159,6 +159,9 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `ui_simple` | `1` simple interface, `0` original panel (F2) |
 | `camara_a_saltos` | `1` camera follows the walking frames, like the original (F4) |
 | `sombra_personajes` | Darken characters standing in a tree's shadow (Shift+F4) |
+| `efecto_luz` | Dark nights and dungeons, with the light of characters, NPCs and items |
+| `efecto_agua_tinte`, `efecto_agua_ola` | Underwater blue tint and wave |
+| `efecto_infravision` | Green elf vision and dim dark elf vision |
 | `opacidad_ventanas` | Window background opacity (0–255) |
 | `volumen_musica`, `volumen_efectos` | Volume (0–100) |
 | `chat_con_enter` | `1` Enter opens the chat line, `0` always typing |
@@ -197,7 +200,7 @@ title is shown as text.
 - **Windows:** drag the title bar to move them (the position is saved). They look for a free spot when
   opened; if they overlap, a click brings one forward and only that one gets the mouse. They also open with
   buttons: those of the original panel, or the text ones to the right of the chat (simple interface).
-- **Options** has the interface, camera, shade, window opacity, zoom, music and effects volume, and
+- **Options** has the interface, camera, shade, light and water effects, elf vision, window opacity, zoom, music and effects volume, and
   a "Reset" for window positions.
 - **Welcome text and server news at login:** wrapped to fit; the mouse wheel or Page Up / Page Down scrolls them.
 - **Esc:** at login, quits.
@@ -331,6 +334,7 @@ commands. The `release` build doesn't include it: a CMake step (`cmake/sin_contr
 | `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <name>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Raw input (logical coordinates) |
 | `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Wait for something instead of counting frames (`paquete=` and `chat=` also count what arrived since the previous command) |
 | `captura <path.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Screenshots and debugging |
+| `forzar-hora <seconds 0-86399>\|off` | Fix the time of day for light and ambient sound, for tests |
 
 `herramientas/lin_ctl.py` uses it from the terminal (`lin_ctl.py <socket> estado`, or interactively) or as a module
 for writing tests.

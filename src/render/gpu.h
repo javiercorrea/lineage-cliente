@@ -78,6 +78,8 @@ public:
     // si se pasan, por el color de cada fila de la vista (`filas`, n_filas colores RGBA que cubren
     // la altura de la vista de arriba abajo; nullptr = blanco). Para solo tinte: brillo de 1 × 1 y una
     // celda mayor que la vista. Vale para el frame actual.
+    // Deja lista la textura de brillo para bw × bh celdas, para no reservarla durante un frame.
+    void reservar_brillo(int bw, int bh) { asegurar_luz(bw, bh); }
     void multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte, const u32* filas = nullptr,
                            int n_filas = 0);
     // Este frame, el mundo se vuelve a escribir: `fase_ola` >= 0 lo desplaza por columnas (ola bajo el

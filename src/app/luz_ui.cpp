@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
-#include <ctime>
 #include "app/app.h"
 #include "mundo/luz.h"
 #include "recursos/imagen.h"
@@ -90,7 +89,6 @@ void cargar_agua_filas(App& a) {
 
 void aplicar_agua(App& a, u64 ahora, int w, int h, int fase_borracho) {
     if (a.cfg.efecto_agua_tinte) {
-        if (a.agua_filas.empty()) cargar_agua_filas(a);
         static const u8 uno = 255;
         a.gpu.multiplicar_mundo(&uno, 1, 1, std::max(w, h) + 1, BLANCO, a.agua_filas.data(),
                                 static_cast<int>(a.agua_filas.size()));
@@ -121,6 +119,21 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
 
 }  // namespace
 
+void preparar_luz(App& a) {
+    cargar_agua_filas(a);
+    a.luces.reserve(512);
+    // Lo que pida la vista más grande de esta ventana (zoom x1). Solo una ventana que crezca después
+    // vuelve a reservar, y una sola vez.
+    int pw = 0, ph = 0;
+    if (a.ventana) SDL_GetWindowSizeInPixels(a.ventana, &pw, &ph);
+    if (pw <= 0 || ph <= 0) return;
+    const int bw = (pw + CELDA - 1) / CELDA, bh = (ph + CELDA - 1) / CELDA;
+    const size_t n = static_cast<size_t>(bw) * bh;
+    a.luz_mascara.reserve(n);
+    a.luz_brillo.reserve(n);
+    a.gpu.reservar_brillo(bw, bh);
+}
+
 i32 hora_de_juego(const App& a) { return a.hora_forzada >= 0 ? a.hora_forzada : a.mundo.hora; }
 
 void aplicar_luz(App& a, u64 ahora) {
@@ -133,12 +146,10 @@ void aplicar_luz(App& a, u64 ahora) {
         return;
     }
 
-    const int seg = static_cast<int>(((hora_de_juego(a) % DIA) + DIA) % DIA);
+    const i32 hora = hora_de_juego(a);
+    const int seg = static_cast<int>(((hora % DIA) + DIA) % DIA);
     const bool lluvia = m.nieve > 0 || m.lluvia > 0;
-    std::time_t t = std::time(nullptr);
-    std::tm local{};
-    localtime_r(&t, &local);
-    int nivel = nivel_ambiente(m.mapa, seg / 60, local.tm_yday + 1, lluvia);
+    int nivel = nivel_ambiente(m.mapa, seg / 60, dia_del_anio(hora), lluvia);
     if (m.jugador.luz_hechizo) nivel = nivel_con_luz_hechizo(nivel);
 
     // Elfo y elfo oscuro: la visión reemplaza a la luz (no hay luces ni mapa de brillo).

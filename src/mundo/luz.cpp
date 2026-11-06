@@ -71,7 +71,7 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
 
     // Al aire libre: 15 de día, 2 de noche, con rampa de 40 minutos a cada lado.
     int amanecer, atardecer;
-    horas_de_luz(std::clamp(dia_anio, 1, 366), amanecer, atardecer);
+    horas_de_luz(std::clamp(dia_anio, 0, 365), amanecer, atardecer);
     int t;
     if (minuto > amanecer - VENTANA_TRANSICION && minuto < amanecer)
         t = (minuto - amanecer + VENTANA_TRANSICION) * 15 / VENTANA_TRANSICION + 1;
@@ -85,6 +85,16 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
     if (lluvia && nivel >= 10) --nivel;
     if (nivel < 15) ++nivel;  // el original suma 1 fuera del día pleno
     return nivel;
+}
+
+int dia_del_anio(i32 segundos) {
+    int dias = std::max(segundos, 0) / 86400;
+    for (int anio = 1970;; ++anio) {
+        const bool bisiesto = anio % 4 == 0 && (anio % 100 != 0 || anio % 400 == 0);
+        const int largo = bisiesto ? 366 : 365;
+        if (dias < largo) return dias;
+        dias -= largo;
+    }
 }
 
 int radio_de_luz(bool es_jugador, int luz) {

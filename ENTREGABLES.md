@@ -158,7 +158,7 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
   - **Ahora:** esos tiles se decodifican con alfa 50 % (`ALFA_TRANSLUCIDO`) y se mezclan con el suelo.
   - **Personajes en la sombra:** dibujar la sombra encima del personaje lo oscurecería también donde el cuerpo sube por encima de ella. En su lugar, el personaje cuya celda tiene una sombra se dibuja oscurecido (×150/255). F5 lo apaga (`sombra_personajes` en `settings.ini`). No hay forma de compararlo con el original desde los datos.
   - **Verificado:** capturas con F5 encendido y apagado junto al árbol del punto de inicio: el personaje en la sombra se oscurece y fuera de ella queda igual. Hay un test con el `.s32` real.
-- Luz y noche (S_Light y S_GameTime se reciben y guardan, pero todavía no se dibujan), y clima.
+- Luz y noche: hechas después, ver [PLAN_LUZ_AGUA.md](docs/analisis/PLAN_LUZ_AGUA.md) (noche, mazmorras, luces, agua, visión de elfo y borrachera).
 - Las acciones puntuales (ataque, daño) se guardan y animan, pero el combate es el entregable 5.
 - Rendimiento: ver la sección [Rendimiento](#rendimiento) (precarga en un hilo, reemplazo LRU del atlas y test de cero allocations).
 

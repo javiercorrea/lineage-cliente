@@ -129,6 +129,17 @@ TEST_CASE("Mundo: S_MapID guarda el modo submarino") {
     CHECK_FALSE(m.submarino);
 }
 
+TEST_CASE("Luz: el día del año sale de la hora de juego") {
+    const i32 dia = 86400;
+    CHECK(dia_del_anio(0) == 0);
+    CHECK(dia_del_anio(dia - 1) == 0);
+    CHECK(dia_del_anio(31 * dia) == 31);           // 1 de febrero de 1970
+    CHECK(dia_del_anio(364 * dia) == 364);         // 31 de diciembre de 1970
+    CHECK(dia_del_anio(365 * dia) == 0);           // 1 de enero de 1971
+    CHECK(dia_del_anio((730 + 60) * dia) == 60);   // 1 de marzo de 1972, bisiesto
+    CHECK(dia_del_anio(125570204) == 357);         // un S_GameTime real: 24 de diciembre de 1973
+}
+
 TEST_CASE("Luz: radio de la máscara de cada objeto") {
     CHECK(radio_de_luz(false, 0) == 0);
     CHECK(radio_de_luz(true, 0) == 5);  // S_OwnCharPack manda 0

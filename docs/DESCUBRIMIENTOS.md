@@ -180,6 +180,19 @@ desconecta. Todos los tiempos propios salen de la duración de la animación del
 - **Opacidad de ventanas:** la elegida en Opciones contra el mapa; una ventana que tapa a otra va
   opaca (si no, se lee el texto de la de abajo).
 
+### Luz, noche y agua
+
+El detalle, con las direcciones del binario, está en [PLAN_LUZ_AGUA.md](analisis/PLAN_LUZ_AGUA.md). Lo que no es obvio:
+
+- **La oscuridad oscurece el mundo ya dibujado:** se multiplica lo que va por debajo de `CAPA_EFECTOS`, así que nombres, barras e interfaz quedan intactos.
+- **Las máscaras de `source.lmp` van a media resolución:** una entrada es una celda de 2×2 píxeles. El radio 5 (72×36) alcanza ±72×±36 px. Las luces se combinan con máximo, no con suma.
+- **La estación sale de la hora de juego:** `S_GameTime` se trata como una fecha; el reloj de la máquina no interviene.
+- **`S_GameTime` llega con el keep-alive** (cada 20 s): hasta entonces la hora es 0, medianoche.
+- **`S_Weather` son dos estados:** `0x0N` nieve y `0x1N` lluvia. El `00` que manda L1J después de la lluvia no la apaga.
+- **`1416.img`, el agua, tiene 14 filas transparentes arriba:** toman el color de la primera con datos.
+- **Un NPC con luz cambia mucho la lectura de una captura:** para medir la noche, comparar el mismo lugar con `efecto_luz` en 0 y en 1, lejos de ellos.
+- **Se aparta del binario a propósito:** la amplitud de la ola es 6 px, no 3,75, porque casi no se notaba.
+
 ---
 
 ## 4. Rendimiento y memoria
