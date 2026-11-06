@@ -157,6 +157,7 @@ struct Mundo {
     const TablaSprites* sprites = nullptr;  // para la duración de los pasos (caminar de cada sprite)
     EstadoJugador jugador;
     MapId mapa = 0;
+    bool submarino = false;  // S_MapID: el mapa es bajo el agua (efecto azul y ola)
     i32 hora = 0;
     u8 clima = 0;
     bool en_juego = false;

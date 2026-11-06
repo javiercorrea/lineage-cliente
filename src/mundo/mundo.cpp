@@ -142,6 +142,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
                 if (conservar) o.col<O_GFX>()[o.insertar(yo)] = gfx;
             }
             m.mapa = static_cast<MapId>(e.v[0]);
+            m.submarino = e.v[1] != 0;
             break;
         case Ev::PONER_OBJETO: {
             Slot s = o.insertar(e.id);

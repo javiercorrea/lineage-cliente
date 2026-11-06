@@ -1,0 +1,28 @@
+// Luz y noche (PLAN_LUZ_AGUA.md, F1): reglas del cliente original, sin GPU. Son funciones puras;
+// el dibujo (mapa de luz, filtros de infravisión) se apoya en ellas en fases posteriores.
+#pragma once
+#include "core/tipos.h"
+
+namespace lin {
+
+// Visión especial de la clase del jugador (campo de clase de S_CharPack: 2 elfo, 4 elfo oscuro).
+enum class Vision : u8 { NINGUNA, ELFO, ELFO_OSCURO };
+
+// Mapas cerrados (mazmorras, casas): el original los deja oscuros a cualquier hora. Lista del
+// anexo A del plan (0x6ddae8) más todo mapa >= 0x4000 (casas).
+bool mapa_oscuro(MapId m);
+
+// Nivel de luz ambiente, 0..15 (15 = día sin oscuridad). `minuto` es la hora de juego en minutos
+// del día (0..1439) y `dia_anio` (1..366) fija amanecer y atardecer. `lluvia` es el clima de
+// lluvia o nieve. Mapas con nivel fijo (ver luz.cpp) ignoran la hora.
+int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia);
+
+// Hechizo LIGHT: suma 5 al nivel, con tope 15.
+int nivel_con_luz_hechizo(int nivel);
+
+// Infravisión: el elfo y el elfo oscuro ven en la oscuridad con un filtro propio en lugar de la
+// luz normal. No aplica con agua (submarino), con ceguera, con el nivel en día ni si la opción
+// está apagada.
+Vision modo_vision(u8 clase, bool opcion_activa, int nivel, bool submarino, bool ceguera);
+
+}  // namespace lin
