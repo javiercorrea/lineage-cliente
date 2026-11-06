@@ -46,7 +46,7 @@ atardecer cambian con el día del año, en minutos del día:
 
 | Mapas | Nivel | Brillo sin luz |
 |---|---|---|
-| todos los demás de la lista | 3 | 11/31 |
+| todos los demás de la lista | 3 (el plan usa 1, ver D2) | 11/31 (4/31) |
 | 72-74, 310, 330, 400, 401, 522-524 | 5 | 14/31 |
 | 307-309, 320 | 7 | 18/31 |
 | 75-77 | 12 | 26/31 |
@@ -320,8 +320,8 @@ El verde del elfo solo necesita F2 y se puede adelantar. El filtro del elfo oscu
 8. `perf on` en la zona más poblada, de noche: el coste del frame no debe subir más de 1 ms, y debe verse con el
    número medido en `ENTREGABLES.md`.
 
-**Comparación con el original:** capturas del juego real hechas por ti, en la misma posición, para ajustar lo
-que no se puede deducir (ver D1).
+**Comparación con el original:** `ss01.tiff` ya sirve de referencia para mazmorra y elfo oscuro. Faltan
+capturas reales de agua, de noche al aire libre y de elfo, para ajustar lo que no se puede deducir (D1, D2).
 
 ## 5. Criterios de aceptación
 
