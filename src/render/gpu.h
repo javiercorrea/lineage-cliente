@@ -82,7 +82,8 @@ public:
                            int n_filas = 0);
     // Este frame, el mundo se vuelve a escribir: `fase_ola` >= 0 lo desplaza por columnas (ola bajo el
     // agua; fase 0..99) y `modo_vision` lo transforma (1 elfo, 2 elfo oscuro; 0 ninguno).
-    void reemplazar_mundo(int fase_ola, int modo_vision);
+    // `fase_borracho` >= 0 mece el mundo por filas (borrachera, S_Liquor 1; fase 0..99).
+    void reemplazar_mundo(int fase_ola, int modo_vision, int fase_borracho = -1);
     // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
@@ -128,7 +129,7 @@ private:
     SDL_GPUTransferBuffer* subida_filas_ = nullptr;
     std::vector<u32> brillo_filas_;
     bool reemplazo_activo_ = false;
-    int reemplazo_fase_ = -1, reemplazo_modo_ = 0;
+    int reemplazo_fase_ = -1, reemplazo_modo_ = 0, reemplazo_fase_b_ = -1;
     SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8), tamaño fijo
     SDL_GPUTransferBuffer* subida_luz_ = nullptr;
     std::vector<u8> brillo_buf_;                // copia del frame, reservada al iniciar

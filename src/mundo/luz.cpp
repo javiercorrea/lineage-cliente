@@ -89,6 +89,10 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
 
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
 
+int desplazamiento_borracho(int fila, int fase) {
+    return static_cast<int>(std::trunc(std::sin((fila + fase) * 3.14159265358979 * 2.0 / 100.0) * 3.5));
+}
+
 int desplazamiento_ola(int x, int fase) {
     return static_cast<int>(std::trunc(std::sin((x + fase) * 3.14159265358979 / 50.0) * AMPLITUD_OLA));
 }

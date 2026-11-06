@@ -80,6 +80,16 @@ TEST_CASE("Luz: la ola se mueve entre -6 y 6 px y repite cada 100 columnas") {
     CHECK(desplazamiento_ola(25, 0) >= 5);  // pico: sin(pi/2) * AMPLITUD_OLA (6)
 }
 
+TEST_CASE("Luz: el vaivén de la borrachera va de -3 a 3 px y repite cada 100 filas") {
+    for (int fase = 0; fase < 100; fase += 9)
+        for (int f = 0; f < 300; ++f) {
+            int d = desplazamiento_borracho(f, fase);
+            CHECK(d >= -3);
+            CHECK(d <= 3);
+            CHECK(d == desplazamiento_borracho(f + 100, fase));
+        }
+}
+
 TEST_CASE("Luz: brillo por celda según nivel y máscara") {
     CHECK(brillo_lut(15, 0) == 31);
     CHECK(brillo_lut(15, 255) == 31);

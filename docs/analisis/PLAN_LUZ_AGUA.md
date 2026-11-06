@@ -283,7 +283,7 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 | **F4** Agua: tinte ✅ | sin luz bajo el agua; `1416.img` por filas (promedio de cada fila, sin transparentes). Sonido 330 sin hacer | **azul bajo el agua** (`docs/capturas/f4_agua_ola.png`) |
 | **F5** Agua: ola ✅ | copia del mundo y pase `fs_mundo` con el desplazamiento por columnas (`desplazamiento_ola`) | **distorsión** (la prueba visual es de una captura; el movimiento no se vio animado) |
 | **F5b** Infravisión ✅ | filtro de elfo (multiplicar) y de elfo oscuro (`c × (2r+7g+b)/10`) en el mismo pase; casilla en Opciones y en el editor de ajustes | **verde y oscuro uniforme** (`f5b_elfo.png`, `f5b_elfo_oscuro.png`) |
-| **F6** Opcional | borrachera por filas; máscara de 303 y 606; `shade.dat` si hace falta | según lo que falte |
+| **F6** Opcional ✅ (parcial) | borrachera por filas ✅ (`f6_borracho.png`: corrimiento de ±3 px, periodo 100 filas, medido contra una referencia sin borrachera). Máscara de 303 y 606: no se puede hacer (ver abajo). `shade.dat`: no aplica (ver abajo) | — |
 
 El verde del elfo solo necesita F2 y se puede adelantar. El filtro del elfo oscuro depende de la copia de F5.
 
@@ -361,6 +361,11 @@ Con estos valores se puede empezar. Corregir cualquiera cuesta poco.
 - **D3. Sin opción para apagar la noche ni el agua.** La única opción es la infravisión, porque el original la
   tiene (activada por defecto: `infravision=1`). No leí el valor inicial del original.
 - **D4. Fuera: `shade.dat`, máscara de 303 y 606 y borrachera por filas** (F6, si hacen falta).
+
+**Resultado de F6:**
+- *Borrachera por filas:* hecha, en el mismo pase de reemplazo que la ola y la visión. Sustituye al balanceo de toda la pantalla que había en `pantalla_juego.cpp`, que se quitó. Amplitud 3,5 px (el plan), periodo 100 filas.
+- *Máscara de 303 y 606:* no se puede hacer hoy. La tabla `0x7009cc` es un búfer de 640 × 640 bytes que el binario reserva al arrancar y llena en tiempo de ejecución; no hay archivo de datos que leer, y reconstruir su contenido requiere ingeniería inversa de la rutina de llenado.
+- *`shade.dat`:* no se usa en el cliente de 2009 (la rutina que la dibuja no tiene llamadores). Solo la carga el de 2013. No aporta nada que implementar hoy.
 
 ## Anexo A: mapas oscuros (`0x6ddae8`, 297 entradas)
 

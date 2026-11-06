@@ -89,7 +89,7 @@ void cargar_agua_filas(App& a) {
     }
 }
 
-void aplicar_agua(App& a, u64 ahora, int w, int h) {
+void aplicar_agua(App& a, u64 ahora, int w, int h, int fase_borracho) {
     if (a.cfg.efecto_agua_tinte) {
         if (a.agua_filas.empty()) cargar_agua_filas(a);
         static const u8 uno = 255;
@@ -97,7 +97,8 @@ void aplicar_agua(App& a, u64 ahora, int w, int h) {
                                 static_cast<int>(a.agua_filas.size()));
     }
     // La ola avanza una columna cada 50 ms y da una vuelta cada 5 s (ver desplazamiento_ola).
-    if (a.cfg.efecto_agua_ola) a.gpu.reemplazar_mundo(static_cast<int>((ahora / 50) % 100), 0);
+    const int fase_ola = a.cfg.efecto_agua_ola ? static_cast<int>((ahora / 50) % 100) : -1;
+    a.gpu.reemplazar_mundo(fase_ola, 0, fase_borracho);
 }
 
 // Brillo por celda: la LUT del nivel sobre el máximo de las máscaras de las luces en pantalla.
@@ -140,8 +141,10 @@ i32 hora_de_juego(const App& a) { return a.hora_forzada >= 0 ? a.hora_forzada : 
 void aplicar_luz(App& a, u64 ahora) {
     const Mundo& m = a.mundo;
     const int w = a.gpu.ancho(), h = a.gpu.alto();
+    // Borrachera (S_Liquor 1): el mundo se mece por filas; va en el mismo pase que la ola y la visión.
+    const int fase_borracho = m.jugador.borracho ? static_cast<int>((ahora / 50) % 100) : -1;
     if (m.submarino) {
-        aplicar_agua(a, ahora, w, h);
+        aplicar_agua(a, ahora, w, h, fase_borracho);
         return;
     }
 
@@ -157,10 +160,11 @@ void aplicar_luz(App& a, u64 ahora) {
     const Vision vis = modo_vision(static_cast<u8>(clase < 0 ? 255 : clase), a.cfg.efecto_infravision, nivel, false,
                                    m.jugador.ceguera);
     if (vis != Vision::NINGUNA) {
-        a.gpu.reemplazar_mundo(-1, vis == Vision::ELFO ? 1 : 2);
+        a.gpu.reemplazar_mundo(-1, vis == Vision::ELFO ? 1 : 2, fase_borracho);
         return;
     }
 
+    if (fase_borracho >= 0) a.gpu.reemplazar_mundo(-1, 0, fase_borracho);
     u8 tr = 255, tg = 255, tb = 255;
     const bool tinte = tinte_mapa(m.mapa, tr, tg, tb);
     const u32 color = tinte ? rgba(tr, tg, tb) : BLANCO;

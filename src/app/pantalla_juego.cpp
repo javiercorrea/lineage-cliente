@@ -1315,11 +1315,6 @@ void frame_juego(App& a) {
     // (1/escala de píxel lógico), así la cámara se mueve suave y todo el mundo se desplaza junto.
     double ox = vi.cx - 24 - mundo_px(cam_x, cam_y);
     double oy = vi.cy - 12 - mundo_py(cam_x, cam_y);
-    if (a.mundo.jugador.borracho) {  // S_Liquor 1: la pantalla se mece
-        const double t = static_cast<double>(ahora) / 1000.0;
-        ox += 6 * std::sin(t * 1.7);
-        oy += 3 * std::sin(t * 2.3);
-    }
     if (ahora - a.t_mantener_vivo > MS_MANTENER_VIVO) {
         enviar(a, cmd::mantener_vivo(a.op));
         a.t_mantener_vivo = ahora;

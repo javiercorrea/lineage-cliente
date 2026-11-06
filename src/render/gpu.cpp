@@ -13,6 +13,8 @@ namespace {
 // para MSL: buffer(0) = uniformes, buffer(1) = primer storage buffer; texture(0)/sampler(0).
 // Lado de la textura de brillo (celdas). Cubre una vista lógica de hasta 2 × LUZ_TAM píxeles con celdas de 2.
 constexpr int LUZ_TAM = 1024;
+// Amplitud (píxeles) del vaivén de la borrachera por filas (S_Liquor 1). Igual que desplazamiento_borracho.
+constexpr float AMPLITUD_BORRACHO = 3.5f;
 
 const char* SHADER_MSL = R"(
 #include <metal_stdlib>
@@ -94,8 +96,16 @@ vertex MundoSalida vs_mundo(uint vid [[vertex_id]]) {
 }
 
 fragment float4 fs_mundo(MundoSalida in [[stage_in]], texture2d<float> escena [[texture(0)]],
-                         sampler s [[sampler(0)]], constant float4& p [[buffer(0)]]) {
+                         sampler s [[sampler(0)]], constant float4* u [[buffer(0)]]) {
+    float4 p = u[0];  // ancho, alto, fase de la ola (< 0 sin ola), modo de visión
+    float4 b = u[1];  // fase de la borrachera (< 0 sin ella), amplitud
     float2 uv = in.uv;
+    if (b.x >= 0.0) {
+        float fila = floor(uv.y * p.y);
+        float dx = trunc(sin((fila + b.x) * 3.14159265 * 2.0 / 100.0) * b.y);
+        float x = clamp(floor(uv.x * p.x) + dx, 0.0, p.x - 1.0);
+        uv.x = (x + 0.5) / p.x;
+    }
     if (p.z >= 0.0) {
         float xl = floor(uv.x * p.x);
         float yl = floor(uv.y * p.y);
@@ -432,10 +442,11 @@ void Gpu::multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tin
     brillo_activo_ = true;
 }
 
-void Gpu::reemplazar_mundo(int fase_ola, int modo_vision) {
+void Gpu::reemplazar_mundo(int fase_ola, int modo_vision, int fase_borracho) {
     reemplazo_fase_ = fase_ola;
     reemplazo_modo_ = modo_vision;
-    reemplazo_activo_ = fase_ola >= 0 || modo_vision != 0;
+    reemplazo_fase_b_ = fase_borracho;
+    reemplazo_activo_ = fase_ola >= 0 || modo_vision != 0 || fase_borracho >= 0;
 }
 
 int Gpu::escala_maxima() const {
@@ -599,7 +610,8 @@ void Gpu::presentar() {
         SDL_BindGPUGraphicsPipeline(pase, pipeline_mundo_);
         SDL_GPUTextureSamplerBinding csb{copia_, muestreo_};
         SDL_BindGPUFragmentSamplers(pase, 0, &csb, 1);
-        float p[4] = {static_cast<float>(ancho_), static_cast<float>(alto_), static_cast<float>(reemplazo_fase_), static_cast<float>(reemplazo_modo_)};
+        float p[8] = {static_cast<float>(ancho_), static_cast<float>(alto_), static_cast<float>(reemplazo_fase_),
+                      static_cast<float>(reemplazo_modo_), static_cast<float>(reemplazo_fase_b_), AMPLITUD_BORRACHO, 0, 0};
         SDL_PushGPUFragmentUniformData(cmd, 0, p, sizeof p);
         SDL_DrawGPUPrimitives(pase, 6, 1, 0, 0);
         ++llamadas_;
@@ -662,6 +674,7 @@ void Gpu::presentar() {
     brillo_activo_ = false;
     reemplazo_activo_ = false;
     reemplazo_fase_ = -1;
+    reemplazo_fase_b_ = -1;
     reemplazo_modo_ = 0;
     ++frame_;
 }

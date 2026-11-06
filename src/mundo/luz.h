@@ -16,6 +16,10 @@ bool tinte_mapa(MapId m, u8& r, u8& g, u8& b);
 // (0..99, avanza cada 50 ms). El shader hace lo mismo; esta versión es la de referencia para los tests.
 int desplazamiento_ola(int x, int fase);
 
+// Vaivén horizontal del mundo al estar borracho (S_Liquor 1), en píxeles (de -3 a 3) para la fila y la
+// fase (0..99). Igual que el shader (fs_mundo, gpu.cpp).
+int desplazamiento_borracho(int fila, int fase);
+
 // Visión especial de la clase del jugador (campo de clase de S_CharPack: 2 elfo, 4 elfo oscuro).
 enum class Vision : u8 { NINGUNA, ELFO, ELFO_OSCURO };
 
