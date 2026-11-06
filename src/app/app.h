@@ -220,6 +220,7 @@ struct App {
     Config cfg;
     SDL_Window* ventana = nullptr;
     bool salir = false;
+    ui::Barra ventana_sin_borde;  // ventana sin borde: arrastre, botones y bordes (ventana_ui.cpp)
 
     Recursos rec;
     FuenteBitmap fuente;
@@ -465,7 +466,6 @@ void preparar_luz(App& a);  // al arrancar, fuera del frame: color del agua y b�
 void dibujar_barra_ventana(App& a);
 void alternar_pantalla_completa(App& a);
 int alto_barra(const App& a);  // píxeles lógicos que tapa la barra (0 a pantalla completa)
-SDL_HitTestResult zona_ventana_juego(SDL_Window* ventana, const SDL_Point* p, void* datos);
 // Sonido (sonido.cpp).
 void cargar_sonidos(App& a);
 void aplicar_volumenes(App& a);

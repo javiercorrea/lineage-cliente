@@ -144,40 +144,130 @@ BotonesBarra botones_barra(int ancho) {
 #endif
 }
 
-void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho,
-                   bool& cerrar, bool& minimizar) {
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho) {
     g.gpu().rectangulo(x0, y0, ancho, BARRA_VENTANA_ALTO, clave_orden(CAPA_UI, 0), rgba(44, 34, 24));
     texto_centrado(g, titulo, x0, y0 + 7, ancho, COLOR_TITULO);
     const BotonesBarra b = botones_barra(ancho);
-    if (boton_texto(g, e, "-", x0 + b.minimizar, y0 + 4, b.lado, b.lado)) minimizar = true;
-    if (boton_texto(g, e, "x", x0 + b.cerrar, y0 + 4, b.lado, b.lado)) cerrar = true;
+    // Solo se dibujan (el resultado de los clics lo decide barra_evento).
+    boton_texto(g, e, "-", x0 + b.minimizar, y0 + 4, b.lado, b.lado);
+    boton_texto(g, e, "x", x0 + b.cerrar, y0 + 4, b.lado, b.lado);
 }
 
-SDL_HitTestResult prueba_barra(SDL_Window* ventana, const Gpu& gpu, const SDL_Point* p, bool redimensionable) {
-    // Los botones primero: van por encima del borde superior. La barra está en la cuadrícula (arriba).
-    int gx = 0, gy = 0;
-    gpu.a_grilla(static_cast<float>(p->x), static_cast<float>(p->y), gx, gy);
+namespace {
+
+constexpr int BORDE_GRUESO = 6;  // puntos
+constexpr int TAM_MIN_W = 320, TAM_MIN_H = 240;
+
+bool en_rango(int v, int inicio, int lado) { return v >= inicio && v < inicio + lado; }
+
+// Botón de la barra bajo (gx, gy) de la cuadrícula: 1 minimizar, 2 cerrar, 0 la barra sin botón, -1 fuera.
+int boton_bajo(const Gpu& gpu, int gx, int gy) {
     const int ancho = gpu.grid_ancho();
+    if (gy < 0 || gy >= BARRA_VENTANA_ALTO || gx < 0 || gx >= ancho) return -1;
     const BotonesBarra b = botones_barra(ancho);
-    const bool en_barra = gy >= 0 && gy < BARRA_VENTANA_ALTO && gx >= 0 && gx < ancho;
-    const bool en_boton = en_barra && ((gx >= b.cerrar && gx < b.cerrar + b.lado) ||
-                                       (gx >= b.minimizar && gx < b.minimizar + b.lado));
-    if (en_boton) return SDL_HITTEST_NORMAL;
-    if (redimensionable) {
-        int ww = 0, wh = 0;
-        SDL_GetWindowSize(ventana, &ww, &wh);
-        constexpr int BORDE = 6;
-        const bool izq = p->x < BORDE, der = p->x >= ww - BORDE, arr = p->y < BORDE, aba = p->y >= wh - BORDE;
-        if (arr && izq) return SDL_HITTEST_RESIZE_TOPLEFT;
-        if (arr && der) return SDL_HITTEST_RESIZE_TOPRIGHT;
-        if (aba && izq) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
-        if (aba && der) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
-        if (arr) return SDL_HITTEST_RESIZE_TOP;
-        if (aba) return SDL_HITTEST_RESIZE_BOTTOM;
-        if (izq) return SDL_HITTEST_RESIZE_LEFT;
-        if (der) return SDL_HITTEST_RESIZE_RIGHT;
+    if (en_rango(gx, b.cerrar, b.lado)) return 2;
+    if (en_rango(gx, b.minimizar, b.lado)) return 1;
+    return 0;
+}
+
+// Bordes de la ventana bajo (x, y) en puntos de la ventana.
+int bordes_bajo(SDL_Window* v, float x, float y) {
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(v, &ww, &wh);
+    int b = 0;
+    if (x < BORDE_GRUESO) b |= BORDE_IZQ;
+    if (x >= ww - BORDE_GRUESO) b |= BORDE_DER;
+    if (y < BORDE_GRUESO) b |= BORDE_ARR;
+    if (y >= wh - BORDE_GRUESO) b |= BORDE_ABA;
+    return b;
+}
+
+void empezar_arrastre(SDL_Window* v, Barra& b, int bordes) {
+    SDL_GetGlobalMouseState(&b.raton_x, &b.raton_y);
+    SDL_GetWindowPosition(v, &b.vx, &b.vy);
+    SDL_GetWindowSize(v, &b.vw, &b.vh);
+    b.bordes = bordes;
+    b.arrastrando = true;
+}
+
+}  // namespace
+
+bool barra_evento(Gpu& gpu, SDL_Window* v, Barra& b, const SDL_Event& ev, bool activa) {
+    if (!activa) return false;
+    switch (ev.type) {
+    case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+        if (ev.button.button != SDL_BUTTON_LEFT) return false;
+        int gx = 0, gy = 0;
+        gpu.a_grilla(ev.button.x, ev.button.y, gx, gy);
+        const int boton = boton_bajo(gpu, gx, gy);
+        if (boton > 0) {  // los botones van primero (también sobre el borde superior)
+            b.pulsada = true;
+            b.boton = boton;
+            return true;
+        }
+        const int bordes = b.redimensionable ? bordes_bajo(v, ev.button.x, ev.button.y) : 0;
+        if (bordes) {
+            b.pulsada = true;
+            b.boton = 0;
+            empezar_arrastre(v, b, bordes);
+            return true;
+        }
+        if (boton == 0) {  // la barra sin botón: arrastra la ventana
+            b.pulsada = true;
+            b.boton = 0;
+            empezar_arrastre(v, b, 0);
+            return true;
+        }
+        return false;
     }
-    return en_barra ? SDL_HITTEST_DRAGGABLE : SDL_HITTEST_NORMAL;
+    case SDL_EVENT_MOUSE_BUTTON_UP: {
+        if (ev.button.button != SDL_BUTTON_LEFT || !b.pulsada) return false;
+        int gx = 0, gy = 0;
+        gpu.a_grilla(ev.button.x, ev.button.y, gx, gy);
+        // Un botón cuenta si se soltó sobre el mismo que se presionó (y no se arrastró).
+        if (!b.arrastrando && b.boton > 0 && boton_bajo(gpu, gx, gy) == b.boton)
+            b.accion = b.boton == 1 ? AccionBarra::MINIMIZAR : AccionBarra::CERRAR;
+        b.pulsada = false;
+        b.arrastrando = false;
+        b.boton = 0;
+        return true;
+    }
+    case SDL_EVENT_MOUSE_MOTION:
+        return b.pulsada;  // lo que empezó en la barra no llega al juego
+    default:
+        return false;
+    }
+}
+
+AccionBarra barra_frame(SDL_Window* v, Barra& b) {
+    if (b.arrastrando) {
+        float x = 0, y = 0;
+        if (!(SDL_GetGlobalMouseState(&x, &y) & SDL_BUTTON_LMASK)) {
+            b.arrastrando = false;  // soltado fuera de la ventana: el evento de subida cierra el resto
+        } else {
+            const int dx = static_cast<int>(x - b.raton_x), dy = static_cast<int>(y - b.raton_y);
+            if (b.bordes == 0) {
+                SDL_SetWindowPosition(v, b.vx + dx, b.vy + dy);
+            } else {
+                int x0 = b.vx, y0 = b.vy, w = b.vw, h = b.vh;
+                if (b.bordes & BORDE_IZQ) {
+                    w = std::max(TAM_MIN_W, b.vw - dx);
+                    x0 = b.vx + b.vw - w;
+                }
+                if (b.bordes & BORDE_DER) w = std::max(TAM_MIN_W, b.vw + dx);
+                if (b.bordes & BORDE_ARR) {
+                    h = std::max(TAM_MIN_H, b.vh - dy);
+                    y0 = b.vy + b.vh - h;
+                }
+                if (b.bordes & BORDE_ABA) h = std::max(TAM_MIN_H, b.vh + dy);
+                SDL_SetWindowPosition(v, x0, y0);
+                SDL_SetWindowSize(v, w, h);
+            }
+        }
+    }
+    const AccionBarra acc = b.accion;
+    b.accion = AccionBarra::NINGUNA;
+    return acc;
 }
 
 }  // namespace lin::ui

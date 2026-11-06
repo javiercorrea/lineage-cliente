@@ -64,6 +64,11 @@ void leer_entrada(App& a) {
     e.ahora_ms = SDL_GetTicks();
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+        // La barra de la ventana (arrastre, botones y bordes) es de la ventana: el juego no ve esos eventos.
+        if ((ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN || ev.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+             ev.type == SDL_EVENT_MOUSE_MOTION) &&
+            ui::barra_evento(a.gpu, a.ventana, a.ventana_sin_borde, ev, alto_barra(a) > 0))
+            continue;
         switch (ev.type) {
         case SDL_EVENT_QUIT: a.salir = true; break;
         case SDL_EVENT_MOUSE_MOTION: a.gpu.a_logico(ev.motion.x, ev.motion.y, e.mx, e.my); break;
@@ -87,9 +92,11 @@ void leer_entrada(App& a) {
         case SDL_EVENT_KEY_DOWN:
             switch (ev.key.key) {
             case SDLK_RETURN: case SDLK_KP_ENTER:
-                if (ev.key.mod & SDL_KMOD_ALT) {  // Alt+Enter: pantalla completa o ventana
-                    alternar_pantalla_completa(a);
-                    guardar_config(a.cfg);
+                if (ev.key.mod & SDL_KMOD_ALT) {  // Alt+Enter: pantalla completa o ventana (sin repetir al mantenerla)
+                    if (!ev.key.repeat) {
+                        alternar_pantalla_completa(a);
+                        guardar_config(a.cfg);
+                    }
                 } else e.enter = true;
                 break;
             case SDLK_TAB: e.tab = true; break;
@@ -295,7 +302,7 @@ bool iniciar_app(App& a) {
                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!a.ventana || !a.gpu.iniciar(a.ventana, 640, 480)) return false;
     if (a.cfg.pantalla_completa) SDL_SetWindowFullscreen(a.ventana, true);
-    SDL_SetWindowHitTest(a.ventana, zona_ventana_juego, &a);
+    a.ventana_sin_borde.redimensionable = true;
     SDL_StartTextInput(a.ventana);
     crear_cursores(a);
     if (carpeta_juego_valida(a.cfg.carpeta_juego) && cargar_recursos(a)) {

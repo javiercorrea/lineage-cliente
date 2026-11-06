@@ -13,29 +13,27 @@ constexpr u32 NIVEL_BARRA = 31;
 
 }  // namespace
 
-int alto_barra(const App& a) { return a.cfg.pantalla_completa || !a.g ? 0 : ui::BARRA_VENTANA_ALTO; }
+int alto_barra(const App& a) {
+    // Sin barra con el juego cargando o mostrando una captura, ni a pantalla completa (lo que diga la ventana).
+    if (!a.g || a.render.activo || !a.ventana) return 0;
+    return SDL_GetWindowFlags(a.ventana) & SDL_WINDOW_FULLSCREEN ? 0 : ui::BARRA_VENTANA_ALTO;
+}
 
 void dibujar_barra_ventana(App& a) {
+    // Siempre: sigue un arrastre en curso y ejecuta lo que pidieron los botones.
+    const ui::AccionBarra acc = ui::barra_frame(a.ventana, a.ventana_sin_borde);
+    if (acc == ui::AccionBarra::MINIMIZAR) SDL_MinimizeWindow(a.ventana);
+    if (acc == ui::AccionBarra::CERRAR) a.salir = true;
     if (alto_barra(a) == 0) return;
-    bool cerrar = false, minimizar = false;
-    a.gpu.nivel_ventana(NIVEL_BARRA);
     // En coordenadas del contenido: la barra cae en la franja de arriba de la cuadrícula.
-    ui::barra_ventana(*a.g, a.entrada, "Lineage", -a.gpu.origen_x(), -a.gpu.origen_y(), a.gpu.grid_ancho(), cerrar,
-                      minimizar);
+    a.gpu.nivel_ventana(NIVEL_BARRA);
+    ui::barra_ventana(*a.g, a.entrada, "Lineage", -a.gpu.origen_x(), -a.gpu.origen_y(), a.gpu.grid_ancho());
     a.gpu.nivel_ventana(0);
-    if (minimizar) SDL_MinimizeWindow(a.ventana);
-    if (cerrar) a.salir = true;
 }
 
 void alternar_pantalla_completa(App& a) {
     a.cfg.pantalla_completa = !a.cfg.pantalla_completa;
     if (a.ventana) SDL_SetWindowFullscreen(a.ventana, a.cfg.pantalla_completa);
-}
-
-SDL_HitTestResult zona_ventana_juego(SDL_Window* ventana, const SDL_Point* p, void* datos) {
-    const App& a = *static_cast<const App*>(datos);
-    if (alto_barra(a) == 0) return SDL_HITTEST_NORMAL;  // a pantalla completa, o antes de cargar la fuente
-    return ui::prueba_barra(ventana, a.gpu, p, true);
 }
 
 }  // namespace lin

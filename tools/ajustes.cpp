@@ -352,18 +352,15 @@ void barra_inferior(Pantalla& p, Formulario& f, const std::string& ruta, bool& s
 
 // --- Entrada y bucle ---------------------------------------------------------------------------
 
-// La barra de arriba arrastra la ventana, salvo sus botones (ui::prueba_barra). No cambia de tamaño.
-SDL_HitTestResult zona_ajustes(SDL_Window* w, const SDL_Point* p, void* datos) {
-    return ui::prueba_barra(w, *static_cast<const Gpu*>(datos), p, false);
-}
 
-void leer_entrada(Gpu& gpu, EntradaFrame& e, bool& salir, int& rueda) {
+void leer_entrada(Gpu& gpu, EntradaFrame& e, bool& salir, int& rueda, SDL_Window* v, ui::Barra& barra) {
     e.clic = e.enter = e.tab = e.escape = e.retroceso = false;
     e.ntexto = 0;
     rueda = 0;
     e.ahora_ms = SDL_GetTicks();
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+        if (ui::barra_evento(gpu, v, barra, ev, true)) continue;  // la barra de la ventana (arrastre, botones)
         switch (ev.type) {
         case SDL_EVENT_QUIT: salir = true; break;
         case SDL_EVENT_MOUSE_WHEEL: rueda += static_cast<int>(ev.wheel.y); break;  // positivo: hacia arriba
@@ -431,7 +428,6 @@ int main(int argc, char** argv) {
         SDL_Quit();
         return 1;
     }
-    SDL_SetWindowHitTest(v, zona_ajustes, &gpu);
     SDL_StartTextInput(v);
 
     while (!carpeta_juego_valida(f.cfg.carpeta_juego)) {
@@ -457,12 +453,16 @@ int main(int argc, char** argv) {
     auto g = std::make_unique<Graficos>(gpu, rec, fuente);
     EntradaFrame entrada;
     Pantalla p(*g, entrada, v);
+    ui::Barra barra;  // arrastre y botones de la ventana (sin borde)
     bool salir = false;
 
     for (int frame = 0; !salir; ++frame) {
         g->nuevo_frame();
         int rueda = 0;
-        leer_entrada(gpu, entrada, salir, rueda);
+        leer_entrada(gpu, entrada, salir, rueda, v, barra);
+        const ui::AccionBarra acc = ui::barra_frame(v, barra);
+        if (acc == ui::AccionBarra::MINIMIZAR) SDL_MinimizeWindow(v);
+        if (acc == ui::AccionBarra::CERRAR) salir = true;
         if (g_carpeta_nueva) {  // resultado de "Buscar carpeta..."
             g_carpeta_nueva = false;
             const std::string nueva = g_carpeta_elegida + "/";
@@ -480,10 +480,7 @@ int main(int argc, char** argv) {
 
         const std::vector<std::string> nombres_pestanas = pestanas();
         gpu.rectangulo(0, 0, LOGICO_W, LOGICO_H, clave_orden(CAPA_FONDO, 0), rgba(24, 20, 16));
-        bool cerrar = false, minimizar = false;
-        ui::barra_ventana(*g, entrada, tr(Tx::AJ_TITULO), 0, 0, LOGICO_W, cerrar, minimizar);
-        if (minimizar) SDL_MinimizeWindow(v);
-        if (cerrar) salir = true;
+        ui::barra_ventana(*g, entrada, tr(Tx::AJ_TITULO), 0, 0, LOGICO_W);
         for (size_t i = 0; i < nombres_pestanas.size(); ++i) {
             const std::string t = i == pestana ? "> " + nombres_pestanas[i] + " <" : nombres_pestanas[i];
             if (ui::boton_texto(*g, entrada, t, 16 + static_cast<int>(i) * 122, 34, 118, 22)) {
