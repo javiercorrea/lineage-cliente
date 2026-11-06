@@ -287,6 +287,7 @@ struct App {
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
     std::vector<u8> luz_mascara, luz_brillo;  // aplicar_luz: buffers del frame, se reusan
+    std::vector<u32> agua_filas;              // color por fila del agua (1416.img), cargado al primer uso
     bool jugador_tapado = false;  // un objeto del mapa tapa al propio personaje (se ve translúcido)
     ObjId objetivo = 0;
     u64 fin_ataque = 0;

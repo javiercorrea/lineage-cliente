@@ -128,6 +128,13 @@ X(AJ_CHAT_ENTER, "Enter abre el chat", "Enter opens chat", "Enter abre o chat", 
   "Entrée ouvre le chat")
 X(AJ_SOMBRA, "Sombra en personajes", "Shadow on characters", "Sombra nos personagens", "Schatten auf Charakteren",
   "Ombre sur les personnages")
+X(AJ_EFECTO_LUZ, "Noche y mazmorras oscuras", "Night and dark dungeons", "Noite e masmorras escuras",
+  "Nacht und dunkle Verliese", "Nuit et donjons sombres")
+X(AJ_EFECTO_AGUA, "Tinte azul bajo el agua", "Blue tint underwater", "Tom azul debaixo d'água",
+  "Blauer Farbton unter Wasser", "Teinte bleue sous l'eau")
+X(AJ_EFECTO_OLA, "Ola bajo el agua", "Wave underwater", "Onda debaixo d'água", "Welle unter Wasser",
+  "Vague sous l'eau")
+X(AJ_EFECTO_INFRA, "Visión de elfo", "Elf vision", "Visão de elfo", "Elfensicht", "Vision de l'elfe")
 X(AJ_COMPENSAR, "Compensar ataque", "Attack compensation", "Compensar ataque", "Angriffskompensation",
   "Compensation d'attaque")
 X(AJ_TEXTO_DANO, "Texto de daño", "Damage text", "Texto de dano", "Schadenstext", "Texte de dégâts")

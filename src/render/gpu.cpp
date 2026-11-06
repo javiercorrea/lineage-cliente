@@ -52,11 +52,11 @@ fragment float4 fs_sprite(Salida in [[stage_in]], texture2d_array<float> atlas [
     return float4(c.rgb * c.a, in.mezcla == 1 ? 0.0 : c.a);
 }
 
-// Multiplicar el mundo: el brillo sale de una textura R8 (una celda por valor) y el tinte es un
-// color fijo. El destino se mezcla con (tinte * brillo), sin tocar el alfa.
+// Multiplicar el mundo: brillo (textura R8 por celda) × color por fila (textura de 1 × N) × tinte.
 struct BrilloSalida {
     float4 pos [[position]];
     float2 uv;
+    float2 uvf;
 };
 
 vertex BrilloSalida vs_brillo(uint vid [[vertex_id]], constant float4& escala [[buffer(0)]]) {
@@ -65,13 +65,48 @@ vertex BrilloSalida vs_brillo(uint vid [[vertex_id]], constant float4& escala [[
     BrilloSalida o;
     o.pos = float4(e.x * 2.0 - 1.0, 1.0 - e.y * 2.0, 0.0, 1.0);
     o.uv = e * escala.xy;
+    o.uvf = float2(0.0, e.y * escala.z);
     return o;
 }
 
 fragment float4 fs_brillo(BrilloSalida in [[stage_in]], texture2d<float> luz [[texture(0)]],
-                          sampler s [[sampler(0)]], constant float4& tinte [[buffer(0)]]) {
-    float b = luz.sample(s, in.uv).r;
-    return float4(tinte.rgb * b, 1.0);
+                          texture2d<float> filas [[texture(1)]], sampler s0 [[sampler(0)]],
+                          sampler s1 [[sampler(1)]], constant float4& tinte [[buffer(0)]]) {
+    float b = luz.sample(s0, in.uv).r;
+    float3 f = filas.sample(s1, in.uvf).rgb;
+    return float4(tinte.rgb * b * f, 1.0);
+}
+
+// Reemplazar el mundo: una copia de lo ya dibujado, leída con la ola (desplazamiento por columnas;
+// p.z = fase, < 0 sin ola) y/o la visión (p.w: 1 elfo, 2 elfo oscuro).
+struct MundoSalida {
+    float4 pos [[position]];
+    float2 uv;
+};
+
+vertex MundoSalida vs_mundo(uint vid [[vertex_id]]) {
+    const float2 esquinas[6] = { float2(0,0), float2(1,0), float2(0,1), float2(1,0), float2(1,1), float2(0,1) };
+    float2 e = esquinas[vid];
+    MundoSalida o;
+    o.pos = float4(e.x * 2.0 - 1.0, 1.0 - e.y * 2.0, 0.0, 1.0);
+    o.uv = e;
+    return o;
+}
+
+fragment float4 fs_mundo(MundoSalida in [[stage_in]], texture2d<float> escena [[texture(0)]],
+                         sampler s [[sampler(0)]], constant float4& p [[buffer(0)]]) {
+    float2 uv = in.uv;
+    if (p.z >= 0.0) {
+        float xl = floor(uv.x * p.x);
+        float yl = floor(uv.y * p.y);
+        float dy = trunc(sin((xl + p.z) * 3.14159265 / 50.0) * 3.75);
+        float y = clamp(yl + dy, 0.0, p.y - 1.0);
+        uv = float2((xl + 0.5) / p.x, (y + 0.5) / p.y);
+    }
+    float3 c = escena.sample(s, uv).rgb;
+    if (p.w == 1.0) c = c * float3(1.0 / 16.0, 0.5, 1.0 / 16.0);
+    else if (p.w == 2.0) c = c * ((2.0 * c.r + 7.0 * c.g + c.b) / 10.0);
+    return float4(c, 1.0);
 }
 )";
 
@@ -137,8 +172,15 @@ bool Gpu::iniciar(SDL_Window* ventana, int ancho_logico, int alto_logico) {
     tb.size = LUZ_TAM * LUZ_TAM;
     subida_luz_ = SDL_CreateGPUTransferBuffer(dev_, &tb);
     brillo_buf_.reserve(LUZ_TAM * LUZ_TAM);
+    brillo_filas_.reserve(LUZ_TAM);
+    tl.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;  // color por fila: RGBA, no R8 como la de brillo
+    tl.width = 1;
+    tl.height = LUZ_TAM;
+    filas_tex_ = SDL_CreateGPUTexture(dev_, &tl);
+    tb.size = LUZ_TAM * 4;
+    subida_filas_ = SDL_CreateGPUTransferBuffer(dev_, &tb);
     if (!atlas_ || !destino_ || !muestreo_ || !instancias_gpu_ || !subida_inst_ || !subida_atlas_ || !luz_ ||
-        !subida_luz_) {
+        !subida_luz_ || !filas_tex_ || !subida_filas_) {
         LIN_LOG("Recursos GPU: %s", SDL_GetError());
         return false;
     }
@@ -214,6 +256,7 @@ bool Gpu::crear_pipeline() {
     SDL_GPUShaderCreateInfo bf = fs;
     bf.entrypoint = "fs_brillo";
     bf.num_uniform_buffers = 1;
+    bf.num_samplers = 2;
     SDL_GPUShader* bvs = SDL_CreateGPUShader(dev_, &bv);
     SDL_GPUShader* bfs = SDL_CreateGPUShader(dev_, &bf);
     if (!bvs || !bfs) {
@@ -242,7 +285,37 @@ bool Gpu::crear_pipeline() {
     SDL_ReleaseGPUShader(dev_, bvs);
     SDL_ReleaseGPUShader(dev_, bfs);
     if (!pipeline_brillo_) LIN_LOG("SDL_CreateGPUGraphicsPipeline (brillo): %s", SDL_GetError());
-    return pipeline_ != nullptr && pipeline_brillo_ != nullptr;
+    // Reemplazar el mundo (ola y visión): sin mezcla, escribe la copia transformada.
+    SDL_GPUShaderCreateInfo mv = vs;
+    mv.entrypoint = "vs_mundo";
+    mv.num_uniform_buffers = 0;
+    mv.num_storage_buffers = 0;
+    SDL_GPUShaderCreateInfo mf = fs;
+    mf.entrypoint = "fs_mundo";
+    mf.num_uniform_buffers = 1;
+    mf.num_samplers = 1;
+    mf.num_storage_buffers = 0;
+    SDL_GPUShader* mvs = SDL_CreateGPUShader(dev_, &mv);
+    SDL_GPUShader* mfs = SDL_CreateGPUShader(dev_, &mf);
+    if (!mvs || !mfs) {
+        LIN_LOG("SDL_CreateGPUShader (mundo): %s", SDL_GetError());
+        return false;
+    }
+    SDL_GPUColorTargetDescription ctm{};
+    ctm.format = SDL_GPU_TEXTUREFORMAT_R8G8B8A8_UNORM;
+    SDL_GPUGraphicsPipelineCreateInfo mpi{};
+    mpi.vertex_shader = mvs;
+    mpi.fragment_shader = mfs;
+    mpi.primitive_type = SDL_GPU_PRIMITIVETYPE_TRIANGLELIST;
+    mpi.rasterizer_state.cull_mode = SDL_GPU_CULLMODE_NONE;
+    mpi.rasterizer_state.fill_mode = SDL_GPU_FILLMODE_FILL;
+    mpi.target_info.color_target_descriptions = &ctm;
+    mpi.target_info.num_color_targets = 1;
+    pipeline_mundo_ = SDL_CreateGPUGraphicsPipeline(dev_, &mpi);
+    SDL_ReleaseGPUShader(dev_, mvs);
+    SDL_ReleaseGPUShader(dev_, mfs);
+    if (!pipeline_mundo_) LIN_LOG("SDL_CreateGPUGraphicsPipeline (mundo): %s", SDL_GetError());
+    return pipeline_ != nullptr && pipeline_brillo_ != nullptr && pipeline_mundo_ != nullptr;
 }
 
 void Gpu::cerrar() {
@@ -258,6 +331,10 @@ void Gpu::cerrar() {
     SDL_ReleaseGPUGraphicsPipeline(dev_, pipeline_brillo_);
     SDL_ReleaseGPUTexture(dev_, luz_);
     SDL_ReleaseGPUTransferBuffer(dev_, subida_luz_);
+    SDL_ReleaseGPUTexture(dev_, copia_);
+    SDL_ReleaseGPUTexture(dev_, filas_tex_);
+    SDL_ReleaseGPUTransferBuffer(dev_, subida_filas_);
+    SDL_ReleaseGPUGraphicsPipeline(dev_, pipeline_mundo_);
     SDL_ReleaseWindowFromGPUDevice(dev_, ventana_);
     SDL_DestroyGPUDevice(dev_);
     dev_ = nullptr;
@@ -343,14 +420,22 @@ void Gpu::ordenar() {
     while (n_mundo_ < n && (claves_[orden_[n_mundo_]] >> 56) < CAPA_EFECTOS) ++n_mundo_;
 }
 
-void Gpu::multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte) {
+void Gpu::multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte, const u32* filas, int n_filas) {
     if (!brillo || bw < 1 || bh < 1 || bw > LUZ_TAM || bh > LUZ_TAM || celda < 1) return;
     brillo_buf_.assign(brillo, brillo + static_cast<size_t>(bw) * bh);
+    if (filas && n_filas >= 1 && n_filas <= LUZ_TAM) brillo_filas_.assign(filas, filas + n_filas);
+    else brillo_filas_.assign(1, BLANCO);
     brillo_w_ = bw;
     brillo_h_ = bh;
     brillo_celda_ = celda;
     brillo_tinte_ = tinte;
     brillo_activo_ = true;
+}
+
+void Gpu::reemplazar_mundo(int fase_ola, int modo_vision) {
+    reemplazo_fase_ = fase_ola;
+    reemplazo_modo_ = modo_vision;
+    reemplazo_activo_ = fase_ola >= 0 || modo_vision != 0;
 }
 
 int Gpu::escala_maxima() const {
@@ -387,6 +472,8 @@ bool Gpu::crear_destino() {
     td.layer_count_or_depth = 1;
     td.num_levels = 1;
     destino_ = SDL_CreateGPUTexture(dev_, &td);
+    if (copia_) SDL_ReleaseGPUTexture(dev_, copia_);  // copia del mundo para la ola y la visión
+    copia_ = SDL_CreateGPUTexture(dev_, &td);
     destino_w_ = w;
     destino_h_ = h;
     return destino_ != nullptr;
@@ -446,6 +533,19 @@ void Gpu::presentar() {
         dst.h = static_cast<Uint32>(brillo_h_);
         dst.d = 1;
         SDL_UploadToGPUTexture(copia, &src, &dst, true);
+        void* pf = SDL_MapGPUTransferBuffer(dev_, subida_filas_, true);
+        std::memcpy(pf, brillo_filas_.data(), brillo_filas_.size() * sizeof(u32));
+        SDL_UnmapGPUTransferBuffer(dev_, subida_filas_);
+        SDL_GPUTextureTransferInfo fsrc{};
+        fsrc.transfer_buffer = subida_filas_;
+        fsrc.pixels_per_row = 1;
+        fsrc.rows_per_layer = static_cast<Uint32>(brillo_filas_.size());
+        SDL_GPUTextureRegion fdst{};
+        fdst.texture = filas_tex_;
+        fdst.w = 1;
+        fdst.h = static_cast<Uint32>(brillo_filas_.size());
+        fdst.d = 1;
+        SDL_UploadToGPUTexture(copia, &fsrc, &fdst, true);
     }
     u32 n = static_cast<u32>(inst_ordenadas_.size());
     if (n) {
@@ -466,9 +566,10 @@ void Gpu::presentar() {
     objetivo.clear_color = {0, 0, 0, 1};
     objetivo.load_op = SDL_GPU_LOADOP_CLEAR;
     objetivo.store_op = SDL_GPU_STOREOP_STORE;
-    // Pase 1: lo que va por debajo de CAPA_EFECTOS (con oscuridad o tinte, solo eso); pase 2: la
-    // multiplicación; pase 3: el resto, encima. Sin tinte es un solo pase, como antes.
-    const u32 corte = brillo_activo_ ? n_mundo_ : n;
+    // Pase 1: lo que va por debajo de CAPA_EFECTOS. Con efectos sobre el mundo, solo eso; lo demás va
+    // en el pase 4, encima. Sin efectos, un solo pase, como antes.
+    const bool efectos = brillo_activo_ || reemplazo_activo_;
+    const u32 corte = efectos ? n_mundo_ : n;
     llamadas_ = 0;
     auto dibujar = [&](SDL_GPURenderPass* p, u32 desde, u32 cuantas) {
         if (!cuantas) return;
@@ -484,15 +585,37 @@ void Gpu::presentar() {
     SDL_GPURenderPass* pase = SDL_BeginGPURenderPass(cmd, &objetivo, 1, nullptr);
     dibujar(pase, 0, corte);
     SDL_EndGPURenderPass(pase);
+    if (reemplazo_activo_) {
+        // Pase 2: copia del mundo y la pasada que lo escribe de nuevo con la ola y/o la visión.
+        SDL_GPUCopyPass* cp = SDL_BeginGPUCopyPass(cmd);
+        SDL_GPUTextureLocation origen{};
+        origen.texture = destino_;
+        SDL_GPUTextureLocation copia_dst{};
+        copia_dst.texture = copia_;
+        SDL_CopyGPUTextureToTexture(cp, &origen, &copia_dst, static_cast<Uint32>(destino_w_), static_cast<Uint32>(destino_h_), 1, false);
+        SDL_EndGPUCopyPass(cp);
+        objetivo.load_op = SDL_GPU_LOADOP_LOAD;
+        pase = SDL_BeginGPURenderPass(cmd, &objetivo, 1, nullptr);
+        SDL_BindGPUGraphicsPipeline(pase, pipeline_mundo_);
+        SDL_GPUTextureSamplerBinding csb{copia_, muestreo_};
+        SDL_BindGPUFragmentSamplers(pase, 0, &csb, 1);
+        float p[4] = {static_cast<float>(ancho_), static_cast<float>(alto_), static_cast<float>(reemplazo_fase_), static_cast<float>(reemplazo_modo_)};
+        SDL_PushGPUFragmentUniformData(cmd, 0, p, sizeof p);
+        SDL_DrawGPUPrimitives(pase, 6, 1, 0, 0);
+        ++llamadas_;
+        SDL_EndGPURenderPass(pase);
+    }
     if (brillo_activo_) {
+        // Pase 3: brillo y tinte (luz, mapas con tinte, agua) sobre el mundo.
         objetivo.load_op = SDL_GPU_LOADOP_LOAD;
         pase = SDL_BeginGPURenderPass(cmd, &objetivo, 1, nullptr);
         SDL_BindGPUGraphicsPipeline(pase, pipeline_brillo_);
-        SDL_GPUTextureSamplerBinding lsb{luz_, muestreo_};
-        SDL_BindGPUFragmentSamplers(pase, 0, &lsb, 1);
+        SDL_GPUTextureSamplerBinding lsb[2] = {{luz_, muestreo_}, {filas_tex_, muestreo_}};
+        SDL_BindGPUFragmentSamplers(pase, 0, lsb, 2);
         const float celda = static_cast<float>(brillo_celda_);
         // 0.9999: que el borde derecho e inferior caiga dentro de la última celda, no fuera.
-        float escala[4] = {ancho_ / (celda * LUZ_TAM) * 0.9999f, alto_ / (celda * LUZ_TAM) * 0.9999f, 0, 0};
+        float escala[4] = {ancho_ / (celda * LUZ_TAM) * 0.9999f, alto_ / (celda * LUZ_TAM) * 0.9999f,
+                           static_cast<float>(brillo_filas_.size()) / LUZ_TAM * 0.9999f, 0};
         SDL_PushGPUVertexUniformData(cmd, 0, escala, sizeof escala);
         const u32 t = brillo_tinte_;
         float tinte[4] = {(t & 0xFF) / 255.0f, ((t >> 8) & 0xFF) / 255.0f, ((t >> 16) & 0xFF) / 255.0f, 1.0f};
@@ -500,11 +623,14 @@ void Gpu::presentar() {
         SDL_DrawGPUPrimitives(pase, 6, 1, 0, 0);
         ++llamadas_;
         SDL_EndGPURenderPass(pase);
+    }
+    if (efectos) {
+        // Pase 4: lo de encima del mundo (efectos, interfaz, ventanas), sin tocar.
+        objetivo.load_op = SDL_GPU_LOADOP_LOAD;
         pase = SDL_BeginGPURenderPass(cmd, &objetivo, 1, nullptr);
         dibujar(pase, corte, n - corte);
         SDL_EndGPURenderPass(pase);
     }
-
     if (!ruta_captura_.empty()) cmd = guardar_captura(cmd);
 
     // 3. Copia 1:1 a la ventana, centrada (la textura ya tiene el tamaño escalado).
@@ -534,6 +660,9 @@ void Gpu::presentar() {
     inst_.clear();
     claves_.clear();
     brillo_activo_ = false;
+    reemplazo_activo_ = false;
+    reemplazo_fase_ = -1;
+    reemplazo_modo_ = 0;
     ++frame_;
 }
 

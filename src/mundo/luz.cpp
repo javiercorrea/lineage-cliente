@@ -1,5 +1,6 @@
 #include "mundo/luz.h"
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 
 namespace lin {
@@ -30,9 +31,9 @@ constexpr NivelFijo NIVELES_FIJOS[] = {
     {5140, 5142, 5}, {5143, 5145, 15}, {1000, 1000, 7},
 };
 
-// Nivel de los mapas cerrados sin nivel fijo. El binario de 2009 dice 3, pero la captura de
-// mazmorra real (ss01) cuadra con 1: ver D2 del plan.
-constexpr u8 NIVEL_CERRADO = 1;
+// Nivel de los mapas cerrados sin nivel fijo: el del binario de 2009 (decisión D2 del plan). La
+// captura ss01 sugería 1, pero se eligió el binario.
+constexpr u8 NIVEL_CERRADO = 3;
 
 constexpr int MINUTOS_DIA = 1440;
 constexpr int VENTANA_TRANSICION = 40;  // minutos antes del amanecer y después del atardecer
@@ -84,6 +85,10 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
 }
 
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
+
+int desplazamiento_ola(int x, int fase) {
+    return static_cast<int>(std::trunc(std::sin((x + fase) * 3.14159265358979 / 50.0) * 3.75));
+}
 
 int brillo_lut(int nivel, int mascara) {
     // Brillo ambiente de cada nivel (columna 0 de la LUT).

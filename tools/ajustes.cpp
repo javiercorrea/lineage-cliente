@@ -222,6 +222,10 @@ void pestana_juego(Pantalla& p, Formulario& f) {
     si_no(p, fila(6), tr(Tx::AJ_COMPENSAR), c.compensar_ataque);
     si_no(p, fila(7), tr(Tx::AJ_TEXTO_DANO), c.texto_dano);
     si_no(p, fila(8), tr(Tx::AJ_BARRA_PJ), c.barra_personaje);
+    si_no(p, fila(9), tr(Tx::AJ_EFECTO_LUZ), c.efecto_luz);
+    si_no(p, fila(10), tr(Tx::AJ_EFECTO_AGUA), c.efecto_agua_tinte);
+    si_no(p, fila(11), tr(Tx::AJ_EFECTO_OLA), c.efecto_agua_ola);
+    si_no(p, fila(12), tr(Tx::AJ_EFECTO_INFRA), c.efecto_infravision);
 }
 
 void pestana_interfaz(Pantalla& p, Formulario& f) {

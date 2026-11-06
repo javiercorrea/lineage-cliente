@@ -1,6 +1,9 @@
 #include <doctest/doctest.h>
+#include "comun.h"
 #include "mundo/luz.h"
 #include "mundo/mundo.h"
+#include "recursos/imagen.h"
+#include "recursos/pak.h"
 
 using namespace lin;
 
@@ -42,9 +45,9 @@ TEST_CASE("Luz: 1 de enero a las 7:20 queda en 13") {
 }
 
 TEST_CASE("Luz: mazmorras cerradas siguen su nivel sin importar la hora") {
-    CHECK(nivel_ambiente(1, hm(12), 1, false) == 1);  // lista cerrada, valor general (D2)
-    CHECK(nivel_ambiente(1, hm(0), 1, false) == 1);
-    CHECK(nivel_ambiente(0x4000, hm(12), 1, false) == 1);  // casa
+    CHECK(nivel_ambiente(1, hm(12), 1, false) == 3);  // lista cerrada, valor general (D2: el del binario)
+    CHECK(nivel_ambiente(1, hm(0), 1, false) == 3);
+    CHECK(nivel_ambiente(0x4000, hm(12), 1, false) == 3);  // casa
     CHECK(nivel_ambiente(75, hm(12), 1, false) == 12);
     CHECK(nivel_ambiente(430, hm(12), 1, false) == 14);
     CHECK(nivel_ambiente(72, hm(12), 1, false) == 5);
@@ -63,6 +66,18 @@ TEST_CASE("Luz: el hechizo LIGHT suma 5 con tope 15") {
     CHECK(nivel_con_luz_hechizo(7) == 12);
     CHECK(nivel_con_luz_hechizo(12) == 15);
     CHECK(nivel_con_luz_hechizo(15) == 15);
+}
+
+TEST_CASE("Luz: la ola se mueve entre -3 y 3 px y repite cada 100 columnas") {
+    for (int fase = 0; fase < 100; fase += 7)
+        for (int x = 0; x < 300; ++x) {
+            int d = desplazamiento_ola(x, fase);
+            CHECK(d >= -3);
+            CHECK(d <= 3);
+            CHECK(d == desplazamiento_ola(x + 100, fase));
+        }
+    CHECK(desplazamiento_ola(0, 0) == 0);
+    CHECK(desplazamiento_ola(25, 0) == 3);  // pico: sin(pi/2) * 3.75
 }
 
 TEST_CASE("Luz: brillo por celda según nivel y máscara") {
@@ -102,4 +117,22 @@ TEST_CASE("Mundo: S_MapID guarda el modo submarino") {
     Evento otro[] = {e};
     aplicar_eventos(m, otro, 1000);
     CHECK_FALSE(m.submarino);
+}
+
+TEST_CASE("Agua: 1416.img es azul arriba (B mayor que R)") {
+    const std::string dir = carpeta_juego();
+    if (dir.empty()) return;  // sin la instalación del juego
+    Recursos rec;
+    REQUIRE(rec.abrir(dir));
+    ImagenRGBA img;
+    REQUIRE(decodificar_img(rec.sprite("1416.img"), img));
+    // Columna central, píxeles con color (el transparente es 0): en conjunto, B supera a R (0xAABBGGRR).
+    long r = 0, b = 0;
+    for (int y = 0; y < img.alto; ++y) {
+        const u32 p = img.px[static_cast<size_t>(y) * img.ancho + img.ancho / 2];
+        if (!p) continue;
+        r += p & 0xFF;
+        b += (p >> 16) & 0xFF;
+    }
+    CHECK(b > r);
 }

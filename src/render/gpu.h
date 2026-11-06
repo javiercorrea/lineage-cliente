@@ -74,9 +74,15 @@ public:
                           Mezcla mezcla = Mezcla::NORMAL);
     void rectangulo(int x, int y, int w, int h, u64 clave, u32 color);
     // Este frame, lo que va por debajo de CAPA_EFECTOS (mundo, no interfaz) se multiplica por
-    // `tinte` y por `brillo`: bw × bh celdas de celda × celda píxeles lógicos, 255 = sin cambio.
-    // Para solo tinte: brillo de 1 × 1 y una celda mayor que la vista. Vale para el frame actual.
-    void multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte);
+    // `tinte`, por `brillo` (bw × bh celdas de celda × celda píxeles lógicos, 255 = sin cambio) y,
+    // si se pasan, por el color de cada fila de la vista (`filas`, n_filas colores RGBA que cubren
+    // la altura de la vista de arriba abajo; nullptr = blanco). Para solo tinte: brillo de 1 × 1 y una
+    // celda mayor que la vista. Vale para el frame actual.
+    void multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte, const u32* filas = nullptr,
+                           int n_filas = 0);
+    // Este frame, el mundo se vuelve a escribir: `fase_ola` >= 0 lo desplaza por columnas (ola bajo el
+    // agua; fase 0..99) y `modo_vision` lo transforma (1 elfo, 2 elfo oscuro; 0 ninguno).
+    void reemplazar_mundo(int fase_ola, int modo_vision);
     // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
@@ -116,6 +122,13 @@ private:
     SDL_GPUDevice* dev_ = nullptr;
     SDL_GPUGraphicsPipeline* pipeline_ = nullptr;
     SDL_GPUGraphicsPipeline* pipeline_brillo_ = nullptr;
+    SDL_GPUGraphicsPipeline* pipeline_mundo_ = nullptr;   // reemplazar el mundo (ola, visión)
+    SDL_GPUTexture* copia_ = nullptr;                      // copia de destino_ para leerla al reemplazar
+    SDL_GPUTexture* filas_tex_ = nullptr;                  // color por fila (1 × LUZ_TAM RGBA)
+    SDL_GPUTransferBuffer* subida_filas_ = nullptr;
+    std::vector<u32> brillo_filas_;
+    bool reemplazo_activo_ = false;
+    int reemplazo_fase_ = -1, reemplazo_modo_ = 0;
     SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8), tamaño fijo
     SDL_GPUTransferBuffer* subida_luz_ = nullptr;
     std::vector<u8> brillo_buf_;                // copia del frame, reservada al iniciar

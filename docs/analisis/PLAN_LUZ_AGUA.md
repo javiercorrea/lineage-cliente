@@ -280,9 +280,9 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 | **F1** Datos ✅ | `Mundo::submarino`; reglas de `S_Light`; `luz.cpp` con nivel y lista. Pendiente: `forzar-hora` | nada, solo tests |
 | **F2** Pipeline ✅ | `Gpu::multiplicar_mundo`: pase aparte para lo que va bajo `CAPA_EFECTOS`. Tinte 430/601 implementado, sin captura | tinte de esos 2 mapas (sin verificar) |
 | **F3** Noche y mazmorras ✅ | `luz_ui.cpp`: mapa de brillo por celda con máscaras centradas en los pies (personajes e ítems con `S_Light`). Verificado en mazmorra; noche al aire libre, velas y tinte sin verificar | **mazmorras** (ver `docs/capturas/f3_luz_mazmorra.png`) |
-| **F4** Agua: tinte | saltar la luz, `1416.img`, sonido 330 | **azul bajo el agua** |
-| **F5** Agua: ola | copia, `fs_ola`, fase | **distorsión** |
-| **F5b** Infravisión | filtros de elfo y elfo oscuro, opción y ajuste | **verde y oscuro uniforme** |
+| **F4** Agua: tinte ✅ | sin luz bajo el agua; `1416.img` por filas (promedio de cada fila, sin transparentes). Sonido 330 sin hacer | **azul bajo el agua** (`docs/capturas/f4_agua_ola.png`) |
+| **F5** Agua: ola ✅ | copia del mundo y pase `fs_mundo` con el desplazamiento por columnas (`desplazamiento_ola`) | **distorsión** (la prueba visual es de una captura; el movimiento no se vio animado) |
+| **F5b** Infravisión ✅ | filtro de elfo (multiplicar) y de elfo oscuro (`c × (2r+7g+b)/10`) en el mismo pase; casilla en Opciones y en el editor de ajustes | **verde y oscuro uniforme** (`f5b_elfo.png`, `f5b_elfo_oscuro.png`) |
 | **F6** Opcional | borrachera por filas; máscara de 303 y 606; `shade.dat` si hace falta | según lo que falte |
 
 El verde del elfo solo necesita F2 y se puede adelantar. El filtro del elfo oscuro depende de la copia de F5.
@@ -346,6 +346,8 @@ capturas reales de agua, de noche al aire libre y de elfo, para ajustar lo que n
 | **Datos del juego en el repo** (regla 2) | `source.lmp` y `1416.img` se leen de la instalación; en el repo solo van la lista de mapas y números, como los opcodes |
 
 ## 7. Decisiones
+
+**Tomadas (en esta versión del plan):** D1 ola activada por defecto. D2 mazmorras con el nivel del binario (3), no el 1 de `ss01`. D3 sí hay opciones para apagar cada efecto: `efecto_luz`, `efecto_agua_tinte`, `efecto_agua_ola` y `efecto_infravision` en `settings.ini`, en el editor de ajustes (pestaña Juego) y en la ventana Opciones.
 
 Con estos valores se puede empezar. Corregir cualquiera cuesta poco.
 
