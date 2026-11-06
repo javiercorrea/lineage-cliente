@@ -19,7 +19,9 @@ void dibujar_barra_ventana(App& a) {
     if (alto_barra(a) == 0) return;
     bool cerrar = false, minimizar = false;
     a.gpu.nivel_ventana(NIVEL_BARRA);
-    ui::barra_ventana(*a.g, a.entrada, "Lineage", a.gpu.ancho(), cerrar, minimizar);
+    // En coordenadas del contenido: la barra cae en la franja de arriba de la cuadrícula.
+    ui::barra_ventana(*a.g, a.entrada, "Lineage", -a.gpu.origen_x(), -a.gpu.origen_y(), a.gpu.grid_ancho(), cerrar,
+                      minimizar);
     a.gpu.nivel_ventana(0);
     if (minimizar) SDL_MinimizeWindow(a.ventana);
     if (cerrar) a.salir = true;

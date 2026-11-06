@@ -127,6 +127,8 @@ bool Gpu::iniciar(SDL_Window* ventana, int ancho_logico, int alto_logico) {
     ventana_ = ventana;
     ancho_ = ancho_min_ = ancho_logico;
     alto_ = alto_min_ = alto_logico;
+    grid_w_ = ancho_logico;
+    grid_h_ = alto_logico;
     // MULTIPLATAFORMA: agregar SDL_GPU_SHADERFORMAT_SPIRV | SDL_GPU_SHADERFORMAT_DXIL cuando
     // existan los shaders compilados para esos backends.
     dev_ = SDL_CreateGPUDevice(SDL_GPU_SHADERFORMAT_MSL, false, nullptr);
@@ -374,7 +376,10 @@ bool Gpu::subir(const ImagenRGBA& img, RegionAtlas& r) {
 
 void Gpu::dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color, Mezcla mezcla) {
     if (!r.valida() || inst_.size() >= MAX_INSTANCIAS) return;
-    if (x >= ancho_ || y >= alto_ || x + w <= 0 || y + h <= 0) return;  // fuera de pantalla
+    // El contenido va desplazado por su origen; se recorta contra la cuadrícula de la ventana.
+    x += origen_x_;
+    y += origen_y_;
+    if (x >= grid_w_ || y >= grid_h_ || x + w <= 0 || y + h <= 0) return;  // fuera de pantalla
     empaquetado_.usar(r.pagina, frame_);
     // Al píxel real más cercano: con muestreo "nearest" el arte no se deforma en posiciones
     // fraccionarias (cada texel ocupa siempre escala × escala píxeles).
@@ -487,29 +492,36 @@ void Gpu::reemplazar_mundo(int fase_ola, int modo_vision, int fase_borracho) {
     reemplazo_activo_ = fase_ola >= 0 || modo_vision != 0 || fase_borracho >= 0;
 }
 
-int Gpu::escala_maxima() const {
+int Gpu::escala_maxima(int franja) const {
     int pw = 0, ph = 0;
     SDL_GetWindowSizeInPixels(ventana_, &pw, &ph);
-    return std::max(1, std::min(pw / ancho_min_, ph / alto_min_));
+    return std::max(1, std::min(pw / ancho_min_, ph / (alto_min_ + franja)));
 }
 
-void Gpu::ajustar_vista(bool ampliable, int zoom) {
-    int maxima = escala_maxima();
-    if (!ampliable) {
-        escala_ = maxima;
-        ancho_ = ancho_min_;
-        alto_ = alto_min_;
-        return;
-    }
+void Gpu::ajustar_vista(bool ampliable, int zoom, int franja) {
+    const int maxima = escala_maxima(franja);
     int pw = 0, ph = 0;
     SDL_GetWindowSizeInPixels(ventana_, &pw, &ph);
-    escala_ = zoom > 0 ? std::min(zoom, maxima) : maxima;
-    ancho_ = std::max(ancho_min_, pw / escala_);
-    alto_ = std::max(alto_min_, ph / escala_);
+    escala_ = ampliable && zoom > 0 ? std::min(zoom, maxima) : maxima;
+    grid_w_ = std::max(ancho_min_, pw / escala_);
+    grid_h_ = std::max(alto_min_ + franja, ph / escala_);
+    if (ampliable) {
+        // El contenido llena la cuadrícula, bajo la franja.
+        ancho_ = grid_w_;
+        alto_ = grid_h_ - franja;
+        origen_x_ = 0;
+        origen_y_ = franja;
+    } else {
+        // Pantallas de 640×480: centradas bajo la franja; lo que sobra de la cuadrícula queda vacío.
+        ancho_ = ancho_min_;
+        alto_ = alto_min_;
+        origen_x_ = (grid_w_ - ancho_) / 2;
+        origen_y_ = franja + (grid_h_ - franja - alto_) / 2;
+    }
 }
 
 bool Gpu::crear_destino() {
-    int w = ancho_ * escala_, h = alto_ * escala_;
+    int w = grid_w_ * escala_, h = grid_h_ * escala_;
     if (destino_ && w == destino_w_ && h == destino_h_) return true;
     if (destino_) SDL_ReleaseGPUTexture(dev_, destino_);  // SDL la libera cuando la GPU termina de usarla
     SDL_GPUTextureCreateInfo td{};
@@ -626,7 +638,7 @@ void Gpu::presentar() {
         SDL_BindGPUVertexStorageBuffers(p, 0, &instancias_gpu_, 1);
         SDL_GPUTextureSamplerBinding tsb{atlas_, muestreo_};
         SDL_BindGPUFragmentSamplers(p, 0, &tsb, 1);
-        float uni[4] = {static_cast<float>(ancho_), static_cast<float>(alto_), static_cast<float>(desde), 0};
+        float uni[4] = {static_cast<float>(grid_w_), static_cast<float>(grid_h_), static_cast<float>(desde), 0};
         SDL_PushGPUVertexUniformData(cmd, 0, uni, sizeof uni);
         SDL_DrawGPUPrimitives(p, 6, cuantas, 0, 0);
         ++llamadas_;
@@ -648,7 +660,7 @@ void Gpu::presentar() {
         SDL_BindGPUGraphicsPipeline(pase, pipeline_mundo_);
         SDL_GPUTextureSamplerBinding csb{copia_, muestreo_};
         SDL_BindGPUFragmentSamplers(pase, 0, &csb, 1);
-        float p[8] = {static_cast<float>(ancho_), static_cast<float>(alto_), static_cast<float>(reemplazo_fase_),
+        float p[8] = {static_cast<float>(grid_w_), static_cast<float>(grid_h_), static_cast<float>(reemplazo_fase_),
                       static_cast<float>(reemplazo_modo_), static_cast<float>(reemplazo_fase_b_), AMPLITUD_BORRACHO, 0, 0};
         SDL_PushGPUFragmentUniformData(cmd, 0, p, sizeof p);
         SDL_DrawGPUPrimitives(pase, 6, 1, 0, 0);
@@ -664,7 +676,7 @@ void Gpu::presentar() {
         SDL_BindGPUFragmentSamplers(pase, 0, lsb, 2);
         const float celda = static_cast<float>(brillo_celda_);
         // 0.9999: que el borde derecho e inferior caiga dentro de la última celda, no fuera.
-        float escala[4] = {ancho_ / (celda * luz_w_) * 0.9999f, alto_ / (celda * luz_h_) * 0.9999f,
+        float escala[4] = {grid_w_ / (celda * luz_w_) * 0.9999f, grid_h_ / (celda * luz_h_) * 0.9999f,
                            static_cast<float>(brillo_filas_.size()) / FILAS_TAM * 0.9999f, 0};
         SDL_PushGPUVertexUniformData(cmd, 0, escala, sizeof escala);
         const u32 t = brillo_tinte_;
@@ -687,7 +699,7 @@ void Gpu::presentar() {
     SDL_GPUTexture* swap = nullptr;
     Uint32 sw = 0, sh = 0;
     if (SDL_WaitAndAcquireGPUSwapchainTexture(cmd, ventana_, &swap, &sw, &sh) && swap) {
-        Uint32 dw = static_cast<Uint32>(ancho_ * escala_), dh = static_cast<Uint32>(alto_ * escala_);
+        Uint32 dw = static_cast<Uint32>(grid_w_ * escala_), dh = static_cast<Uint32>(grid_h_ * escala_);
         SDL_GPUBlitInfo b{};
         b.source.texture = destino_;
         b.source.w = dw;
@@ -720,7 +732,7 @@ void Gpu::presentar() {
 SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     SDL_GPUTransferBufferCreateInfo tb{};
     tb.usage = SDL_GPU_TRANSFERBUFFERUSAGE_DOWNLOAD;
-    const int w = ancho_ * escala_, h = alto_ * escala_;
+    const int w = grid_w_ * escala_, h = grid_h_ * escala_;
     tb.size = static_cast<Uint32>(w * h * 4);
     SDL_GPUTransferBuffer* bajada = SDL_CreateGPUTransferBuffer(dev_, &tb);
     SDL_GPUCopyPass* copia = SDL_BeginGPUCopyPass(cmd);
@@ -739,10 +751,10 @@ SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     SDL_ReleaseGPUFence(dev_, f);
     // La captura se guarda a la resolución lógica (un píxel de cada bloque de escala × escala).
     const u32* px = static_cast<const u32*>(SDL_MapGPUTransferBuffer(dev_, bajada, false));
-    std::vector<u32> logica(static_cast<size_t>(ancho_) * alto_);
-    for (int y = 0; y < alto_; ++y)
-        for (int x = 0; x < ancho_; ++x) logica[static_cast<size_t>(y) * ancho_ + x] = px[static_cast<size_t>(y * escala_) * w + x * escala_];
-    SDL_Surface* s = SDL_CreateSurfaceFrom(ancho_, alto_, SDL_PIXELFORMAT_ABGR8888, logica.data(), ancho_ * 4);
+    std::vector<u32> logica(static_cast<size_t>(grid_w_) * grid_h_);
+    for (int y = 0; y < grid_h_; ++y)
+        for (int x = 0; x < grid_w_; ++x) logica[static_cast<size_t>(y) * grid_w_ + x] = px[static_cast<size_t>(y * escala_) * w + x * escala_];
+    SDL_Surface* s = SDL_CreateSurfaceFrom(grid_w_, grid_h_, SDL_PIXELFORMAT_ABGR8888, logica.data(), grid_w_ * 4);
     if (s && SDL_SaveBMP(s, ruta_captura_.c_str())) LIN_LOG("Captura guardada en %s", ruta_captura_.c_str());
     SDL_DestroySurface(s);
     SDL_UnmapGPUTransferBuffer(dev_, bajada);
@@ -751,15 +763,22 @@ SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     return SDL_AcquireGPUCommandBuffer(dev_);  // el resto del frame va en un comando nuevo
 }
 
-void Gpu::a_logico(float wx, float wy, int& lx, int& ly) const {
+void Gpu::a_grilla(float wx, float wy, int& gx, int& gy) const {
     int pw = 0, ph = 0, ww = 0, wh = 0;
     SDL_GetWindowSizeInPixels(ventana_, &pw, &ph);
     SDL_GetWindowSize(ventana_, &ww, &wh);
     float densidad = ww > 0 ? static_cast<float>(pw) / ww : 1.0f;
-    float x = wx * densidad - (pw - ancho_ * escala_) / 2.0f;
-    float y = wy * densidad - (ph - alto_ * escala_) / 2.0f;
-    lx = static_cast<int>(x / escala_);
-    ly = static_cast<int>(y / escala_);
+    float x = wx * densidad - (pw - grid_w_ * escala_) / 2.0f;
+    float y = wy * densidad - (ph - grid_h_ * escala_) / 2.0f;
+    gx = static_cast<int>(x / escala_);
+    gy = static_cast<int>(y / escala_);
+}
+
+void Gpu::a_logico(float wx, float wy, int& lx, int& ly) const {
+    int gx = 0, gy = 0;
+    a_grilla(wx, wy, gx, gy);
+    lx = gx - origen_x_;
+    ly = gy - origen_y_;
 }
 
 }  // namespace lin

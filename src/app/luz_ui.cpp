@@ -103,6 +103,8 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
     const int bw = (w + CELDA - 1) / CELDA, bh = (h + CELDA - 1) / CELDA;
     const size_t n = static_cast<size_t>(bw) * bh;
     a.luz_mascara.assign(n, 0);
+    // Las luces están en coordenadas del contenido; la máscara cubre la cuadrícula de la ventana.
+    const float ox = static_cast<float>(a.gpu.origen_x()), oy = static_cast<float>(a.gpu.origen_y());
 
     const Bytes lmp = a.rec.sprite("source.lmp");
     int suma_radios = 0;
@@ -110,8 +112,8 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
         if ((suma_radios += l.radio) >= 700) break;  // tope del original; la luz propia va primera en la lista
         Mascara mk;
         if (!leer_mascara(lmp, l.radio, mk)) continue;
-        estampar(a.luz_mascara, bw, bh, mk, static_cast<int>(std::lround(l.x / CELDA)),
-                 static_cast<int>(std::lround(l.y / CELDA)));
+        estampar(a.luz_mascara, bw, bh, mk, static_cast<int>(std::lround((l.x + ox) / CELDA)),
+                 static_cast<int>(std::lround((l.y + oy) / CELDA)));
     }
 
     a.luz_brillo.resize(n);
@@ -142,7 +144,7 @@ i32 hora_de_juego(const App& a) { return a.hora_forzada >= 0 ? a.hora_forzada : 
 
 void aplicar_luz(App& a, u64 ahora) {
     const Mundo& m = a.mundo;
-    const int w = a.gpu.ancho(), h = a.gpu.alto();
+    const int w = a.gpu.grid_ancho(), h = a.gpu.grid_alto();
     // Borrachera (S_Liquor 1): el mundo se mece por filas; va en el mismo pase que la ola y la visión.
     const int fase_borracho = m.jugador.borracho ? static_cast<int>((ahora / 50) % 100) : -1;
     if (m.submarino) {

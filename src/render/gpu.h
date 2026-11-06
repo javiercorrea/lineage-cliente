@@ -57,9 +57,10 @@ public:
     // Al comienzo de cada frame: fija la escala y el tamaño lógico según la ventana. `zoom` es la
     // escala deseada (píxeles reales por píxel lógico; 0 = la mayor que entra, como el original).
     // Sin `ampliable`, el tamaño lógico es el mínimo y la imagen queda centrada.
-    void ajustar_vista(bool ampliable, int zoom);
+    // `franja`: píxeles lógicos reservados arriba (la barra de la ventana); el contenido va debajo.
+    void ajustar_vista(bool ampliable, int zoom, int franja = 0);
     // Mayor escala con la que entra el tamaño mínimo en la ventana actual.
-    int escala_maxima() const;
+    int escala_maxima(int franja = 0) const;
     void cerrar();
 
     // Reserva lugar en el atlas y encola la subida. false si no hay lugar este frame.
@@ -101,6 +102,14 @@ public:
 
     // Ventana (píxeles) -> coordenadas lógicas.
     void a_logico(float wx, float wy, int& lx, int& ly) const;
+    // Ventana (píxeles) -> cuadrícula, sin descontar el origen del contenido.
+    void a_grilla(float wx, float wy, int& gx, int& gy) const;
+    // La cuadrícula cubre la ventana. El contenido (ancho() × alto()) va desplazado por el origen;
+    // lo que va fuera del contenido (la barra) se dibuja en coordenadas negativas del contenido.
+    int grid_ancho() const { return grid_w_; }
+    int grid_alto() const { return grid_h_; }
+    int origen_x() const { return origen_x_; }
+    int origen_y() const { return origen_y_; }
 
     int ancho() const { return ancho_; }
     // Píxeles reales por píxel lógico (la del último frame). Para redondear la cámara a 1/escala.
@@ -148,6 +157,8 @@ private:
     SDL_GPUTransferBuffer* subida_inst_ = nullptr;
     SDL_GPUTransferBuffer* subida_atlas_ = nullptr;
     int ancho_ = 0, alto_ = 0;            // tamaño lógico del frame actual
+    int grid_w_ = 0, grid_h_ = 0;         // cuadrícula de la ventana (píxeles lógicos, >= el contenido)
+    int origen_x_ = 0, origen_y_ = 0;     // dónde empieza el contenido dentro de la cuadrícula
     int ancho_min_ = 0, alto_min_ = 0;
     int escala_ = 1;
     int destino_w_ = 0, destino_h_ = 0;   // tamaño real de destino_
