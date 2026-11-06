@@ -481,7 +481,7 @@ int main(int argc, char** argv) {
         const std::vector<std::string> nombres_pestanas = pestanas();
         gpu.rectangulo(0, 0, LOGICO_W, LOGICO_H, clave_orden(CAPA_FONDO, 0), rgba(24, 20, 16));
         bool cerrar = false, minimizar = false;
-        ui::barra_ventana(*g, entrada, tr(Tx::AJ_TITULO), LOGICO_W, cerrar, minimizar);
+        ui::barra_ventana(*g, entrada, tr(Tx::AJ_TITULO), 0, 0, LOGICO_W, cerrar, minimizar);
         if (minimizar) SDL_MinimizeWindow(v);
         if (cerrar) salir = true;
         for (size_t i = 0; i < nombres_pestanas.size(); ++i) {

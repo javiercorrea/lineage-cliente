@@ -83,8 +83,8 @@ struct BotonesBarra {
 BotonesBarra botones_barra(int ancho);
 // Dibuja la barra arriba del todo: el llamador la pone sobre lo demás con nivel_ventana. `cerrar` y
 // `minimizar` pasan a true si se hizo clic en su botón.
-void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int ancho, bool& cerrar,
-                   bool& minimizar);
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho,
+                   bool& cerrar, bool& minimizar);
 // Para SDL_SetWindowHitTest: la barra arrastra la ventana, salvo sus botones; si `redimensionable`,
 // los bordes de 6 puntos redimensionan (la ventana sin borde no los trae).
 SDL_HitTestResult prueba_barra(SDL_Window* ventana, const Gpu& gpu, const SDL_Point* p, bool redimensionable);

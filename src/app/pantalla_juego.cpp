@@ -1221,7 +1221,7 @@ void dibujar_depuracion(App& a) {
                   a.fps, a.ms_cpu, a.ms_cpu_max, a.ms_decod, static_cast<unsigned long long>(a.asign_frame_max), a.gpu.instancias_ultimo_frame(), a.gpu.llamadas_ultimo_frame(), a.mundo.objetos.tamano(),
                   a.gpu.paginas_usadas(), a.gpu.ancho(), a.gpu.alto(), a.gpu.escala(), a.mundo.mapa, s != SIN_SLOT ? a.mundo.objetos.col<O_X>()[s] : 0,
                   s != SIN_SLOT ? a.mundo.objetos.col<O_Y>()[s] : 0);
-    g.texto_sombra(t, 4, 4 + alto_barra(a), clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
+    g.texto_sombra(t, 4, 4, clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
 }
 
 // Contador de Shift+F3: el tiempo es el del frame completo; F3 da además el de la CPU.
@@ -1229,7 +1229,7 @@ void dibujar_fps(App& a) {
     if (a.fps <= 0) return;  // todavía no pasó el primer segundo de medición
     char t[32];
     const int n = std::snprintf(t, sizeof t, "%.0f fps  %.1f ms", a.fps, 1000.0f / a.fps);
-    a.g->texto_sombra(t, static_cast<float>(a.gpu.ancho() - ancho_texto(t, static_cast<size_t>(n)) - 6), 4 + alto_barra(a),
+    a.g->texto_sombra(t, static_cast<float>(a.gpu.ancho() - ancho_texto(t, static_cast<size_t>(n)) - 6), 4,
                       clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
 }
 
