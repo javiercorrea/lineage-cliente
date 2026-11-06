@@ -19,7 +19,7 @@ constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
 // Doce filas de ALTO_GLIFO + 12 px, más el título y el margen: 352 px. Con 276 (y luego 300) la última quedaba afuera.
-constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 482;
+constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 508;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -324,6 +324,7 @@ void dibujar_opciones(App& a) {
     if (fila("Underwater tint", a.cfg.efecto_agua_tinte ? "On" : "Off")) a.cfg.efecto_agua_tinte = !a.cfg.efecto_agua_tinte, cambio = true;
     if (fila("Underwater wave", a.cfg.efecto_agua_ola ? "On" : "Off")) a.cfg.efecto_agua_ola = !a.cfg.efecto_agua_ola, cambio = true;
     if (fila("Elf vision", a.cfg.efecto_infravision ? "On" : "Off")) a.cfg.efecto_infravision = !a.cfg.efecto_infravision, cambio = true;
+    if (fila("Full screen (Alt+Enter)", a.cfg.pantalla_completa ? "On" : "Off")) alternar_pantalla_completa(a), cambio = true;
     std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
     if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;

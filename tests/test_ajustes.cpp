@@ -36,8 +36,11 @@ TEST_CASE("escribir y leer settings.ini: ida y vuelta de los campos del editor")
     c.logo = "logo.png";
     CHECK_FALSE(c.mostrar_fps);
     c.mostrar_fps = true;
+    CHECK_FALSE(c.pantalla_completa);
+    c.pantalla_completa = true;
     const Config d = leer_config(escribir_config(c));
     CHECK(d.mostrar_fps);
+    CHECK(d.pantalla_completa);
     CHECK_FALSE(d.ui_simple);
     CHECK(d.zoom == 3);
     CHECK(d.volumen_musica == 40);

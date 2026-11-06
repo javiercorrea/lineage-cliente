@@ -26,8 +26,6 @@ using namespace lin;
 namespace {
 
 constexpr int LOGICO_W = 640, LOGICO_H = 480;  // la ventana mide esto en puntos: lo que se dibuja, sin sobrar
-constexpr int BARRA_H = 30, BOTON_LADO = 22;   // barra propia (la ventana no tiene borde del sistema)
-constexpr int X_BOTONES = LOGICO_W - 2 * BOTON_LADO - 10;  // el primero es el de minimizar; a la derecha, cerrar
 constexpr int X_ETIQUETA = 32, X_CAMPO = 250, ANCHO_CAMPO = 340, Y_PRIMERA = 78, PASO = 28;
 constexpr int CAJA_X = 12, CAJA_Y = 62, CAJA_ANCHO = 616, CAJA_ALTO = 340;  // recuadro del contenido
 const u32 COLOR_ERROR = rgba(255, 120, 100), COLOR_OK = rgba(170, 230, 150);
@@ -269,6 +267,7 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
         c.idioma = IDIOMAS_CODIGOS[idx];
         aplicar_idioma(c.idioma);
     }
+    si_no(p, fila(p, 8), tr(Tx::AJ_PANTALLA_COMPLETA), c.pantalla_completa);
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
@@ -353,11 +352,9 @@ void barra_inferior(Pantalla& p, Formulario& f, const std::string& ruta, bool& s
 
 // --- Entrada y bucle ---------------------------------------------------------------------------
 
-// La barra de arriba arrastra la ventana, salvo los dos botones (que son clics normales). Las
-// coordenadas son de la ventana, en puntos, y coinciden con las lógicas porque la ventana no cambia.
-SDL_HitTestResult zona_barra(SDL_Window*, const SDL_Point* p, void*) {
-    if (p->y >= BARRA_H) return SDL_HITTEST_NORMAL;
-    return p->x >= X_BOTONES ? SDL_HITTEST_NORMAL : SDL_HITTEST_DRAGGABLE;
+// La barra de arriba arrastra la ventana, salvo sus botones (ui::prueba_barra). No cambia de tamaño.
+SDL_HitTestResult zona_ajustes(SDL_Window* w, const SDL_Point* p, void* datos) {
+    return ui::prueba_barra(w, *static_cast<const Gpu*>(datos), p, false);
 }
 
 void leer_entrada(Gpu& gpu, EntradaFrame& e, bool& salir, int& rueda) {
@@ -429,12 +426,12 @@ int main(int argc, char** argv) {
     if (!SDL_Init(SDL_INIT_VIDEO)) return 1;
     SDL_Window* v = SDL_CreateWindow(tr(Tx::AJ_TITULO_VENTANA), LOGICO_W, LOGICO_H,
                                      SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-    if (v) SDL_SetWindowHitTest(v, zona_barra, nullptr);
     Gpu gpu;
     if (!v || !gpu.iniciar(v, LOGICO_W, LOGICO_H)) {
         SDL_Quit();
         return 1;
     }
+    SDL_SetWindowHitTest(v, zona_ajustes, &gpu);
     SDL_StartTextInput(v);
 
     while (!carpeta_juego_valida(f.cfg.carpeta_juego)) {
@@ -483,10 +480,10 @@ int main(int argc, char** argv) {
 
         const std::vector<std::string> nombres_pestanas = pestanas();
         gpu.rectangulo(0, 0, LOGICO_W, LOGICO_H, clave_orden(CAPA_FONDO, 0), rgba(24, 20, 16));
-        gpu.rectangulo(0, 0, LOGICO_W, BARRA_H, clave_orden(CAPA_FONDO, 1), rgba(44, 34, 24));
-        ui::texto_centrado(*g, tr(Tx::AJ_TITULO), 0, 8, LOGICO_W, ui::COLOR_TITULO);
-        if (ui::boton_texto(*g, entrada, "-", X_BOTONES, 4, BOTON_LADO, BOTON_LADO)) SDL_MinimizeWindow(v);
-        if (ui::boton_texto(*g, entrada, "x", LOGICO_W - BOTON_LADO - 6, 4, BOTON_LADO, BOTON_LADO)) salir = true;
+        bool cerrar = false, minimizar = false;
+        ui::barra_ventana(*g, entrada, tr(Tx::AJ_TITULO), LOGICO_W, cerrar, minimizar);
+        if (minimizar) SDL_MinimizeWindow(v);
+        if (cerrar) salir = true;
         for (size_t i = 0; i < nombres_pestanas.size(); ++i) {
             const std::string t = i == pestana ? "> " + nombres_pestanas[i] + " <" : nombres_pestanas[i];
             if (ui::boton_texto(*g, entrada, t, 16 + static_cast<int>(i) * 122, 34, 118, 22)) {

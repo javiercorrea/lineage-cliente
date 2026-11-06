@@ -2,6 +2,7 @@
 // en la lista del renderer y devuelven la interacción. El estado de cada pantalla es una struct
 // plana (foco, textos); no hay árbol de widgets.
 #pragma once
+#include <SDL3/SDL.h>
 #include <span>
 #include <string>
 #include "render/graficos.h"
@@ -71,6 +72,22 @@ void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 co
 constexpr int VENTANA_ANCHO = 247, VENTANA_ALTO = 304, VENTANA_Y = 36;
 constexpr int ALTO_TITULO = 22;  // barra de título: de ahí se arrastra la ventana
 bool ventana(Graficos& g, const EntradaFrame& e, bool simple, int x, int y, std::string_view titulo, u8 opacidad = 235);
+
+// Barra propia de las ventanas sin borde (el juego y los ajustes): título y dos botones, cerrar y
+// minimizar. En macOS van a la izquierda, como los del sistema.
+// MULTIPLATAFORMA: en Linux y Windows van a la derecha; sin probar en esas plataformas.
+constexpr int BARRA_VENTANA_ALTO = 26;  // píxeles lógicos
+struct BotonesBarra {
+    int cerrar, minimizar, lado;  // x de cada uno, en píxeles lógicos
+};
+BotonesBarra botones_barra(int ancho);
+// Dibuja la barra arriba del todo: el llamador la pone sobre lo demás con nivel_ventana. `cerrar` y
+// `minimizar` pasan a true si se hizo clic en su botón.
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int ancho, bool& cerrar,
+                   bool& minimizar);
+// Para SDL_SetWindowHitTest: la barra arrastra la ventana, salvo sus botones; si `redimensionable`,
+// los bordes de 6 puntos redimensionan (la ventana sin borde no los trae).
+SDL_HitTestResult prueba_barra(SDL_Window* ventana, const Gpu& gpu, const SDL_Point* p, bool redimensionable);
 
 }  // namespace ui
 }  // namespace lin
