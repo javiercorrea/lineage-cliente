@@ -141,6 +141,7 @@ X(AJ_TEXTO_DANO, "Texto de daño", "Damage text", "Texto de dano", "Schadenstext
 X(AJ_BARRA_PJ, "Barra HP/MP sobre el personaje", "HP/MP bar over the character", "Barra HP/MP sobre o personagem",
   "HP/MP-Leiste am Charakter", "Barre PV/PM sur le personnage")
 X(AJ_FPS, "Mostrar FPS (Mayús+F3)", "Show FPS (Shift+F3)", "Mostrar FPS (Shift+F3)", "FPS anzeigen (Umschalt+F3)", "Afficher les FPS (Maj+F3)")
+X(AJ_PANTALLA_COMPLETA, "Pantalla completa (al abrir)", "Full screen (on start)", "Tela cheia (ao abrir)", "Vollbild (beim Start)", "Plein écran (au lancement)")
 X(AJ_UI_SIMPLE, "Interfaz simple (F2)", "Simple interface (F2)", "Interface simples (F2)",
   "Einfache Oberfläche (F2)", "Interface simple (F2)")
 X(AJ_OPACIDAD, "Opacidad de ventanas (0-255)", "Window opacity (0-255)", "Opacidade das janelas (0-255)",

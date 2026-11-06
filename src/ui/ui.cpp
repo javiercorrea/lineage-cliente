@@ -134,4 +134,50 @@ bool ventana(Graficos& g, const EntradaFrame& e, bool simple, int x, int y, std:
     return e.clic && sobre(e, x + w - 28, y + 2, 26, 20);
 }
 
+BotonesBarra botones_barra(int ancho) {
+    constexpr int LADO = 18, M = 4;
+#ifdef __APPLE__
+    return {M, M + LADO + M, LADO};  // [cerrar][minimizar], como en macOS
+#else
+    // MULTIPLATAFORMA: sin probar en Linux ni Windows.
+    return {ancho - LADO - M, ancho - 2 * LADO - 2 * M, LADO};
+#endif
+}
+
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int ancho, bool& cerrar,
+                   bool& minimizar) {
+    g.gpu().rectangulo(0, 0, ancho, BARRA_VENTANA_ALTO, clave_orden(CAPA_UI, 0), rgba(44, 34, 24));
+    texto_centrado(g, titulo, 0, 7, ancho, COLOR_TITULO);
+    const BotonesBarra b = botones_barra(ancho);
+    if (boton_texto(g, e, "-", b.minimizar, 4, b.lado, b.lado)) minimizar = true;
+    if (boton_texto(g, e, "x", b.cerrar, 4, b.lado, b.lado)) cerrar = true;
+}
+
+SDL_HitTestResult prueba_barra(SDL_Window* ventana, const Gpu& gpu, const SDL_Point* p, bool redimensionable) {
+    // Los botones primero: van por encima del borde superior.
+    int lx = 0, ly = 0;
+    gpu.a_logico(static_cast<float>(p->x), static_cast<float>(p->y), lx, ly);
+    const int ancho = gpu.ancho();
+    const BotonesBarra b = botones_barra(ancho);
+    const bool en_barra = ly >= 0 && ly < BARRA_VENTANA_ALTO && lx >= 0 && lx < ancho;
+    const bool en_boton = en_barra && ((lx >= b.cerrar && lx < b.cerrar + b.lado) ||
+                                       (lx >= b.minimizar && lx < b.minimizar + b.lado));
+    if (en_boton) return SDL_HITTEST_NORMAL;
+    if (redimensionable) {
+        int ww = 0, wh = 0;
+        SDL_GetWindowSize(ventana, &ww, &wh);
+        constexpr int BORDE = 6;
+        const bool izq = p->x < BORDE, der = p->x >= ww - BORDE, arr = p->y < BORDE, aba = p->y >= wh - BORDE;
+        if (arr && izq) return SDL_HITTEST_RESIZE_TOPLEFT;
+        if (arr && der) return SDL_HITTEST_RESIZE_TOPRIGHT;
+        if (aba && izq) return SDL_HITTEST_RESIZE_BOTTOMLEFT;
+        if (aba && der) return SDL_HITTEST_RESIZE_BOTTOMRIGHT;
+        if (arr) return SDL_HITTEST_RESIZE_TOP;
+        if (aba) return SDL_HITTEST_RESIZE_BOTTOM;
+        if (izq) return SDL_HITTEST_RESIZE_LEFT;
+        if (der) return SDL_HITTEST_RESIZE_RIGHT;
+    }
+    return en_barra ? SDL_HITTEST_DRAGGABLE : SDL_HITTEST_NORMAL;
+}
+
 }  // namespace lin::ui

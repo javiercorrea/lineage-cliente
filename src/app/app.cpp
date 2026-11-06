@@ -86,7 +86,12 @@ void leer_entrada(App& a) {
             break;
         case SDL_EVENT_KEY_DOWN:
             switch (ev.key.key) {
-            case SDLK_RETURN: case SDLK_KP_ENTER: e.enter = true; break;
+            case SDLK_RETURN: case SDLK_KP_ENTER:
+                if (ev.key.mod & SDL_KMOD_ALT) {  // Alt+Enter: pantalla completa o ventana
+                    alternar_pantalla_completa(a);
+                    guardar_config(a.cfg);
+                } else e.enter = true;
+                break;
             case SDLK_TAB: e.tab = true; break;
             case SDLK_ESCAPE: e.escape = true; break;
             case SDLK_BACKSPACE: e.retroceso = true; break;
@@ -285,8 +290,12 @@ bool iniciar_app(App& a) {
         return false;
     }
     // Tamaño en puntos (en Retina, el doble de píxeles): el de la última vez (settings.ini).
-    a.ventana = SDL_CreateWindow("Lineage", a.cfg.ventana_ancho, a.cfg.ventana_alto, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    // Sin borde del sistema: la barra la dibuja el juego (ventana_ui.cpp).
+    a.ventana = SDL_CreateWindow("Lineage", a.cfg.ventana_ancho, a.cfg.ventana_alto,
+                                 SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!a.ventana || !a.gpu.iniciar(a.ventana, 640, 480)) return false;
+    if (a.cfg.pantalla_completa) SDL_SetWindowFullscreen(a.ventana, true);
+    SDL_SetWindowHitTest(a.ventana, zona_ventana_juego, &a);
     SDL_StartTextInput(a.ventana);
     crear_cursores(a);
     if (carpeta_juego_valida(a.cfg.carpeta_juego) && cargar_recursos(a)) {
@@ -362,6 +371,7 @@ void bucle_app(App& a) {
         }
         actualizar_sonido(a, a.entrada.ahora_ms);
         ++a.frames_en_pantalla;
+        dibujar_barra_ventana(a);
         // CPU y allocations: todo menos presentar, que espera el vsync y llama al driver (el de
         // Metal hace sus propias allocations al subir y presentar; no dependen del cliente).
         a.gpu.preparar_frame();
@@ -382,7 +392,10 @@ void bucle_app(App& a) {
 
 void cerrar_app(App& a) {
     // El tamaño de la ventana queda para la próxima vez.
-    if (a.ventana && SDL_GetWindowSize(a.ventana, &a.cfg.ventana_ancho, &a.cfg.ventana_alto)) guardar_config(a.cfg);
+    // A pantalla completa, el tamaño es el del monitor: no se guarda.
+    if (a.ventana && !(SDL_GetWindowFlags(a.ventana) & SDL_WINDOW_FULLSCREEN) &&
+        SDL_GetWindowSize(a.ventana, &a.cfg.ventana_ancho, &a.cfg.ventana_alto))
+        guardar_config(a.cfg);
 #if LIN_CONTROL
     control_cerrar();
 #endif

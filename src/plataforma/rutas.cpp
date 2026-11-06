@@ -59,6 +59,7 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "ui_simple") c.ui_simple = valor != "0";
     else if (clave == "sombra_personajes") c.sombra_personajes = valor != "0";
     else if (clave == "mostrar_fps") c.mostrar_fps = valor != "0";
+    else if (clave == "pantalla_completa") c.pantalla_completa = valor == "1";
     else if (clave == "efecto_luz") c.efecto_luz = valor != "0";
     else if (clave == "efecto_agua_tinte") c.efecto_agua_tinte = valor != "0";
     else if (clave == "efecto_agua_ola") c.efecto_agua_ola = valor != "0";
@@ -192,6 +193,7 @@ std::string escribir_config(const Config& c) {
     linea("ui_simple", c.ui_simple ? "1" : "0");
     linea("sombra_personajes", c.sombra_personajes ? "1" : "0");
     linea("mostrar_fps", c.mostrar_fps ? "1" : "0");
+    linea("pantalla_completa", c.pantalla_completa ? "1" : "0");
     linea("efecto_luz", c.efecto_luz ? "1" : "0");
     linea("efecto_agua_tinte", c.efecto_agua_tinte ? "1" : "0");
     linea("efecto_agua_ola", c.efecto_agua_ola ? "1" : "0");

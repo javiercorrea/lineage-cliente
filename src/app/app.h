@@ -460,6 +460,12 @@ void dibujar_clima(App& a, int w, int h, u64 ahora);
 // por debajo de CAPA_EFECTOS. Sin efecto en el agua (ahí va el tinte azul, F4).
 void aplicar_luz(App& a, u64 ahora);
 void preparar_luz(App& a);  // al arrancar, fuera del frame: color del agua y búferes
+
+// Ventana del juego: en ventana, sin borde y con barra propia (ventana_ui.cpp); a pantalla completa, sin barra.
+void dibujar_barra_ventana(App& a);
+void alternar_pantalla_completa(App& a);
+int alto_barra(const App& a);  // píxeles lógicos que tapa la barra (0 a pantalla completa)
+SDL_HitTestResult zona_ventana_juego(SDL_Window* ventana, const SDL_Point* p, void* datos);
 // Sonido (sonido.cpp).
 void cargar_sonidos(App& a);
 void aplicar_volumenes(App& a);
