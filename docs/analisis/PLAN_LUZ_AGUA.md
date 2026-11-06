@@ -54,6 +54,13 @@ atardecer cambian con el día del año, en minutos del día:
 
 Fuera de la lista: mapas 5140-5142 → nivel 5; 5143-5145 → 15; mapa 1000 → 7.
 
+**La captura real contradice el nivel 3 [V].** `ss01.tiff` (mazmorra, arriba luz normal) da en zona sin luz
+unos 7/255 en suelo y 4/255 en pared. Tomando el valor sin filtrar que se deduce de la mitad inferior (ver
+1.8), eso cuadra con **nivel 1 (4/31)**: con 5 bits y truncado, un suelo de 11 da 1 (8/255) y una pared de 7
+da 0 u 8. El nivel 3 daría unos 32/255. El mismo cálculo acierta en zona con luz: a media máscara predice 71
+y se mide 74, pero ahí los niveles 1 y 3 casi no se distinguen. **[H]** La captura es de otra versión del
+cliente; en 2009 y 2013 la LUT es idéntica y el caso general es 3. Ver decisión D2.
+
 **Hechizo LIGHT [V] (`468210`).** Solo si `S_Light` del propio jugador trae 20: guarda radio 14 y suma 5 al
 nivel, con tope 15. **El servidor L1J manda 14, no 20**, así que aquí nunca se activa. Se implementa igual:
 son dos líneas y otro servidor sí podría usarlo.
@@ -87,7 +94,8 @@ nivel 1 (hasta 4), que no se usa. **No hace falta copiar la tabla.**
 | 14 | **hechizo LIGHT** | 312 × 156 |
 
 Los radios de los ítems están en `L1Item.getLightRange`. Los NPC usan `npc.light_size` (de 0 a 14). Los
-ítems encendidos en el suelo también emiten (`S_DropItem`).
+ítems encendidos en el suelo también emiten (`S_DropItem`). En `ss01.tiff` la elipse del jugador mide unos
+±70 × ±34 px: coincide con el radio 5 a escala 1:1.
 
 Otros detalles del original:
 
@@ -147,6 +155,30 @@ según la base, y el cliente no necesita lista propia.
 - **Ceguera:** ya está resuelta con un velo propio (`PROF_CEGUERA`) y no se toca. El original usa nivel 0 con
   el jugador en radio 5; el resultado se parece.
 
+### 1.8 Infravisión de elfos y elfos oscuros [V] (`466911`, `49af00`, `49af60`, `4a0697`)
+
+**Reemplaza** al mapa de luz: sin elipses ni luces, un filtro uniforme sobre toda la vista.
+
+Se aplica si no hay agua ni ceguera, el nivel es menor que 15 y la opción está activa con clase 2 o 4 (la
+condición de nivel hace que empiece apenas arranca la transición, no recién de noche):
+
+| Clase | Filtro por píxel | Forma de hacerlo aquí |
+|---|---|---|
+| **Elfo** (2) | `(r/16, g/2, b/16)`: verde casi monocromo | multiplicar por `(1/16, 1/2, 1/16)`; ya está en el pipeline |
+| **Elfo oscuro** (4) | `c * lum / 31` en 5 bits, con `lum = (2R + 7G + B) / 10` | shader sobre copia de la vista, igual que la ola |
+
+- **El filtro del elfo oscuro no es un oscurecimiento plano:** conserva el tono y aplasta los oscuros, y lo
+  brillante casi no cambia. En `ss01.tiff` la mitad inferior sigue marrón (R/B ≈ 1,6, igual que arriba) y
+  también se ven la pared y el suelo lejano, que arriba eran negros. Coincide con lo que recuerdas.
+- **Hay un interruptor:** el botón `infracon` de la ventana de opciones (`option13`, `40c62b`) alterna
+  `0x6f1e4b`, solo para esas dos clases. Se guarda en la configuración (`44a159`) y se apaga con cualquier otra
+  clase (`470be6`).
+- **[?] `0x8ed588 == 1`** activa el mismo filtro para cualquier clase (verde, salvo elfo oscuro), y
+  **`0x8ed57c` entre 1 y 3** salta toda la pasada de luz. Son valores ofuscados sin escritor directo: pueden
+  ser algún objeto o estado. Quedan fuera hasta saber qué los activa.
+- **[?] Las tablas no se pudieron contrastar con las reales en memoria** (no las ubiqué en el volcado). El
+  filtro del elfo oscuro sale del código del generador, y el del elfo, de sus máscaras de bits en 16 bits.
+
 ## 2. Diseño
 
 ### 2.1 Lógica sin GPU
@@ -182,9 +214,9 @@ Hoy hay una sola llamada instanciada, ordenada por clave. Se parte en tramos:
 
 ```
 Pase: [CAPA_FONDO, SUELO, MUNDO]          instanciado, como hoy
-      multiplicar por el mapa de luz      si hay oscuridad
-      -- fin de pase, copia + ola --      solo bajo el agua con ola
-      multiplicar por 1416.img o el tinte
+      multiplicar por el mapa de luz      si hay oscuridad sin infravisión
+      -- fin de pase, copia + shader --   ola bajo el agua, o filtro de elfo oscuro
+      multiplicar por 1416.img o el tinte también el verde del elfo
       [CAPA_EFECTOS ... ARRASTRE]         instanciado
 ```
 
@@ -195,6 +227,8 @@ Pase: [CAPA_FONDO, SUELO, MUNDO]          instanciado, como hoy
 - **Ola:** se cierra el pase, se copia el área a una textura y se dibuja un rectángulo con `fs_ola`:
   `x_log = floor(px.x / escala)`, `dy` con la fórmula de 1.5 y el borde en clamp. Sin agua no hay copia ni
   coste extra.
+- **Filtro del elfo oscuro:** mismo camino que la ola y la misma textura de copia; otro modo del shader
+  (`c * dot(c, (0.2, 0.7, 0.1))`).
 - **Sin efectos** (menús, día, sin agua): un solo tramo, igual que ahora. El contador `llamadas_` pasa a medir
   tramos; en `perf` se documenta el nuevo máximo.
 
@@ -205,6 +239,7 @@ struct Postproceso {
     int w = 0, h = 0;                 // área de juego; h = 0: sin postproceso
     const u8* luz = nullptr; int luz_w = 0, luz_h = 0;
     bool ola = false; int fase = 0;
+    bool vision_oscura = false;           // filtro del elfo oscuro
     const RegionAtlas* imagen = nullptr;  // 1416.img, multiplicada
     u32 tinte = BLANCO;
 };
@@ -231,6 +266,8 @@ conviviera bien con el LRU, se sube a su propia textura (se resuelve en F4 midie
 | `src/app/clima.cpp` | `al_aire_libre` → `!mapa_oscuro`; capa de la lluvia y la nieve |
 | `src/app/sonido.cpp` | ambiente 330 mientras `mundo.submarino` |
 | `src/app/control*` | comando de depuración `forzar-hora <seg>` (solo `debug`, ver 4) |
+| `src/plataforma/rutas.{h,cpp}`, `tools/ajustes.cpp` | clave `infravision=1` en `settings.ini` y en el editor |
+| `src/app/ventanas.cpp`, textos de i18n | casilla de infravisión en Opciones, visible solo para elfo y elfo oscuro, en los 5 idiomas |
 | `CMakeLists.txt`, `tests/` | archivos nuevos y tests |
 | `docs/DESCUBRIMIENTOS.md`, `ENTREGABLES.md`, `README.md` | sección nueva, quitar el pendiente, capturas |
 
@@ -245,7 +282,10 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 | **F3** Noche y mazmorras | mapa de luz, jugador, NPC e ítems; clima con la lista nueva; orden de capas | **noche, velas, mazmorras** |
 | **F4** Agua: tinte | saltar la luz, `1416.img`, sonido 330 | **azul bajo el agua** |
 | **F5** Agua: ola | copia, `fs_ola`, fase | **distorsión** |
+| **F5b** Infravisión | filtros de elfo y elfo oscuro, opción y ajuste | **verde y oscuro uniforme** |
 | **F6** Opcional | borrachera por filas; máscara de 303 y 606; `shade.dat` si hace falta | según lo que falte |
+
+El verde del elfo solo necesita F2 y se puede adelantar. El filtro del elfo oscuro depende de la copia de F5.
 
 ## 4. Verificación
 
@@ -253,7 +293,9 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 
 - `nivel_ambiente`: mediodía → 15; medianoche → 7; 1 de enero a las 7:20 → 13; dentro de la transición,
   intermedio y monótono; un día de enero amanece más tarde que uno de junio; lluvia a mediodía → 15 y en la
-  transición un punto menos; mapa 1 → 3; 75 → 12; 0x4000 → 3.
+  transición un punto menos; mapa 1 → 1 (D2); 75 → 12; 0x4000 → 1.
+- Infravisión: función pura que decide el modo (ninguno, elfo, elfo oscuro) según clase, opción, nivel, agua
+  y ceguera, con un caso por cada condición de 1.8.
 - `mapa_oscuro`: 1 y 2 sí; 0 y 4 no.
 - LUT: la fórmula contra los valores del anexo B.
 - `estampar`: dos máscaras solapadas dan el máximo; recorte en los cuatro bordes sin salirse del búfer.
@@ -272,7 +314,10 @@ Cada fase compila, pasa los tests y se puede mergear sola.
 5. `.move` a una mazmorra: oscura también a mediodía. Sin lluvia aunque el clima la indique.
 6. `.move` al mapa 63: sin oscuridad, degradado azul, panel sin teñir, ola en capturas sucesivas y sonido
    330 según el log del control. Al salir vuelve todo a la normal.
-7. `perf on` en la zona más poblada, de noche: el coste del frame no debe subir más de 1 ms, y debe verse con el
+7. Elfo y elfo oscuro de noche y en mazmorra: la vista cambia a verde y a oscuro uniforme, sin elipses; con la
+   opción apagada se ve la luz normal; a mediodía no hay filtro; con otras clases la casilla no aparece. La
+   captura del elfo oscuro se compara con la mitad inferior de `ss01.tiff`, y la de luz normal, con la superior.
+8. `perf on` en la zona más poblada, de noche: el coste del frame no debe subir más de 1 ms, y debe verse con el
    número medido en `ENTREGABLES.md`.
 
 **Comparación con el original:** capturas del juego real hechas por ti, en la misma posición, para ajustar lo
@@ -284,6 +329,7 @@ que no se puede deducir (ver D1).
 - Las mazmorras se ven oscuras a cualquier hora, y el mundo cambia con la hora, con transición de 40 min de juego.
 - Bajo el agua la vista se tiñe de azul con ola; panel, ventanas y chat no cambian. Con ventana grande y con
   `escala > 1` la ola sigue viéndose por columnas de 1 px lógico.
+- Los elfos ven verde y los elfos oscuros, oscuro uniforme, y pueden apagarlo en Opciones.
 - Nombres y barras se leen igual de noche.
 - Tests sin warnings, `todas.py` en verde, 0 asignaciones por frame, y `release` sin cambios de control.
 
@@ -305,9 +351,13 @@ Con estos valores se puede empezar. Corregir cualquiera cuesta poco.
 
 - **D1. Ola activada por defecto**, a pesar de 1.6, porque la recuerdas así. Constante `OLA_ACTIVA` en `luz_ui.cpp`.
   **Tu comparación con el juego real es lo que la confirma.**
-- **D2. Fidelidad exacta en el nivel de noche (18/31, 58 %).** Es menos oscuro de lo que podría sugerir la
-  memoria. Si se ve flojo frente al recuerdo, se ajusta `A[]` y queda documentado que se aparta del original.
-- **D3. Sin opción en `ajustes` para apagar los efectos.** Se agrega si alguien la pide.
+- **D2. Mazmorras en nivel 1 (4/31), como `ss01.tiff`**, en lugar del 3 del binario de 2009: tu captura es la
+  única referencia visual del juego real. Las excepciones por mapa se mantienen. El nivel general es una constante:
+  si se prefiere el binario, se cambia una línea. **Noche al aire libre en 7 (18/31, 58 %),** según el
+  binario y sin captura que lo contradiga; es lo primero que conviene comparar, porque si esa captura también es
+  de una versión más oscura, la noche podría quedarse floja.
+- **D3. Sin opción para apagar la noche ni el agua.** La única opción es la infravisión, porque el original la
+  tiene (activada por defecto: `infravision=1`). No leí el valor inicial del original.
 - **D4. Fuera: `shade.dat`, máscara de 303 y 606 y borrachera por filas** (F6, si hacen falta).
 
 ## Anexo A: mapas oscuros (`0x6ddae8`, 297 entradas)
