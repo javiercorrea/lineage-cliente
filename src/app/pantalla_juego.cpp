@@ -1327,6 +1327,7 @@ void frame_juego(App& a) {
     dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
     dibujar_personajes(a, ahora, ox, oy);
     dibujar_efectos(a, ahora, ox, oy);
+    aplicar_luz(a, ahora);
     dibujar_clima(a, vi.w, vi.panel_y, ahora);
     dibujar_estados_alterados(a, vi.w, vi.h);
     a.teclas_f_y = -1;  // dibujar_panel los ubica si se dibuja el panel original

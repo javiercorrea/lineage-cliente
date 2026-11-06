@@ -85,6 +85,21 @@ int nivel_ambiente(MapId m, int minuto, int dia_anio, bool lluvia) {
 
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
 
+int brillo_lut(int nivel, int mascara) {
+    // Brillo ambiente de cada nivel (columna 0 de la LUT).
+    constexpr int AMBIENTE[16] = {0, 4, 10, 11, 13, 14, 16, 18, 19, 21, 23, 24, 26, 28, 29, 31};
+    const int a = AMBIENTE[std::clamp(nivel, 0, 15)];
+    const int m = std::clamp(mascara, 0, 255) >> 3;
+    return a + (31 - a) * m / 31;
+}
+
+bool tinte_mapa(MapId m, u8& r, u8& g, u8& b) {
+    // Mapas con tinte propio (sub_467653): 430 y 601.
+    if (m == 430) { r = 203; g = 170; b = 218; return true; }
+    if (m == 601) { r = 253; g = 216; b = 225; return true; }
+    return false;
+}
+
 Vision modo_vision(u8 clase, bool opcion_activa, int nivel, bool submarino, bool ceguera) {
     if (!opcion_activa || submarino || ceguera || nivel >= 15) return Vision::NINGUNA;
     if (clase == 2) return Vision::ELFO;

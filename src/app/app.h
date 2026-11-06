@@ -285,6 +285,7 @@ struct App {
         u32 profundidad;
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
+    std::vector<u8> luz_mascara, luz_brillo;  // aplicar_luz: buffers del frame, se reusan
     bool jugador_tapado = false;  // un objeto del mapa tapa al propio personaje (se ve translúcido)
     ObjId objetivo = 0;
     u64 fin_ataque = 0;
@@ -446,6 +447,9 @@ void dibujar_opciones(App& a);
 void dibujar_ayuda_teclas(App& a);  // F1
 // Clima (clima.cpp): lluvia o nieve sobre el mundo (hasta la fila `h`, donde empieza el panel).
 void dibujar_clima(App& a, int w, int h, u64 ahora);
+// Oscuridad del mundo (noche, mazmorras, luces de objetos y tinte de mapa): multiplica lo que va
+// por debajo de CAPA_EFECTOS. Sin efecto en el agua (ahí va el tinte azul, F4).
+void aplicar_luz(App& a, u64 ahora);
 // Sonido (sonido.cpp).
 void cargar_sonidos(App& a);
 void aplicar_volumenes(App& a);

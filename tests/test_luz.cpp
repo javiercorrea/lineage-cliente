@@ -65,6 +65,18 @@ TEST_CASE("Luz: el hechizo LIGHT suma 5 con tope 15") {
     CHECK(nivel_con_luz_hechizo(15) == 15);
 }
 
+TEST_CASE("Luz: brillo por celda según nivel y máscara") {
+    CHECK(brillo_lut(15, 0) == 31);
+    CHECK(brillo_lut(15, 255) == 31);
+    CHECK(brillo_lut(7, 0) == 18);  // ambiente de noche
+    CHECK(brillo_lut(7, 255) == 31);  // máscara llena: sin oscuridad
+    CHECK(brillo_lut(7, 128) > brillo_lut(7, 64));  // más máscara, más brillo
+    u8 r, g, b;
+    CHECK(tinte_mapa(430, r, g, b));
+    CHECK(r == 203);
+    CHECK_FALSE(tinte_mapa(1, r, g, b));
+}
+
 TEST_CASE("Luz: infravisión de elfo y elfo oscuro según las condiciones") {
     CHECK(modo_vision(2, true, 7, false, false) == Vision::ELFO);
     CHECK(modo_vision(4, true, 7, false, false) == Vision::ELFO_OSCURO);

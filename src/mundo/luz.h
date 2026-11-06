@@ -5,6 +5,13 @@
 
 namespace lin {
 
+// Brillo de una celda del mundo, 0..31, para el nivel ambiente y la máscara de luz (0..255).
+// Es la tabla LUT del original (0x6e3638), que se aproxima con esta fórmula (error máximo 1).
+int brillo_lut(int nivel, int mascara);
+
+// Tinte fijo de algunos mapas (el original lo multiplica sobre todo el mundo). False si el mapa no tiene.
+bool tinte_mapa(MapId m, u8& r, u8& g, u8& b);
+
 // Visión especial de la clase del jugador (campo de clase de S_CharPack: 2 elfo, 4 elfo oscuro).
 enum class Vision : u8 { NINGUNA, ELFO, ELFO_OSCURO };
 

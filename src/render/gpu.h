@@ -73,6 +73,10 @@ public:
     void dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color = BLANCO,
                           Mezcla mezcla = Mezcla::NORMAL);
     void rectangulo(int x, int y, int w, int h, u64 clave, u32 color);
+    // Este frame, lo que va por debajo de CAPA_EFECTOS (mundo, no interfaz) se multiplica por
+    // `tinte` y por `brillo`: bw × bh celdas de celda × celda píxeles lógicos, 255 = sin cambio.
+    // Para solo tinte: brillo de 1 × 1 y una celda mayor que la vista. Vale para el frame actual.
+    void multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte);
     // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
@@ -111,6 +115,14 @@ private:
     SDL_Window* ventana_ = nullptr;
     SDL_GPUDevice* dev_ = nullptr;
     SDL_GPUGraphicsPipeline* pipeline_ = nullptr;
+    SDL_GPUGraphicsPipeline* pipeline_brillo_ = nullptr;
+    SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8), tamaño fijo
+    SDL_GPUTransferBuffer* subida_luz_ = nullptr;
+    std::vector<u8> brillo_buf_;                // copia del frame, reservada al iniciar
+    bool brillo_activo_ = false;
+    int brillo_w_ = 0, brillo_h_ = 0, brillo_celda_ = 1;
+    u32 brillo_tinte_ = 0xFFFFFFFFu;
+    u32 n_mundo_ = 0;                           // instancias de CAPA_FONDO..CAPA_MUNDO (prefijo de la lista)
     SDL_GPUTexture* atlas_ = nullptr;
     SDL_GPUTexture* destino_ = nullptr;  // resolución lógica
     SDL_GPUSampler* muestreo_ = nullptr;
