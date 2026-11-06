@@ -78,6 +78,7 @@ target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb)
 add_library(lin_mundo STATIC
     src/mundo/cargador_segmentos.cpp
     src/mundo/chat.cpp
+    src/mundo/luz.cpp
     src/mundo/mundo.cpp
     src/mundo/inventario.cpp)
 target_link_libraries(lin_mundo PUBLIC lin_core lin_proto lin_recursos)
@@ -113,6 +114,7 @@ add_executable(lineage
     src/app/social_ui.cpp
     src/app/sonido.cpp
     src/app/clima.cpp
+    src/app/luz_ui.cpp
     src/app/cantidad_ui.cpp
     src/app/correo_ui.cpp
     src/app/casas_ui.cpp
@@ -160,6 +162,7 @@ if(LIN_TESTS)
         tests/test_atlas.cpp
         tests/test_asignaciones.cpp
         tests/test_hechizos.cpp
+        tests/test_luz.cpp
         tests/test_npc.cpp
         tests/test_sonidos.cpp
         tests/test_fuente.cpp

@@ -69,6 +69,7 @@ struct EstadoJugador {
     u8 brave = 0;  // 0 nada, 1 poción, 3 waffle, 4 caminar rápido, 6 bloodlust (S_SkillBrave)
     bool tercera = false;  // tercer acelerador (S_Liquor 8): todo × 0,87, como la waffle
     bool borracho = false; // S_Liquor 1: la pantalla se mece
+    bool luz_hechizo = false;  // S_Light 20 propio (hechizo LIGHT): radio 14 y 5 niveles más de luz ambiente
     u8 anillos = 0;        // S_Ability: bit 1 control de teletransporte, bit 5 control de invocación
     u8 inmovil = 0;   // S_Paralysis: el que empezó (PARALISIS_*), 0 = puede moverse y actuar
     u8 ceguera = 0;   // S_CurseBlind: 0 ve, 1 ciego, 2 ciego con Floating Eye
@@ -157,8 +158,9 @@ struct Mundo {
     const TablaSprites* sprites = nullptr;  // para la duración de los pasos (caminar de cada sprite)
     EstadoJugador jugador;
     MapId mapa = 0;
+    bool submarino = false;  // S_MapID: el mapa es bajo el agua (efecto azul y ola)
     i32 hora = 0;
-    u8 clima = 0;
+    u8 nieve = 0, lluvia = 0;  // intensidad 0-3 de cada clima (S_Weather): son independientes
     bool en_juego = false;
     EfectoVisual efectos[MAX_EFECTOS_VISUALES];
     u32 siguiente_efecto = 0;

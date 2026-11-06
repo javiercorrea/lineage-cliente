@@ -222,22 +222,27 @@ void pestana_juego(Pantalla& p, Formulario& f) {
     si_no(p, fila(6), tr(Tx::AJ_COMPENSAR), c.compensar_ataque);
     si_no(p, fila(7), tr(Tx::AJ_TEXTO_DANO), c.texto_dano);
     si_no(p, fila(8), tr(Tx::AJ_BARRA_PJ), c.barra_personaje);
+    si_no(p, fila(9), tr(Tx::AJ_EFECTO_LUZ), c.efecto_luz);
+    si_no(p, fila(10), tr(Tx::AJ_EFECTO_AGUA), c.efecto_agua_tinte);
+    si_no(p, fila(11), tr(Tx::AJ_EFECTO_OLA), c.efecto_agua_ola);
+    si_no(p, fila(12), tr(Tx::AJ_EFECTO_INFRA), c.efecto_infravision);
 }
 
 void pestana_interfaz(Pantalla& p, Formulario& f) {
     Config& c = f.cfg;
     si_no(p, fila(0), tr(Tx::AJ_UI_SIMPLE), c.ui_simple);
-    campo(p, fila(1), tr(Tx::AJ_OPACIDAD), f.opacidad, 3);
-    campo(p, fila(2), tr(Tx::AJ_LOGO), c.logo, 200);
-    campo(p, fila(3), tr(Tx::AJ_VENTANA_ANCHO), f.ancho, 4);
-    campo(p, fila(4), tr(Tx::AJ_VENTANA_ALTO), f.alto, 4);
-    campo(p, fila(5), tr(Tx::AJ_ZOOM), f.zoom, 2);
+    si_no(p, fila(1), tr(Tx::AJ_FPS), c.mostrar_fps);
+    campo(p, fila(2), tr(Tx::AJ_OPACIDAD), f.opacidad, 3);
+    campo(p, fila(3), tr(Tx::AJ_LOGO), c.logo, 200);
+    campo(p, fila(4), tr(Tx::AJ_VENTANA_ANCHO), f.ancho, 4);
+    campo(p, fila(5), tr(Tx::AJ_VENTANA_ALTO), f.alto, 4);
+    campo(p, fila(6), tr(Tx::AJ_ZOOM), f.zoom, 2);
     // Idioma del juego. Se guarda con Guardar; el editor ya cambia de idioma al elegirlo.
     const std::vector<std::string> nombres = idiomas_nombres();
     size_t idx = 0;
     for (size_t i = 0; i < IDIOMAS_CODIGOS.size(); ++i)
         if (IDIOMAS_CODIGOS[i] == c.idioma) idx = i;
-    if (lista(p, fila(6), tr(Tx::AJ_IDIOMA), nombres, idx, p.abre_idioma)) {
+    if (lista(p, fila(7), tr(Tx::AJ_IDIOMA), nombres, idx, p.abre_idioma)) {
         c.idioma = IDIOMAS_CODIGOS[idx];
         aplicar_idioma(c.idioma);
     }

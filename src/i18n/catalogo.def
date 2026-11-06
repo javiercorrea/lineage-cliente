@@ -128,11 +128,19 @@ X(AJ_CHAT_ENTER, "Enter abre el chat", "Enter opens chat", "Enter abre o chat", 
   "Entrée ouvre le chat")
 X(AJ_SOMBRA, "Sombra en personajes", "Shadow on characters", "Sombra nos personagens", "Schatten auf Charakteren",
   "Ombre sur les personnages")
+X(AJ_EFECTO_LUZ, "Noche y mazmorras oscuras", "Night and dark dungeons", "Noite e masmorras escuras",
+  "Nacht und dunkle Verliese", "Nuit et donjons sombres")
+X(AJ_EFECTO_AGUA, "Tinte azul bajo el agua", "Blue tint underwater", "Tom azul debaixo d'água",
+  "Blauer Farbton unter Wasser", "Teinte bleue sous l'eau")
+X(AJ_EFECTO_OLA, "Ola bajo el agua", "Wave underwater", "Onda debaixo d'água", "Welle unter Wasser",
+  "Vague sous l'eau")
+X(AJ_EFECTO_INFRA, "Visión de elfo", "Elf vision", "Visão de elfo", "Elfensicht", "Vision de l'elfe")
 X(AJ_COMPENSAR, "Compensar ataque", "Attack compensation", "Compensar ataque", "Angriffskompensation",
   "Compensation d'attaque")
 X(AJ_TEXTO_DANO, "Texto de daño", "Damage text", "Texto de dano", "Schadenstext", "Texte de dégâts")
 X(AJ_BARRA_PJ, "Barra HP/MP sobre el personaje", "HP/MP bar over the character", "Barra HP/MP sobre o personagem",
   "HP/MP-Leiste am Charakter", "Barre PV/PM sur le personnage")
+X(AJ_FPS, "Mostrar FPS (Mayús+F3)", "Show FPS (Shift+F3)", "Mostrar FPS (Shift+F3)", "FPS anzeigen (Umschalt+F3)", "Afficher les FPS (Maj+F3)")
 X(AJ_UI_SIMPLE, "Interfaz simple (F2)", "Simple interface (F2)", "Interface simples (F2)",
   "Einfache Oberfläche (F2)", "Interface simple (F2)")
 X(AJ_OPACIDAD, "Opacidad de ventanas (0-255)", "Window opacity (0-255)", "Opacidade das janelas (0-255)",

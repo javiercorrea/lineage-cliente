@@ -34,7 +34,10 @@ TEST_CASE("escribir y leer settings.ini: ida y vuelta de los campos del editor")
                            "servidor=Local|127.0.0.1|2000|jp363|prueba\nservidor_elegido=Local\n");
     c.opacidad_ventanas = 99;
     c.logo = "logo.png";
+    CHECK_FALSE(c.mostrar_fps);
+    c.mostrar_fps = true;
     const Config d = leer_config(escribir_config(c));
+    CHECK(d.mostrar_fps);
     CHECK_FALSE(d.ui_simple);
     CHECK(d.zoom == 3);
     CHECK(d.volumen_musica == 40);

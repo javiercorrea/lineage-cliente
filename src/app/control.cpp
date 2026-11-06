@@ -283,6 +283,7 @@ const char* AYUDA[] = {
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
+    "forzar-hora <segundos del día 0-86399>|off (luz y sonido, para pruebas; el día del año pasa a ser el 1 de enero)",
 };
 
 // Ejecuta una línea. Devuelve false si queda esperando (responde después).
@@ -360,6 +361,18 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         a.intercambio.ok = true;
     } else if (cmd == "traza-html") {
         g_traza_html = p.size() < 2 || p[1] == "on";
+    } else if (cmd == "forzar-hora") {
+        // Pruebas de la luz: fija la hora de juego (segundos del día); "off" vuelve a la del servidor.
+        if (p.size() < 2) return error("uso: forzar-hora <segundos del día 0-86399> | off");
+        if (p[1] == "off") {
+            a.hora_forzada = -1;
+        } else {
+            char* fin = nullptr;
+            const long s = std::strtol(p[1].c_str(), &fin, 10);
+            if (fin == p[1].c_str() || *fin || s < 0 || s > 86399) return error("la hora va de 0 a 86399, o off");
+            a.hora_forzada = static_cast<i32>(s);
+        }
+        responder(c, "ok");
     } else if (cmd == "perf") {
         a.perf = p.size() < 2 || p[1] == "on";
     } else if (cmd == "depuracion") {

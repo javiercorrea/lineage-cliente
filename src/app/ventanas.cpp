@@ -19,7 +19,7 @@ constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
 // Doce filas de ALTO_GLIFO + 12 px, más el título y el margen: 352 px. Con 276 (y luego 300) la última quedaba afuera.
-constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 352;
+constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 482;
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -63,7 +63,7 @@ Rect por_defecto(const App& a, IdVentana v) {
     case IdVentana::ESTADO: return {x_estado, y, w, h};
     case IdVentana::HECHIZOS: return {x_estado - ocupa(a.ventana_estado, IdVentana::ESTADO), y, w, h};
     case IdVentana::NPC: return {MARGEN, y, w, h};
-    case IdVentana::OPCIONES: return {(a.gpu.ancho() - ANCHO_OPCIONES) / 2, y + 40, ANCHO_OPCIONES, ALTO_OPCIONES};
+    case IdVentana::OPCIONES: return {(a.gpu.ancho() - ANCHO_OPCIONES) / 2, y + 28, ANCHO_OPCIONES, ALTO_OPCIONES};
     case IdVentana::SALIDA: return {(a.gpu.ancho() - ANCHO_SALIDA) / 2, a.gpu.alto() / 3, ANCHO_SALIDA, ALTO_SALIDA};
     case IdVentana::SOCIAL: return rect_social(a);
     case IdVentana::INTERCAMBIO: return rect_intercambio(a);
@@ -301,6 +301,7 @@ void dibujar_opciones(App& a) {
     if (fila("Camera (F4)", a.cfg.camara_a_saltos ? "Steps" : "Smooth")) a.cfg.camara_a_saltos = !a.cfg.camara_a_saltos, cambio = true;
     if (fila("Shade in shadows", a.cfg.sombra_personajes ? "On" : "Off"))
         a.cfg.sombra_personajes = !a.cfg.sombra_personajes, cambio = true;
+    if (fila("FPS (Shift+F3)", a.cfg.mostrar_fps ? "On" : "Off")) a.cfg.mostrar_fps = !a.cfg.mostrar_fps, cambio = true;
     const int opacidad = std::clamp(a.cfg.opacidad_ventanas, 60, 255);  // la configurada, no la de esta ventana
     std::snprintf(t, sizeof t, "%d%%", opacidad * 100 / 255);
     if (fila("Window opacity", t)) {  // 40 % -> 55 % -> 70 % -> 85 % -> 100 % -> 40 %
@@ -319,6 +320,10 @@ void dibujar_opciones(App& a) {
         a.cfg.texto_dano = !a.cfg.texto_dano, cambio = true;
     if (fila("Attack compensation", a.cfg.compensar_ataque ? "On" : "Off"))
         a.cfg.compensar_ataque = !a.cfg.compensar_ataque, cambio = true;
+    if (fila("Night and dungeons",a.cfg.efecto_luz ? "On" : "Off")) a.cfg.efecto_luz = !a.cfg.efecto_luz, cambio = true;
+    if (fila("Underwater tint", a.cfg.efecto_agua_tinte ? "On" : "Off")) a.cfg.efecto_agua_tinte = !a.cfg.efecto_agua_tinte, cambio = true;
+    if (fila("Underwater wave", a.cfg.efecto_agua_ola ? "On" : "Off")) a.cfg.efecto_agua_ola = !a.cfg.efecto_agua_ola, cambio = true;
+    if (fila("Elf vision", a.cfg.efecto_infravision ? "On" : "Off")) a.cfg.efecto_infravision = !a.cfg.efecto_infravision, cambio = true;
     std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
     if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;
@@ -348,7 +353,7 @@ void dibujar_ayuda_teclas(App& a) {
     static constexpr const char* FILAS[][2] = {
         {"F1", "This help"},
         {"F2", "Simple / original interface"},
-        {"F3", "Debug overlay (fps, CPU)"},
+        {"F3 / Shift+F3", "Debug overlay / FPS counter"},
         {"F4 / Shift+F4", "Camera / shade in shadows"},
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},

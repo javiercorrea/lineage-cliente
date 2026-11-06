@@ -45,6 +45,7 @@ bool cargar_recursos(App& a) {
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
     cargar_sonidos(a);
+    preparar_luz(a);
     return true;
 }
 
@@ -124,7 +125,12 @@ void leer_entrada(App& a) {
                 texto_antes = e.ntexto;
                 break;
             case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
-            case SDLK_F3: a.depuracion = !a.depuracion; break;
+            case SDLK_F3:  // con Shift, el contador de fps
+                if (ev.key.mod & SDL_KMOD_SHIFT) {
+                    a.cfg.mostrar_fps = !a.cfg.mostrar_fps;
+                    guardar_config(a.cfg);
+                } else a.depuracion = !a.depuracion;
+                break;
             case SDLK_F2:  // UI simple (texto) o panel original
                 a.cfg.ui_simple = !a.cfg.ui_simple;
                 guardar_config(a.cfg);
