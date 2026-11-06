@@ -105,7 +105,9 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
     a.luz_mascara.assign(n, 0);
 
     const Bytes lmp = a.rec.sprite("source.lmp");
+    int suma_radios = 0;
     for (const App::LuzEnPantalla& l : a.luces) {
+        if ((suma_radios += l.radio) >= 700) break;  // tope del original; la luz propia va primera en la lista
         Mascara mk;
         if (!leer_mascara(lmp, l.radio, mk)) continue;
         estampar(a.luz_mascara, bw, bh, mk, static_cast<int>(std::lround(l.x / CELDA)),
@@ -113,7 +115,9 @@ void aplicar_oscuridad(App& a, int nivel, u32 color, int w, int h) {
     }
 
     a.luz_brillo.resize(n);
-    for (size_t i = 0; i < n; ++i) a.luz_brillo[i] = static_cast<u8>(brillo_lut(nivel, a.luz_mascara[i]) * 255 / 31);
+    u8 brillo[256];
+    for (int m = 0; m < 256; ++m) brillo[m] = static_cast<u8>(brillo_lut(nivel, m) * 255 / 31);
+    for (size_t i = 0; i < n; ++i) a.luz_brillo[i] = brillo[a.luz_mascara[i]];
     a.gpu.multiplicar_mundo(a.luz_brillo.data(), bw, bh, CELDA, color);
 }
 

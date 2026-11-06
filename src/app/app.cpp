@@ -125,7 +125,12 @@ void leer_entrada(App& a) {
                 texto_antes = e.ntexto;
                 break;
             case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
-            case SDLK_F3: a.depuracion = !a.depuracion; break;
+            case SDLK_F3:  // con Shift, el contador de fps
+                if (ev.key.mod & SDL_KMOD_SHIFT) {
+                    a.cfg.mostrar_fps = !a.cfg.mostrar_fps;
+                    guardar_config(a.cfg);
+                } else a.depuracion = !a.depuracion;
+                break;
             case SDLK_F2:  // UI simple (texto) o panel original
                 a.cfg.ui_simple = !a.cfg.ui_simple;
                 guardar_config(a.cfg);

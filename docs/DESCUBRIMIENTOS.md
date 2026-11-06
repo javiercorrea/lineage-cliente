@@ -192,6 +192,8 @@ El detalle, con las direcciones del binario, está en [PLAN_LUZ_AGUA.md](analisi
 - **`1416.img`, el agua, tiene 14 filas transparentes arriba:** toman el color de la primera con datos.
 - **Un NPC con luz cambia mucho la lectura de una captura:** para medir la noche, comparar el mismo lugar con `efecto_luz` en 0 y en 1, lejos de ellos.
 - **Se aparta del binario a propósito:** la amplitud de la ola es 6 px, no 3,75, porque casi no se notaba.
+- **Con este servidor, un objeto recibido casi nunca queda lejos de la vista:** manda objetos a 9 celdas en cada eje (432 px del centro), no a 12, y la vista no baja de 800×600 lógicos. Por eso una luz fuera de pantalla no se pudo provocar en una prueba; el margen propio de las luces importa con un servidor de mayor alcance.
+- **En `debug`, medir `brillo_lut` por celda engaña:** costaba 12 ms sin optimizar y 1 ms optimizado. Medir siempre también en `Release` con `-DLIN_CONTROL=ON`, en un directorio propio (el preset `release` no admite el control).
 
 ---
 

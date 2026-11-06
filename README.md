@@ -159,6 +159,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `ui_simple` | `1` simple interface, `0` original panel (F2) |
 | `camara_a_saltos` | `1` camera follows the walking frames, like the original (F4) |
 | `sombra_personajes` | Darken characters standing in a tree's shadow (Shift+F4) |
+| `mostrar_fps` | Show frames per second and milliseconds per frame in the top right corner (Shift+F3) |
 | `efecto_luz` | Dark nights and dungeons, with the light of characters, NPCs and items |
 | `efecto_agua_tinte`, `efecto_agua_ola` | Underwater blue tint and wave |
 | `efecto_infravision` | Green elf vision and dim dark elf vision |
@@ -191,6 +192,7 @@ title is shown as text.
   instances, draw calls, objects and position.
 - **F4:** camera, "smooth" (default: follows the continuous position, with the character centered) or
   "stepped" (like the original: follows the walking frames, a ¼ cell at a time).
+- **Shift+F3:** frames per second and milliseconds per frame in the top right corner, on or off.
 - **Shift+F4:** darken characters standing in a tree's shadow (default) or not.
 - **Shift+F12:** saves `captura.bmp`.
 - **Ctrl/⌘ + and Ctrl/⌘ −:** zoom in and out (integer scale; zooming out shows more map).
@@ -200,7 +202,7 @@ title is shown as text.
 - **Windows:** drag the title bar to move them (the position is saved). They look for a free spot when
   opened; if they overlap, a click brings one forward and only that one gets the mouse. They also open with
   buttons: those of the original panel, or the text ones to the right of the chat (simple interface).
-- **Options** has the interface, camera, shade, light and water effects, elf vision, window opacity, zoom, music and effects volume, and
+- **Options** has the interface, camera, shade, FPS counter, light and water effects, elf vision, window opacity, zoom, music and effects volume, and
   a "Reset" for window positions.
 - **Welcome text and server news at login:** wrapped to fit; the mouse wheel or Page Up / Page Down scrolls them.
 - **Esc:** at login, quits.

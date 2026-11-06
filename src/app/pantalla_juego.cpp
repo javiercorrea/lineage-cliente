@@ -323,7 +323,11 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         double fx, fy;
         posicion_interpolada(a.mundo, s, ahora, fx, fy);
         float sx = static_cast<float>(mundo_px(fx, fy) + ox), sy = static_cast<float>(mundo_py(fx, fy) + oy);
-        if (sx < -150 || sx > vi.w + 150 || sy < -150 || sy > vi.h + 150) continue;
+        const bool propio = o.ids()[s] == a.mundo.jugador.id;
+        const int radio_luz = radio_de_luz(propio, o.col<O_LUZ>()[s]);
+        auto fuera = [&](float mx, float my) { return sx < -mx || sx > vi.w + mx || sy < -my || sy > vi.h + my; };
+        // Una luz alcanza más lejos que el sprite: hasta ±312×±156 px (radio 14), desde los pies.
+        if (radio_luz > 0 ? fuera(360, 200) : fuera(150, 150)) continue;
         // El sprite se dibuja en (spr) y el frame suma el avance hasta (vis), donde se ve el cuerpo.
         double vis_x, vis_y;
         posicion_visible(a.mundo, s, ahora, vis_x, vis_y);
@@ -342,10 +346,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         // Diferencia vertical entre el cuerpo visible y la posición continua (para el nombre).
         float desfase_y = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - sy;
         // Los pies: el centro del rombo de la celda del cuerpo (el ancla del sprite es su esquina + (24, 12)).
-        const int radio_luz = radio_de_luz(o.ids()[s] == a.mundo.jugador.id, o.col<O_LUZ>()[s]);
-        if (radio_luz > 0)
+        if (radio_luz > 0) {
             a.luces.push_back({radio_luz, static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 24,
                                static_cast<float>(mundo_py(vis_x, vis_y) + oy) + 12});
+            if (propio) std::swap(a.luces.front(), a.luces.back());  // el corte de 700 no la apaga
+        }
+        if (fuera(150, 150)) continue;  // alumbra, pero no se dibuja
         u32 prof = profundidad(static_cast<float>(mundo_py(fx, fy)) + 12.0f, ORDEN_PERSONAJE, 4);
         GfxId gfx = o.col<O_GFX>()[s];
         const AccionVisible acc = elegir_accion(a, s, ahora);
@@ -387,7 +393,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
                 g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
             else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
-                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
+                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, 0xFFFFFFFEu), rgba(255, 255, 255, ALFA_SILUETA));  // bajo la lluvia, sobre el resto
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
@@ -1218,6 +1224,15 @@ void dibujar_depuracion(App& a) {
     g.texto_sombra(t, 4, 4, clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
 }
 
+// Contador de Shift+F3: el tiempo es el del frame completo; F3 da además el de la CPU.
+void dibujar_fps(App& a) {
+    if (a.fps <= 0) return;  // todavía no pasó el primer segundo de medición
+    char t[32];
+    const int n = std::snprintf(t, sizeof t, "%.0f fps  %.1f ms", a.fps, 1000.0f / a.fps);
+    a.g->texto_sombra(t, static_cast<float>(a.gpu.ancho() - ancho_texto(t, static_cast<size_t>(n)) - 6), 4,
+                      clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
+}
+
 // Cursor: círculo si un hechizo espera su objetivo; espada sobre un monstruo (o con Ctrl sobre otro
 // personaje o NPC, que es atacarlo); si no, la mano (también sobre la interfaz).
 void elegir_cursor(App& a) {
@@ -1370,6 +1385,7 @@ void frame_juego(App& a) {
     dibujar_ayuda_teclas(a);
     dibujar_muerte(a);
     dibujar_espectador(a);
+    if (a.cfg.mostrar_fps) dibujar_fps(a);
     a.gpu.nivel_ventana(0);
     if (a.depuracion) dibujar_depuracion(a);
 }

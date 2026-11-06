@@ -337,7 +337,7 @@ capturas reales de agua, de noche al aire libre y de elfo, para ajustar lo que n
 | Riesgo | Mitigación |
 |---|---|
 | **Portabilidad:** el shader solo existe en MSL (hoy también) | shaders mínimos, marcados con `MULTIPLATAFORMA`; la lógica está en CPU |
-| **Rendimiento** con muchas luces grandes | corte de 700 igual al original; se mide en la prueba 7 |
+| **Rendimiento** con muchas luces grandes | corte de 700 igual al original; la luz propia va primera para que no se apague. Medido en la prueba 8 (ver `ENTREGABLES.md`); el corte en sí no se llegó a provocar |
 | **La hora del servidor:** `S_GameTime` da segundos de juego, pero `4bad30` podría usar zona local | cambia el día del año como mucho en 1 y no se nota |
 | **El servidor y el cliente discrepan:** el servidor considera noche de 18 a 6 fijo; el original usa estaciones | es igual en el original; el cliente manda en lo visual |
 | **Se rompe el orden de dibujo** al mover la lluvia de capa | capturas de lluvia antes y después |

@@ -24,6 +24,7 @@ struct Config {
     int zoom = 0;                  // escala en el juego (píxeles reales por píxel lógico); 0 = automática
     bool camara_a_saltos = false;  // la cámara sigue los frames de caminar, como el original (F4)
     bool ui_simple = true;         // UI de texto (estilo ASCII) en el juego; false = panel original (F2)
+    bool mostrar_fps = false;      // fps y ms por frame en la esquina superior derecha (Shift+F3)
     bool sombra_personajes = true; // los personajes parados en la sombra de un árbol se oscurecen (Shift+F4)
     // Efectos de luz y agua (PLAN_LUZ_AGUA.md), todos activados por defecto: la noche y las mazmorras
     // oscuras (con las luces de los personajes), el tinte azul bajo el agua, la ola, y la visión de elfo
