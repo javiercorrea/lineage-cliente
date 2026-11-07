@@ -868,3 +868,39 @@ TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
 
     CHECK(tabla_opcodes("inexistente", t) == false);
 }
+
+TEST_CASE("S_BookmarkLoad (opcode 33, subtipo 42): todos los marcadores al entrar") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(4096);
+    std::vector<Evento> ev;
+    // c 33, c 42, c 105, c 0, c 2, 104 × c (índices de los marcadores, luego 0xff), c 100, c 0, c 2, c 0.
+    std::vector<u8> carga = {33, 42, 105, 0, 2};
+    for (int i = 0; i < 104; ++i) carga.push_back(i < 2 ? static_cast<u8>(i) : 0xff);
+    carga.insert(carga.end(), {100, 0, 2, 0});
+    // "Plaza" en (100, 200), mapa 4, marcador 0x10015307 (los h van en little-endian).
+    carga.insert(carga.end(), {100, 0, 200, 0, 'P', 'l', 'a', 'z', 'a', 0, 4, 0, 0x07, 0x53, 0x01, 0x10});
+    // "Casa" en (1, 2), mapa 0x40, marcador 5.
+    carga.insert(carga.end(), {1, 0, 2, 0, 'C', 'a', 's', 'a', 0, 0x40, 0, 5, 0, 0, 0});
+    REQUIRE(decodificar(carga, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::MARCADOR);
+    CHECK(ev[0].id == 0x10015307u);
+    CHECK(ev[0].v[MK_MAPA] == 4);
+    CHECK(ev[0].v[MK_X] == 100);
+    CHECK(ev[0].v[MK_Y] == 200);
+    CHECK(std::string(ev[0].s[0]) == "Plaza");
+    CHECK(ev[1].tipo == Ev::MARCADOR);
+    CHECK(ev[1].id == 5);
+    CHECK(ev[1].v[MK_MAPA] == 0x40);
+    CHECK(ev[1].v[MK_X] == 1);
+    CHECK(ev[1].v[MK_Y] == 2);
+    CHECK(std::string(ev[1].s[0]) == "Casa");
+    // Sin marcadores: no hay eventos y el resto del paquete no se interpreta.
+    ev.clear();
+    std::vector<u8> vacio = {33, 42, 105, 0, 2};
+    for (int i = 0; i < 104; ++i) vacio.push_back(0xff);
+    vacio.insert(vacio.end(), {100, 0, 0, 0});
+    REQUIRE(decodificar(vacio, t, arena, ev));
+    CHECK(ev.empty());
+}
