@@ -14,7 +14,7 @@ namespace lin {
 namespace {
 
 constexpr int FILA = ALTO_GLIFO + 3;
-constexpr int LISTA_X = 14, LISTA_Y = 30, LISTA_FILAS = 17;
+constexpr int LISTA_X = 14, LISTA_Y = 30, LISTA_FILAS = 14;  // 30 + 14 × 17 px + pie: dentro de los 304 px
 
 // Hechizos que sabe el personaje, en orden (para la ventana).
 int hechizos_sabidos(const App& a, u16* ids, int cap) {
@@ -436,6 +436,8 @@ void dibujar_hechizos(App& a) {
         a.hechizos_desplazamiento = static_cast<u32>(std::clamp<i64>(d, 0, max_desp));
     }
     a.hechizos_desplazamiento = std::min(a.hechizos_desplazamiento, max_desp);
+    ui::barra_scroll(g, e, a.barra_hechizos, x0 + ui::VENTANA_ANCHO - 12, y0 + LISTA_Y, 10, LISTA_FILAS * FILA,
+                     static_cast<u32>(n), LISTA_FILAS, a.hechizos_desplazamiento, clave_orden(CAPA_UI, 14));
     const u32 bajo = hechizo_bajo_puntero(a);
     for (int f = 0; f < LISTA_FILAS; ++f) {
         int i = static_cast<int>(a.hechizos_desplazamiento) + f;

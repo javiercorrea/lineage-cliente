@@ -134,6 +134,48 @@ bool ventana(Graficos& g, const EntradaFrame& e, bool simple, int x, int y, std:
     return e.clic && sobre(e, x + w - 28, y + 2, 26, 20);
 }
 
+bool barra_scroll(Graficos& g, const EntradaFrame& e, BarraScroll& st, int x, int y, int ancho, int alto, u32 total,
+                  u32 visibles, u32& pos, u64 clave) {
+    if (total <= visibles) {
+        st = {};
+        pos = 0;
+        return false;
+    }
+    const u32 max = total - visibles;
+    const u32 antes = std::min(pos, max);
+    u32 p = antes;
+    const int flecha = ancho, pista_y = y + flecha, pista_h = alto - 2 * flecha;
+    const int pulgar_h = std::max(ancho, pista_h * static_cast<int>(visibles) / static_cast<int>(total));
+    const int libre = pista_h - pulgar_h;
+    auto pulgar_en = [&](u32 q) {
+        return pista_y + static_cast<int>(max ? static_cast<i64>(libre) * q / max : 0);
+    };
+    if (boton_texto(g, e, "^", x, y, ancho, flecha) && p > 0) --p;
+    if (boton_texto(g, e, "v", x, y + alto - flecha, ancho, flecha) && p < max) ++p;
+    const int pulgar_y = pulgar_en(p);
+    const bool en_pulgar = sobre(e, x, pulgar_y, ancho, pulgar_h);
+    if (e.pulsado && en_pulgar) {
+        st.arrastrando = true;
+        st.agarre = e.my - pulgar_y;
+    } else if (e.pulsado && sobre(e, x, pista_y, ancho, pista_h)) {  // clic en la pista: una página
+        p = e.my < pulgar_y ? (p > visibles ? p - visibles : 0) : std::min(p + visibles, max);
+    }
+    if (st.arrastrando) {
+        if (!e.presionado) {
+            st.arrastrando = false;
+        } else if (libre > 0) {
+            const i64 t = static_cast<i64>(e.my - st.agarre - pista_y);
+            p = static_cast<u32>(std::clamp<i64>(t * max / libre, 0, max));
+        }
+    }
+    g.gpu().rectangulo(x, pista_y, ancho, pista_h, clave, rgba(20, 16, 12, 230));
+    const bool activo = st.arrastrando || en_pulgar;
+    g.gpu().rectangulo(x, pulgar_en(p), ancho, pulgar_h, clave + (1ull << 24),
+                       activo ? rgba(200, 170, 110, 255) : rgba(130, 108, 72, 255));
+    pos = p;
+    return p != antes;
+}
+
 BotonesBarra botones_barra(int ancho) {
     constexpr int LADO = 18, M = 4;
 #ifdef __APPLE__

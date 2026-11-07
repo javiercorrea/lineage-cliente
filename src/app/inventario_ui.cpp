@@ -114,6 +114,8 @@ void dibujar_inventario(App& a) {
     }
     a.inventario_desplazamiento = std::min(a.inventario_desplazamiento, max_desp);
 
+    ui::barra_scroll(g, e, a.barra_inventario, x0 + GRILLA_X + COLUMNAS * CELDA + 2, y0 + GRILLA_Y, 10, FILAS * CELDA,
+                     filas_total, FILAS, a.inventario_desplazamiento, clave_orden(CAPA_UI, 14));
     const u64 kf = clave_orden(CAPA_UI, 12), ki = clave_orden(CAPA_UI, 13), kt = clave_orden(CAPA_UI_TEXTO, 12);
     const int bajo = celda_bajo_puntero(a, x0, y0);
     const size_t primero = static_cast<size_t>(a.inventario_desplazamiento) * COLUMNAS;

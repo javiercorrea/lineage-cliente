@@ -161,6 +161,12 @@ struct ElegirDestino {
     bool abierto = false;
     ObjId item = 0;   // pergamino de teleport, o 0 si es el hechizo
     u32 hechizo = 0;  // Teleport o Mass Teleport
+    // Ventana: posición (x < 0: centrada), arrastre por el título y scroll de la lista.
+    int x = -1, y = 60;
+    bool arrastrando = false;
+    int dx = 0, dy = 0;
+    u32 desplaza = 0;
+    ui::BarraScroll barra;
 };
 
 // Reiniciar atributos (reinicio_ui.cpp): S_CharReset / C_CharReset, con la Candle of Reminiscence.
@@ -308,6 +314,7 @@ struct App {
     // (hechizo_apuntando) y después se camina hasta tenerlo en alcance (hechizo_pendiente).
     bool ventana_hechizos = false;
     u32 hechizos_desplazamiento = 0;  // filas
+    ui::BarraScroll barra_hechizos;   // barra de la lista de magias (hechizos_ui.cpp)
     int hechizos_pestana = 0;
     int teclas_f_x = 0, teclas_f_y = -1;  // panel original: casilleros F5–F12 (-1 = no se dibujan)         // ventana original: nivel 1..10 (0..9) o habilidades de clase (10)
     u32 hechizo_apuntando = 0;
@@ -409,6 +416,7 @@ struct App {
     // Inventario (Alt+I).
     bool ventana_inventario = false;
     u32 inventario_desplazamiento = 0;  // filas
+    ui::BarraScroll barra_inventario;   // barra de la grilla del inventario (inventario_ui.cpp)
     ObjId arrastrando = 0;              // ítem que se arrastra (para soltarlo al suelo)
     ObjId usar_sobre = 0;               // pergamino (identificar, encantar) esperando el clic en su objetivo
     ObjId ultimo_clic_item = 0;         // para el doble clic
