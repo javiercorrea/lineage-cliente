@@ -358,6 +358,13 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         const RangoAccion* r = acc.rango;
         float top = sy - 40;
         RegionAtlas rg;
+        bool rg_pendiente = false;
+        // pendiente() compara la dirección: se consulta sobre la referencia, antes de copiarla a rg.
+        auto pedir_frame = [&](u16 sub_pedido, u16 frame) {
+            const RegionAtlas& r = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub_pedido, frame);
+            rg_pendiente = g.pendiente(r);
+            rg = r;
+        };
         if (r) {
             bool termino = false;
             bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
@@ -370,10 +377,10 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (sombra >= 0)
                 g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(sombra), sub, f->frame), px, py,
                                    clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
-            rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub, f->frame);
+            pedir_frame(sub, f->frame);
         } else {
             // Sin acciones en la tabla (los ítems del suelo, por ejemplo): el primer frame de N-0.spr.
-            rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), 0, 0);
+            pedir_frame(0, 0);
         }
         bool bajo_puntero = false;
         if (rg.valida()) {
@@ -403,7 +410,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             // el sprite todavía se carga (o el atlas no tiene lugar); magenta si de verdad falta.
             const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
             const float x1 = x0 + 24, y1 = y0 + 36;
-            const u32 color_marca = g.pendiente(rg) ? rgba(60, 220, 90, 170) : rgba(255, 0, 255, 170);
+            const u32 color_marca = rg_pendiente ? rgba(60, 220, 90, 170) : rgba(255, 0, 255, 170);
             g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), color_marca);
             top = y0;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;

@@ -37,7 +37,8 @@ public:
     // Frame de sprite ya compuesto: archivo "<gfx>-<sub>.spr", frame.
     const RegionAtlas& frame_sprite(GfxId gfx_archivos, u16 sub, u16 frame);
     // La región que se devolvió porque el dato todavía no está (se está cargando, o el atlas no tiene
-    // lugar este frame): no es un fallo, se pide de nuevo el frame siguiente. Ver `pendiente_`.
+    // lugar este frame): no es un fallo, se pide de nuevo el frame siguiente. Compara la dirección:
+    // hay que pasarle la referencia devuelta, no una copia.
     bool pendiente(const RegionAtlas& r) const { return &r == &pendiente_; }
     const RegionAtlas& glifo(u32 g);
     // Ícono de inventario N.tbt (N = gfx de inventario del ítem).
