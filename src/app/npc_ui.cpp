@@ -273,6 +273,8 @@ void dibujar_tienda(App& a, int x0, int y0) {
         if (encima && e.clic) f.elegido = std::min(f.maximo, f.elegido + (e.shift ? (f.maximo > 10 ? 10u : f.maximo) : 1u));
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
     }
+    ui::barra_scroll(g, e, a.barra_tienda, x0 + ui::VENTANA_ANCHO - 12, y0 + ARRIBA, 10, FILAS_TIENDA * FILA_TIENDA,
+                     static_cast<u32>(n), FILAS_TIENDA, a.tienda_desplazamiento, clave_orden(CAPA_UI, 14));
     const int yp = y0 + ARRIBA + FILAS_TIENDA * FILA_TIENDA + 4;
     char pie[96];
     const u64 t = total(a);

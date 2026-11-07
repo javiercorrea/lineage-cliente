@@ -79,6 +79,9 @@ struct TiendaJugadores {
     bool armando = false, abierta = false;  // la propia
     std::string titulo;
     std::vector<cmd::LineaTienda> venta;
+    // Scroll: la tienda que se mira (`lineas`) y la propia (`venta`).
+    u32 desplaza_vista = 0, desplaza_venta = 0;
+    ui::BarraScroll barra_vista, barra_venta;
 };
 
 // Tablón de los pueblos (tablon_ui.cpp): la página de temas, el que se lee y lo que se escribe.
@@ -361,6 +364,7 @@ struct App {
     ObjId tienda_npc = 0;
     std::vector<FilaTienda> tienda_filas;
     u32 tienda_desplazamiento = 0;
+    ui::BarraScroll barra_tienda;  // barra de la lista de la tienda del NPC (npc_ui.cpp)
     bool hablar_objetivo = false;  // a.objetivo es un NPC al que se camina para hablarle
     bool objetivo_fijo = false;    // elegido al apretar el botón: se mantiene aunque el puntero ya no esté encima
     bool ataque_sostenido = false; // tecla A: se sigue atacando al objetivo sin mantener el botón
