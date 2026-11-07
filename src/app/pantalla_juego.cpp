@@ -399,11 +399,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
             if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
         } else {
-            // Sin sprite: si todavía se está cargando, no se dibuja nada (un frame o dos); si el sprite de
-            // verdad falta, un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
+            // Sin sprite: un bloque del tamaño de un cuerpo, que se puede elegir con el clic. Verde mientras
+            // el sprite todavía se carga (o el atlas no tiene lugar); magenta si de verdad falta.
             const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
             const float x1 = x0 + 24, y1 = y0 + 36;
-            if (!g.pendiente(rg)) g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
+            const u32 color_marca = g.pendiente(rg) ? rgba(60, 220, 90, 170) : rgba(255, 0, 255, 170);
+            g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), color_marca);
             top = y0;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
             if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
