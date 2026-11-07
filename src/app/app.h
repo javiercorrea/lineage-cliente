@@ -338,7 +338,12 @@ struct App {
     bool ventana_forma = false;
     ObjId forma_item = 0;             // pergamino usado; 0 = Shape Change (se responde con C_NPCAction)
     std::string forma_texto;
-    std::vector<std::string> formas;  // nombres de polymorph.tbl (sugerencias)
+    // Sugerencias de polymorph: datos/formas.txt (nivel y nombre, por nivel; herramientas/generar_formas.py).
+    struct Forma {
+        int nivel = 0;  // 0 si vino de polymorph.tbl, que no trae nivel
+        std::string nombre;
+    };
+    std::vector<Forma> formas;
     // NPC (npc_ui.cpp): diálogo con la página HTML, y tienda o almacén en la misma ventana.
     ObjId npc = 0;
     std::string npc_pagina, npc_datos;

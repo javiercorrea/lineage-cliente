@@ -5,8 +5,12 @@
 // Como en el original, se escribe el nombre del monstruo (en inglés, como en PolyTable del
 // servidor). Abajo se sugieren los de polymorph.tbl del cliente que contienen lo escrito; clic en
 // uno lo elige. "none" (botón Undo) vuelve a la forma normal.
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include "app/app.h"
+#include <SDL3/SDL.h>
 
 namespace lin {
 
@@ -37,16 +41,28 @@ void elegir(App& a, std::string_view nombre) {
 }  // namespace
 
 bool cargar_formas(App& a) {
+    a.formas.clear();
+    // datos/formas.txt: "<nivel><TAB><nombre>" por línea, ya ordenado por nivel.
+    const char* base = SDL_GetBasePath();
+    std::ifstream in(std::string(base ? base : "") + "datos/formas.txt");
+    if (!in) in.open("datos/formas.txt");
+    for (std::string linea; std::getline(in, linea);) {
+        const size_t tab = linea.find('\t');
+        if (tab == std::string::npos) continue;
+        if (!linea.empty() && linea.back() == '\r') linea.pop_back();
+        a.formas.push_back({std::atoi(linea.substr(0, tab).c_str()), linea.substr(tab + 1)});
+    }
+    if (!a.formas.empty()) return true;
+    // Sin datos/formas.txt: los nombres de polymorph.tbl del juego, sin nivel.
     // polymorph.tbl: cantidad y luego "<gfx> <n> \"<nombre>\" ; <nombre coreano>".
     std::vector<u8> d;
     if (!a.rec.texto("polymorph.tbl", d)) return false;
     std::string_view t(reinterpret_cast<const char*>(d.data()), d.size());
-    a.formas.clear();
     size_t p = 0;
     while ((p = t.find('"', p)) != std::string_view::npos) {
         size_t q = t.find('"', p + 1);
         if (q == std::string_view::npos) break;
-        a.formas.emplace_back(t.substr(p + 1, q - p - 1));
+        a.formas.push_back({0, std::string(t.substr(p + 1, q - p - 1))});
         p = t.find('\n', q);
         if (p == std::string_view::npos) break;
     }
@@ -79,12 +95,16 @@ void dibujar_forma(App& a) {
 
     // Sugerencias de polymorph.tbl que contienen lo escrito.
     int y = y0 + 50, mostradas = 0;
-    for (const std::string& f : a.formas) {
-        if (mostradas == SUGERENCIAS || !contiene(f, a.forma_texto)) continue;
+    for (const App::Forma& f : a.formas) {
+        if (mostradas == SUGERENCIAS || !contiene(f.nombre, a.forma_texto)) continue;
         bool encima = ui::sobre(e, x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2);
         if (encima) g.gpu().rectangulo(x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2, kf + (1u << 24), rgba(60, 50, 35, 255));
-        g.texto(f, static_cast<float>(x0 + 14), static_cast<float>(y), kt, rgba(200, 220, 255));
-        if (encima && e.clic) a.forma_texto = f;
+        // Con su nivel, que es el orden de la lista: "Lv 52  death knight". Sin nivel, solo el nombre.
+        char etiqueta[96];
+        if (f.nivel > 0) std::snprintf(etiqueta, sizeof etiqueta, "Lv %d  %s", f.nivel, f.nombre.c_str());
+        else std::snprintf(etiqueta, sizeof etiqueta, "%s", f.nombre.c_str());
+        g.texto(etiqueta, static_cast<float>(x0 + 14), static_cast<float>(y), kt, rgba(200, 220, 255));
+        if (encima && e.clic) a.forma_texto = f.nombre;
         y += ALTO_GLIFO + 2;
         ++mostradas;
     }
