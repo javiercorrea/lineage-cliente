@@ -175,6 +175,7 @@ bool* ventana(App& a, std::string_view n) {
     if (n == "estado") return &a.ventana_estado;
     if (n == "hechizos") return &a.ventana_hechizos;
     if (n == "opciones") return &a.ventana_opciones;
+    if (n == "forma") return &a.ventana_forma;
     if (n == "social") return &a.ventana_social;
     if (n == "salida") return &a.ventana_salida;
     if (n == "teclas") return &a.ayuda_teclas;

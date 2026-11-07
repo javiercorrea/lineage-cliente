@@ -110,8 +110,10 @@ void dibujar_destino(App& a) {
         d.dy = e.my - y;
     }
     if (d.arrastrando) {
+        a.clic_consumido = true;  // no camina aunque el puntero salga de la ventana
         if (!e.presionado) {
             d.arrastrando = false;
+            e.clic = false;  // pegada al borde de la pantalla, soltar podría caer sobre una fila
         } else {
             x = std::clamp(e.mx - d.dx, 0, std::max(0, a.gpu.ancho() - ANCHO));
             y = std::clamp(e.my - d.dy, 0, std::max(0, a.gpu.alto() - alto));
@@ -128,11 +130,8 @@ void dibujar_destino(App& a) {
     // Filas: el marcador o "Random" al final. La rueda sobre la ventana las recorre.
     const u32 total = static_cast<u32>(a.marcadores.size()) + 1;
     const int ry = y + TITULO + 4, rancho = ANCHO - 8 - 24;
-    if (ui::sobre(e, x, y, ANCHO, alto) && e.rueda) {
-        const u32 max = total > FILAS_VISIBLES ? total - FILAS_VISIBLES : 0;
-        const i64 n = static_cast<i64>(d.desplaza) - e.rueda;
-        d.desplaza = static_cast<u32>(std::clamp<i64>(n, 0, max));
-    }
+    barra_scroll_ventana(a, d.barra, x + ANCHO - 14, ry, FILAS_VISIBLES * FILA, total, FILAS_VISIBLES, d.desplaza,
+                         clave_orden(CAPA_UI, 4), sobre_destino(a));
     const Marcador* elegido = nullptr;
     bool azar = false, borrado = false;
     for (int f = 0; f < FILAS_VISIBLES; ++f) {
@@ -156,8 +155,6 @@ void dibujar_destino(App& a) {
             break;
         }
     }
-    ui::barra_scroll(g, e, d.barra, x + ANCHO - 14, ry, 10, FILAS_VISIBLES * FILA, total, FILAS_VISIBLES, d.desplaza,
-                     clave_orden(CAPA_UI, 4));
 
     const bool cancelar = e.escape || (e.clic_derecho && !borrado) || cerrar_boton;
     e.escape = false;

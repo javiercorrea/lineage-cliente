@@ -224,12 +224,8 @@ void dibujar_tienda(App& a, int x0, int y0) {
     const EntradaFrame& e = a.entrada;
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 12), kf = clave_orden(CAPA_UI, 12), ki = clave_orden(CAPA_UI, 13);
     const int n = static_cast<int>(a.tienda_filas.size());
-    const u32 max_desp = n > FILAS_TIENDA ? static_cast<u32>(n - FILAS_TIENDA) : 0;
-    if (sobre_npc(a) && e.rueda) {
-        i64 d = static_cast<i64>(a.tienda_desplazamiento) - e.rueda;
-        a.tienda_desplazamiento = static_cast<u32>(std::clamp<i64>(d, 0, max_desp));
-    }
-    a.tienda_desplazamiento = std::min(a.tienda_desplazamiento, max_desp);
+    barra_scroll_ventana(a, a.scroll.tienda, x0 + ui::VENTANA_ANCHO - 12, y0 + ARRIBA, FILAS_TIENDA * FILA_TIENDA,
+                         static_cast<u32>(n), FILAS_TIENDA, a.tienda_desplazamiento, clave_orden(CAPA_UI, 14), sobre_npc(a));
     char buf[256];
     for (int k = 0; k < FILAS_TIENDA; ++k) {
         int i = static_cast<int>(a.tienda_desplazamiento) + k;
@@ -273,8 +269,6 @@ void dibujar_tienda(App& a, int x0, int y0) {
         if (encima && e.clic) f.elegido = std::min(f.maximo, f.elegido + (e.shift ? (f.maximo > 10 ? 10u : f.maximo) : 1u));
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
     }
-    ui::barra_scroll(g, e, a.barra_tienda, x0 + ui::VENTANA_ANCHO - 12, y0 + ARRIBA, 10, FILAS_TIENDA * FILA_TIENDA,
-                     static_cast<u32>(n), FILAS_TIENDA, a.tienda_desplazamiento, clave_orden(CAPA_UI, 14));
     const int yp = y0 + ARRIBA + FILAS_TIENDA * FILA_TIENDA + 4;
     char pie[96];
     const u64 t = total(a);

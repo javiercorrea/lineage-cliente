@@ -16,7 +16,7 @@ namespace lin {
 
 namespace {
 
-constexpr int ANCHO = 280, ALTO = 214, SUGERENCIAS = 9;
+constexpr int ANCHO = 280, ALTO = 226, SUGERENCIAS = 9;
 constexpr size_t MAX_NOMBRE = 40;
 
 bool contiene(std::string_view t, std::string_view buscado) {
@@ -54,6 +54,7 @@ bool cargar_formas(App& a) {
     }
     if (!a.formas.empty()) return true;
     // Sin datos/formas.txt: los nombres de polymorph.tbl del juego, sin nivel.
+    LIN_LOG("Aviso: no se encontró datos/formas.txt: la lista de polymorph sale de polymorph.tbl, sin niveles");
     // polymorph.tbl: cantidad y luego "<gfx> <n> \"<nombre>\" ; <nombre coreano>".
     std::vector<u8> d;
     if (!a.rec.texto("polymorph.tbl", d)) return false;
@@ -73,6 +74,7 @@ void abrir_forma(App& a, ObjId pergamino) {
     a.ventana_forma = true;
     a.forma_item = pergamino;
     a.forma_texto.clear();
+    a.scroll.forma_pos = UINT32_MAX;  // la barra lo acota: abre en las formas de más nivel
 }
 
 void eventos_forma(App& a, const Evento& e) {
@@ -93,20 +95,34 @@ void dibujar_forma(App& a) {
     g.gpu().rectangulo(x0 + 10, y0 + 26, ANCHO - 20, ALTO_GLIFO + 6, kf + (1u << 24), rgba(40, 32, 25, 255));
     bool enter = ui::caja_texto(g, e, a.forma_texto, x0 + 14, y0 + 29, ANCHO - 28, true, false, MAX_NOMBRE);
 
-    // Sugerencias de polymorph.tbl que contienen lo escrito.
-    int y = y0 + 50, mostradas = 0;
+    // Sugerencias: las que contienen lo escrito y el nivel permite (L1PolyScroll: min_level <= nivel; un
+    // GM puede escribir cualquier otra). Van por nivel; al cambiar lo escrito se ven las de más nivel.
+    const int nivel = a.mundo.jugador.nivel;
+    auto disponible = [&](const App::Forma& f) { return f.nivel <= nivel && contiene(f.nombre, a.forma_texto); };
+    u32 total = 0;
+    for (const App::Forma& f : a.formas)
+        if (disponible(f)) ++total;
+    if (a.scroll.forma_filtro != a.forma_texto) {
+        a.scroll.forma_filtro = a.forma_texto;
+        a.scroll.forma_pos = UINT32_MAX;
+    }
+    const int alto_fila = ALTO_GLIFO + 2;
+    barra_scroll_ventana(a, a.scroll.forma, x0 + ANCHO - 22, y0 + 50, SUGERENCIAS * alto_fila, total, SUGERENCIAS,
+                         a.scroll.forma_pos, kf + (2u << 24), sobre_forma(a));
+    u32 indice = 0;
     for (const App::Forma& f : a.formas) {
-        if (mostradas == SUGERENCIAS || !contiene(f.nombre, a.forma_texto)) continue;
-        bool encima = ui::sobre(e, x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2);
-        if (encima) g.gpu().rectangulo(x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2, kf + (1u << 24), rgba(60, 50, 35, 255));
+        if (!disponible(f)) continue;
+        const u32 k = indice++;
+        if (k < a.scroll.forma_pos || k >= a.scroll.forma_pos + SUGERENCIAS) continue;
+        const int y = y0 + 50 + static_cast<int>(k - a.scroll.forma_pos) * alto_fila;
+        bool encima = ui::sobre(e, x0 + 10, y - 1, ANCHO - 36, alto_fila);
+        if (encima) g.gpu().rectangulo(x0 + 10, y - 1, ANCHO - 36, alto_fila, kf + (1u << 24), rgba(60, 50, 35, 255));
         // Con su nivel, que es el orden de la lista: "Lv 52  death knight". Sin nivel, solo el nombre.
         char etiqueta[96];
         if (f.nivel > 0) std::snprintf(etiqueta, sizeof etiqueta, "Lv %d  %s", f.nivel, f.nombre.c_str());
         else std::snprintf(etiqueta, sizeof etiqueta, "%s", f.nombre.c_str());
         g.texto(etiqueta, static_cast<float>(x0 + 14), static_cast<float>(y), kt, rgba(200, 220, 255));
         if (encima && e.clic) a.forma_texto = f.nombre;
-        y += ALTO_GLIFO + 2;
-        ++mostradas;
     }
     const int yb = y0 + ALTO - 26;
     bool ok = ui::boton_texto(g, e, "OK", x0 + 10, yb, 80, 18);

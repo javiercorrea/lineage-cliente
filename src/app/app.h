@@ -160,6 +160,15 @@ struct Marcador {
     u16 mapa = 0, x = 0, y = 0;
     std::string nombre;
 };
+// Barras de scroll de las ventanas que no tienen un struct propio (ver barra_scroll_ventana).
+struct ScrollVentanas {
+    ui::BarraScroll hechizos, inventario, tienda, opciones, forma;
+    u32 opciones_pos = 0;    // primera fila visible de Opciones
+    u32 opciones_filas = 0;  // filas de Opciones en el frame anterior: la barra va antes de las filas
+    u32 forma_pos = 0;       // primera sugerencia visible de polymorph
+    std::string forma_filtro;  // lo escrito la última vez: al cambiar, la lista va a los niveles más altos
+};
+
 struct ElegirDestino {
     bool abierto = false;
     ObjId item = 0;   // pergamino de teleport, o 0 si es el hechizo
@@ -317,7 +326,6 @@ struct App {
     // (hechizo_apuntando) y después se camina hasta tenerlo en alcance (hechizo_pendiente).
     bool ventana_hechizos = false;
     u32 hechizos_desplazamiento = 0;  // filas
-    ui::BarraScroll barra_hechizos;   // barra de la lista de magias (hechizos_ui.cpp)
     int hechizos_pestana = 0;
     int teclas_f_x = 0, teclas_f_y = -1;  // panel original: casilleros F5–F12 (-1 = no se dibujan)         // ventana original: nivel 1..10 (0..9) o habilidades de clase (10)
     u32 hechizo_apuntando = 0;
@@ -364,7 +372,6 @@ struct App {
     ObjId tienda_npc = 0;
     std::vector<FilaTienda> tienda_filas;
     u32 tienda_desplazamiento = 0;
-    ui::BarraScroll barra_tienda;  // barra de la lista de la tienda del NPC (npc_ui.cpp)
     bool hablar_objetivo = false;  // a.objetivo es un NPC al que se camina para hablarle
     bool objetivo_fijo = false;    // elegido al apretar el botón: se mantiene aunque el puntero ya no esté encima
     bool ataque_sostenido = false; // tecla A: se sigue atacando al objetivo sin mantener el botón
@@ -401,9 +408,7 @@ struct App {
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
-    u32 opciones_desplazamiento = 0;  // primera fila visible de Opciones (ventanas.cpp)
-    u32 opciones_filas = 0;           // filas de Opciones en el frame anterior (para el tope del scroll)
-    ui::BarraScroll barra_opciones;
+    ScrollVentanas scroll;
     bool ventana_salida = false;  // Restart / Quit
     // Texto de combate flotante sobre el personaje (daño recibido / "Miss"), si cfg.texto_dano.
     struct TextoCombate { char t[12]; u64 t0; u8 r, g, b; };
@@ -423,7 +428,6 @@ struct App {
     // Inventario (Alt+I).
     bool ventana_inventario = false;
     u32 inventario_desplazamiento = 0;  // filas
-    ui::BarraScroll barra_inventario;   // barra de la grilla del inventario (inventario_ui.cpp)
     ObjId arrastrando = 0;              // ítem que se arrastra (para soltarlo al suelo)
     ObjId usar_sobre = 0;               // pergamino (identificar, encantar) esperando el clic en su objetivo
     ObjId ultimo_clic_item = 0;         // para el doble clic
@@ -459,6 +463,9 @@ const char* nombre_clase(int clase);
 
 // Ventanas (ventanas.cpp).
 Rect rect_ventana(const App& a, IdVentana v);
+// ui::barra_scroll y, mientras se la usa, sin caminar aunque el puntero salga de la ventana.
+void barra_scroll_ventana(App& a, ui::BarraScroll& st, int x, int y, int alto, u32 total, u32 visibles, u32& pos,
+                          u64 clave, bool sobre_lista);
 bool sobre_ventana(const App& a, IdVentana v);  // abierta, con el puntero encima y sin otra ventana encima
 bool sobre_alguna_ventana(const App& a);
 // Al dibujar cada ventana, antes que nada: arrastrarla por la barra de título.

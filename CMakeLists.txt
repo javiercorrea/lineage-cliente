@@ -37,6 +37,8 @@ endif()
 
 # datos/ (tabla de sprites) junto a los ejecutables
 file(COPY ${CMAKE_SOURCE_DIR}/datos DESTINATION ${CMAKE_BINARY_DIR})
+file(GLOB_RECURSE ARCHIVOS_DATOS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/datos/*)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARCHIVOS_DATOS})
 
 # --- Módulos (librerías estáticas). Solo plataforma, render y audio ven SDL3. -----------------------
 add_library(lin_core INTERFACE)

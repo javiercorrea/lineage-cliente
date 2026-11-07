@@ -2,7 +2,8 @@
 
 Uso: python3 herramientas/generar_formas.py [polymorphs.csv]. Por defecto lee la tabla de polymorph del
 servidor local (servidor_local/l1j-jp/db/csv/ja/polymorphs.csv, la que carga instalar.sh). Los nombres
-son los que el servidor busca al elegir la forma, tal cual (en minúsculas, como en su tabla).
+son los que el servidor busca al elegir la forma, tal cual (en minúsculas, como en su tabla). Desde un
+worktree hay que pasar la ruta: servidor_local/l1j-jp no está en el repo ni se copia a los worktrees.
 """
 import csv
 import os

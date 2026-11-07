@@ -71,6 +71,8 @@ void eventos_tienda(App& a, const Evento& e) {
         if (t.vista == e.id) t.vista = 0;
         break;
     case Ev::TIENDA:
+        // Otra tienda u otra lista: desde arriba. La misma (tras una compra) conserva la posición.
+        if (t.vista != e.id || t.tipo != static_cast<u8>(e.v[TP_TIPO])) t.desplaza_vista = 0;
         t.vista = e.id;
         t.tipo = static_cast<u8>(e.v[TP_TIPO]);
         t.lineas.clear();
@@ -180,12 +182,8 @@ void dibujar_tienda(App& a) {
         if (t.lineas.empty()) g.texto("Nothing.", static_cast<float>(x + 12), static_cast<float>(y + 64), kt, ui::COLOR_TEXTO);
         // Las filas a la vista se recorren con la rueda o la barra; la barra va a la derecha.
         const u32 total = static_cast<u32>(t.lineas.size());
-        const u32 max = total > FILAS ? total - FILAS : 0;
-        if (e.rueda && sobre_tienda(a)) {
-            const i64 n = static_cast<i64>(t.desplaza_vista) - e.rueda;
-            t.desplaza_vista = static_cast<u32>(std::clamp<i64>(n, 0, max));
-        }
-        t.desplaza_vista = std::min(t.desplaza_vista, max);
+        barra_scroll_ventana(a, t.barra_vista, x + ANCHO - 12, y + 56, FILAS * FILA, total, FILAS, t.desplaza_vista,
+                             clave_orden(CAPA_UI, 82), sobre_tienda(a));
         for (u32 k = 0; k < FILAS && t.desplaza_vista + k < total; ++k) {
             const size_t i = t.desplaza_vista + k;
             const LineaTiendaVista& l = t.lineas[i];
@@ -203,8 +201,6 @@ void dibujar_tienda(App& a) {
                 else preguntar(a, 2, t.vista, l.mi_item, static_cast<i32>(l.cantidad), {nom, n}, "Sell how many?");
             }
         }
-        ui::barra_scroll(g, e, t.barra_vista, x + ANCHO - 12, y + 56, 10, FILAS * FILA, total, FILAS, t.desplaza_vista,
-                         clave_orden(CAPA_UI, 82));
         if (ui::boton_texto(g, e, "Close", x + ANCHO - 86, y + alto - 26, 76, 20) || e.escape) {
             t.vista = 0;
             e.escape = false;
@@ -218,12 +214,8 @@ void dibujar_tienda(App& a) {
     g.texto(t.abierta ? "Open. /shop again or Close to close it." : "Click an inventory item to sell it (asks the price).",
             static_cast<float>(x + 10), static_cast<float>(y + 30), kt, rgba(170, 160, 140));
     const u32 total = static_cast<u32>(t.venta.size());
-    const u32 max = total > FILAS ? total - FILAS : 0;
-    if (e.rueda && sobre_tienda(a)) {
-        const i64 n = static_cast<i64>(t.desplaza_venta) - e.rueda;
-        t.desplaza_venta = static_cast<u32>(std::clamp<i64>(n, 0, max));
-    }
-    t.desplaza_venta = std::min(t.desplaza_venta, max);
+    barra_scroll_ventana(a, t.barra_venta, x + ANCHO - 12, y + 56, FILAS * FILA_VENTA, total, FILAS, t.desplaza_venta,
+                         clave_orden(CAPA_UI, 82), sobre_tienda(a));
     int fy = y + 56;
     for (u32 k = 0; k < FILAS && t.desplaza_venta + k < total; ++k, fy += FILA_VENTA) {
         const size_t i = t.desplaza_venta + k;
@@ -237,8 +229,6 @@ void dibujar_tienda(App& a) {
             break;
         }
     }
-    ui::barra_scroll(g, e, t.barra_venta, x + ANCHO - 12, y + 56, 10, FILAS * FILA_VENTA, total, FILAS, t.desplaza_venta,
-                     clave_orden(CAPA_UI, 82));
     const int by = y + alto - 26;
     if (!t.abierta && !t.venta.empty() && ui::boton_texto(g, e, "Open", x + ANCHO - 170, by, 76, 20)) {
         enviar(a, cmd::abrir_tienda(a.op, t.venta, t.titulo));
