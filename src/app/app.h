@@ -397,6 +397,9 @@ struct App {
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
+    u32 opciones_desplazamiento = 0;  // primera fila visible de Opciones (ventanas.cpp)
+    u32 opciones_filas = 0;           // filas de Opciones en el frame anterior (para el tope del scroll)
+    ui::BarraScroll barra_opciones;
     bool ventana_salida = false;  // Restart / Quit
     // Texto de combate flotante sobre el personaje (daño recibido / "Miss"), si cfg.texto_dano.
     struct TextoCombate { char t[12]; u64 t0; u8 r, g, b; };
