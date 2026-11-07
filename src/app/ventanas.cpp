@@ -19,7 +19,7 @@ constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
 // Doce filas de ALTO_GLIFO + 12 px, más el título y el margen: 352 px. Con 276 (y luego 300) la última quedaba afuera.
-constexpr int ANCHO_OPCIONES = 280, ALTO_OPCIONES = 508;
+constexpr int ANCHO_OPCIONES = 320, ALTO_OPCIONES = 300;  // 10 filas a la vista; el resto, con scroll
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -166,6 +166,12 @@ Rect rect_ventana(const App& a, IdVentana v) {
 
 bool sobre_ventana(const App& a, IdVentana v) { return ventana_bajo_puntero(a) == indice(v); }
 
+void barra_scroll_ventana(App& a, ui::BarraScroll& st, int x, int y, int alto, u32 total, u32 visibles, u32& pos,
+                          u64 clave, bool sobre_lista) {
+    ui::barra_scroll(*a.g, a.entrada, st, x, y, 10, alto, total, visibles, pos, clave, sobre_lista);
+    if (st.presionada) a.clic_consumido = true;  // igual que al arrastrar una ventana: no camina
+}
+
 bool sobre_alguna_ventana(const App& a) { return ventana_bajo_puntero(a) >= 0; }
 
 void arrastrar_ventana(App& a, IdVentana v) {
@@ -286,15 +292,22 @@ void dibujar_opciones(App& a) {
     if (recuadro(a, r, "Options")) a.ventana_opciones = false;
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
 
-    // Una fila por opción: el nombre y un botón con el valor (clic lo cambia).
+    // Una fila por opción: el nombre y un botón con el valor (clic lo cambia). Las filas fuera de la
+    // parte visible no se dibujan ni reciben clics; la barra y la rueda recorren la lista.
     char t[48];
-    int y = r.y + ui::ALTO_TITULO + 8;
+    const int paso = ALTO_GLIFO + 12, top = r.y + ui::ALTO_TITULO + 8;
+    const u32 visibles = static_cast<u32>((r.h - ui::ALTO_TITULO - 8 - 6) / paso);
+    u32& primera = a.scroll.opciones_pos;
+    barra_scroll_ventana(a, a.scroll.opciones, r.x + r.w - 14, top, static_cast<int>(visibles) * paso, a.scroll.opciones_filas,
+                         visibles, primera, clave_orden(CAPA_UI, 14), sobre_ventana(a, IdVentana::OPCIONES));
+    u32 contador = 0;
     auto fila = [&](std::string_view nombre, std::string_view valor) {
+        const u32 k = contador++;
+        if (k < primera || k >= primera + visibles) return false;
+        const int y = top + static_cast<int>(k - primera) * paso;
         g.texto(nombre, static_cast<float>(r.x + 10), static_cast<float>(y + 3), kt, rgba(230, 220, 190));
         // El botón de valor tiene 120 px: "Enter to type" y sus parecidos no se salen; la etiqueta, a la izquierda.
-        bool clic = ui::boton_texto(g, e, valor, r.x + r.w - 130, y, 120, ALTO_GLIFO + 6);
-        y += ALTO_GLIFO + 12;
-        return clic;
+        return ui::boton_texto(g, e, valor, r.x + r.w - 140, y, 120, ALTO_GLIFO + 6);
     };
     bool cambio = false;
     if (fila("Interface (F2)", a.cfg.ui_simple ? "Simple" : "Original")) a.cfg.ui_simple = !a.cfg.ui_simple, cambio = true;
@@ -346,6 +359,7 @@ void dibujar_opciones(App& a) {
         a.cfg.ventanas.clear();
         cambio = true;
     }
+    a.scroll.opciones_filas = contador;
     if (cambio) guardar_config(a.cfg);
 }
 

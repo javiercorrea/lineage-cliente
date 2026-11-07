@@ -16,14 +16,15 @@ namespace lin {
 
 namespace {
 
-constexpr int ANCHO = 320, FILA = 36, FILAS = 8;
+constexpr int ANCHO = 320, FILA = 36, FILAS = 8;  // FILAS: filas a la vista (de la tienda mirada o la propia)
+constexpr int FILA_VENTA = ALTO_GLIFO + 6;
 
 int x_ventana(const App& a) { return (a.gpu.ancho() - ANCHO) / 2; }
 int y_ventana() { return 60; }
 int alto_ventana(const App& a) {
     const TiendaJugadores& t = a.tienda_pj;
-    const int filas = t.vista ? FILAS : std::max<int>(1, static_cast<int>(t.venta.size()));
-    return 64 + filas * (t.vista ? FILA : ALTO_GLIFO + 6) + 30;
+    const int filas = t.vista ? FILAS : std::clamp<int>(static_cast<int>(t.venta.size()), 1, FILAS);
+    return 64 + filas * (t.vista ? FILA : FILA_VENTA) + 30;
 }
 
 void quitar_vendedor(App& a, ObjId id) {
@@ -70,6 +71,8 @@ void eventos_tienda(App& a, const Evento& e) {
         if (t.vista == e.id) t.vista = 0;
         break;
     case Ev::TIENDA:
+        // Otra tienda u otra lista: desde arriba. La misma (tras una compra) conserva la posición.
+        if (t.vista != e.id || t.tipo != static_cast<u8>(e.v[TP_TIPO])) t.desplaza_vista = 0;
         t.vista = e.id;
         t.tipo = static_cast<u8>(e.v[TP_TIPO]);
         t.lineas.clear();
@@ -177,11 +180,16 @@ void dibujar_tienda(App& a) {
         g.texto(t.tipo == 0 ? "It sells:" : "It buys (your items):", static_cast<float>(x + 166), static_cast<float>(y + 31), kt,
                 rgba(170, 160, 140));
         if (t.lineas.empty()) g.texto("Nothing.", static_cast<float>(x + 12), static_cast<float>(y + 64), kt, ui::COLOR_TEXTO);
-        for (size_t i = 0; i < t.lineas.size() && i < FILAS; ++i) {
+        // Las filas a la vista se recorren con la rueda o la barra; la barra va a la derecha.
+        const u32 total = static_cast<u32>(t.lineas.size());
+        barra_scroll_ventana(a, t.barra_vista, x + ANCHO - 12, y + 56, FILAS * FILA, total, FILAS, t.desplaza_vista,
+                             clave_orden(CAPA_UI, 82), sobre_tienda(a));
+        for (u32 k = 0; k < FILAS && t.desplaza_vista + k < total; ++k) {
+            const size_t i = t.desplaza_vista + k;
             const LineaTiendaVista& l = t.lineas[i];
-            const int fy = y + 56 + static_cast<int>(i) * FILA;
-            const bool encima = ui::sobre(e, x + 8, fy, ANCHO - 16, FILA - 2);
-            g.gpu().rectangulo(x + 8, fy, ANCHO - 16, FILA - 2, clave_orden(CAPA_UI, 80), encima ? rgba(60, 50, 35, 230) : rgba(28, 24, 20, 230));
+            const int fy = y + 56 + static_cast<int>(k) * FILA;
+            const bool encima = ui::sobre(e, x + 8, fy, ANCHO - 26, FILA - 2);
+            g.gpu().rectangulo(x + 8, fy, ANCHO - 26, FILA - 2, clave_orden(CAPA_UI, 80), encima ? rgba(60, 50, 35, 230) : rgba(28, 24, 20, 230));
             if (l.gfx) g.gpu().dibujar(g.icono(l.gfx), x + 10, fy + 1, ki);
             char nom[256];
             const size_t n = expandir_desc(a.desc, l.nombre, nom, sizeof nom);
@@ -205,14 +213,18 @@ void dibujar_tienda(App& a) {
     g.texto(txt, static_cast<float>(x + 10), static_cast<float>(y + 8), kt, ui::COLOR_TITULO);
     g.texto(t.abierta ? "Open. /shop again or Close to close it." : "Click an inventory item to sell it (asks the price).",
             static_cast<float>(x + 10), static_cast<float>(y + 30), kt, rgba(170, 160, 140));
+    const u32 total = static_cast<u32>(t.venta.size());
+    barra_scroll_ventana(a, t.barra_venta, x + ANCHO - 12, y + 56, FILAS * FILA_VENTA, total, FILAS, t.desplaza_venta,
+                         clave_orden(CAPA_UI, 82), sobre_tienda(a));
     int fy = y + 56;
-    for (size_t i = 0; i < t.venta.size(); ++i, fy += ALTO_GLIFO + 6) {
+    for (u32 k = 0; k < FILAS && t.desplaza_venta + k < total; ++k, fy += FILA_VENTA) {
+        const size_t i = t.desplaza_venta + k;
         const Slot s = a.mundo.inventario.items.buscar(t.venta[i].item);
         char nom[256];
         const size_t n = s != SIN_SLOT ? expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), nom, sizeof nom) : 0;
         std::snprintf(txt, sizeof txt, "%.*s  - %u adena", static_cast<int>(n), nom, t.venta[i].precio);
         g.texto(txt, static_cast<float>(x + 12), static_cast<float>(fy), kt, ui::COLOR_TEXTO);
-        if (!t.abierta && ui::boton_texto(g, e, "x", x + ANCHO - 30, fy - 2, 20, ALTO_GLIFO + 4)) {
+        if (!t.abierta && ui::boton_texto(g, e, "x", x + ANCHO - 44, fy - 2, 20, ALTO_GLIFO + 4)) {
             t.venta.erase(t.venta.begin() + static_cast<std::ptrdiff_t>(i));
             break;
         }

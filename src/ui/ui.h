@@ -51,6 +51,20 @@ bool caja_texto(Graficos& g, const EntradaFrame& e, std::string& valor, int x, i
 // Botón de texto simple (para controles que el original no tiene como imagen).
 bool boton_texto(Graficos& g, const EntradaFrame& e, std::string_view t, int x, int y, int w, int h);
 
+// Barra de desplazamiento vertical: flechas arriba y abajo, pulgar que se arrastra y un clic en la
+// pista avanza una página; con `sobre_lista`, también la rueda. `pos` va de 0 a total - visibles.
+// Se llama ANTES de dibujar las filas: el clic que empieza en la barra es suyo hasta soltarlo (quita
+// `pulsado` y `clic` de `e`), así soltar el pulgar sobre una fila no la activa.
+struct BarraScroll {
+    bool presionada = false;   // el botón se apretó sobre la barra y sigue apretado
+    bool arrastrando = false;  // ... sobre el pulgar
+    bool movido = false;       // el puntero ya se movió: apretar sin mover no cambia la posición
+    int agarre = 0;            // distancia del puntero al borde superior del pulgar al empezar
+    int my0 = 0;               // y del puntero al empezar
+};
+void barra_scroll(Graficos& g, EntradaFrame& e, BarraScroll& st, int x, int y, int ancho, int alto, u32 total,
+                  u32 visibles, u32& pos, u64 clave, bool sobre_lista);
+
 // UI simple (login, selección y creación de personaje): recuadro oscuro con borde, y caja de
 // texto con fondo (como caja_texto; true con Enter). Colores de la UI simple del juego.
 constexpr u32 COLOR_FONDO_SIMPLE = 0xFF080A0Cu, COLOR_TITULO = 0xFF8CBED6u, COLOR_TEXTO = 0xFFFEFFFFu;

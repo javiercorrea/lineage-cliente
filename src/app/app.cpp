@@ -41,7 +41,7 @@ bool cargar_recursos(App& a) {
     if (!a.sprites.cargar_archivo(ruta) && !a.sprites.cargar_archivo("datos/sprite_table.txt"))
         LIN_LOG("Aviso: no se encontró datos/sprite_table.txt (los personajes no se animarán)");
     a.mundo.sprites = &a.sprites;
-    if (!cargar_formas(a)) LIN_LOG("Aviso: no se encontró polymorph.tbl (sugerencias de polymorph)");
+    if (!cargar_formas(a)) LIN_LOG("Aviso: no se encontró datos/formas.txt ni polymorph.tbl (sugerencias de polymorph)");
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
     cargar_sonidos(a);

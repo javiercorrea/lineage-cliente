@@ -79,6 +79,9 @@ struct TiendaJugadores {
     bool armando = false, abierta = false;  // la propia
     std::string titulo;
     std::vector<cmd::LineaTienda> venta;
+    // Scroll: la tienda que se mira (`lineas`) y la propia (`venta`).
+    u32 desplaza_vista = 0, desplaza_venta = 0;
+    ui::BarraScroll barra_vista, barra_venta;
 };
 
 // Tablón de los pueblos (tablon_ui.cpp): la página de temas, el que se lee y lo que se escribe.
@@ -157,10 +160,25 @@ struct Marcador {
     u16 mapa = 0, x = 0, y = 0;
     std::string nombre;
 };
+// Barras de scroll de las ventanas que no tienen un struct propio (ver barra_scroll_ventana).
+struct ScrollVentanas {
+    ui::BarraScroll hechizos, inventario, tienda, opciones, forma;
+    u32 opciones_pos = 0;    // primera fila visible de Opciones
+    u32 opciones_filas = 0;  // filas de Opciones en el frame anterior: la barra va antes de las filas
+    u32 forma_pos = 0;       // primera sugerencia visible de polymorph
+    std::string forma_filtro;  // lo escrito la última vez: al cambiar, la lista va a los niveles más altos
+};
+
 struct ElegirDestino {
     bool abierto = false;
     ObjId item = 0;   // pergamino de teleport, o 0 si es el hechizo
     u32 hechizo = 0;  // Teleport o Mass Teleport
+    // Ventana: posición (x < 0: centrada), arrastre por el título y scroll de la lista.
+    int x = -1, y = 60;
+    bool arrastrando = false;
+    int dx = 0, dy = 0;
+    u32 desplaza = 0;
+    ui::BarraScroll barra;
 };
 
 // Reiniciar atributos (reinicio_ui.cpp): S_CharReset / C_CharReset, con la Candle of Reminiscence.
@@ -338,7 +356,12 @@ struct App {
     bool ventana_forma = false;
     ObjId forma_item = 0;             // pergamino usado; 0 = Shape Change (se responde con C_NPCAction)
     std::string forma_texto;
-    std::vector<std::string> formas;  // nombres de polymorph.tbl (sugerencias)
+    // Sugerencias de polymorph: datos/formas.txt (nivel y nombre, por nivel; herramientas/generar_formas.py).
+    struct Forma {
+        int nivel = 0;  // 0 si vino de polymorph.tbl, que no trae nivel
+        std::string nombre;
+    };
+    std::vector<Forma> formas;
     // NPC (npc_ui.cpp): diálogo con la página HTML, y tienda o almacén en la misma ventana.
     ObjId npc = 0;
     std::string npc_pagina, npc_datos;
@@ -385,6 +408,7 @@ struct App {
     int ventana_arrastrada = -1;
     int arrastre_dx = 0, arrastre_dy = 0;
     bool ventana_opciones = false;
+    ScrollVentanas scroll;
     bool ventana_salida = false;  // Restart / Quit
     // Texto de combate flotante sobre el personaje (daño recibido / "Miss"), si cfg.texto_dano.
     struct TextoCombate { char t[12]; u64 t0; u8 r, g, b; };
@@ -439,6 +463,9 @@ const char* nombre_clase(int clase);
 
 // Ventanas (ventanas.cpp).
 Rect rect_ventana(const App& a, IdVentana v);
+// ui::barra_scroll y, mientras se la usa, sin caminar aunque el puntero salga de la ventana.
+void barra_scroll_ventana(App& a, ui::BarraScroll& st, int x, int y, int alto, u32 total, u32 visibles, u32& pos,
+                          u64 clave, bool sobre_lista);
 bool sobre_ventana(const App& a, IdVentana v);  // abierta, con el puntero encima y sin otra ventana encima
 bool sobre_alguna_ventana(const App& a);
 // Al dibujar cada ventana, antes que nada: arrastrarla por la barra de título.
