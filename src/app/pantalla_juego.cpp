@@ -1288,6 +1288,12 @@ void elegir_cursor(App& a) {
     ObjId id = objeto_bajo_puntero(a);
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
+    // Tienda de un jugador: un vendedor se ve como monstruo (sin acciones de sprite ni "^"), así que se
+    // mira antes.
+    if (vendedor(a, id)) {
+        a.cursor = Cursor::MONEDA;
+        return;
+    }
     u8 tipo = tipo_objeto(a, s);
     if ((tipo == TIPO_MONSTRUO && !mascota_sin_ctrl(a, s)) || (a.entrada.ctrl && tipo != TIPO_ITEM) ||
         (a.modo_pk && tipo == TIPO_PERSONAJE))
