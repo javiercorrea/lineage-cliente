@@ -331,6 +331,8 @@ void dibujar_opciones(App& a) {
         a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
     if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))
         a.cfg.texto_dano = !a.cfg.texto_dano, cambio = true;
+    if (fila("Speech balloons", a.cfg.globos_comic ? "Comic" : "Text"))
+        a.cfg.globos_comic = !a.cfg.globos_comic, cambio = true;
     if (fila("Attack compensation", a.cfg.compensar_ataque ? "On" : "Off"))
         a.cfg.compensar_ataque = !a.cfg.compensar_ataque, cambio = true;
     if (fila("Night and dungeons",a.cfg.efecto_luz ? "On" : "Off")) a.cfg.efecto_luz = !a.cfg.efecto_luz, cambio = true;

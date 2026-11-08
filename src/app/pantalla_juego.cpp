@@ -296,6 +296,25 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
         t.remove_prefix(c);
         while (!t.empty() && t[0] == ' ') t.remove_prefix(1);
     }
+    if (a.cfg.globos_comic) {  // recuadro blanco con borde y cola hacia la cabeza; texto oscuro
+        int ancho = 0;
+        for (int i = 0; i < n; ++i) ancho = std::max(ancho, ancho_texto(filas[i].data(), filas[i].size()));
+        const int x0 = static_cast<int>(centro_x) - ancho / 2 - 6, w = ancho + 12;
+        const int y0 = static_cast<int>(base_y) - 14 * n - 6, h = 14 * n + 8;
+        const u64 k = clave_orden(CAPA_EFECTOS, 1);
+        a.g->gpu().rectangulo(x0 - 1, y0 - 1, w + 2, h + 2, k, rgba(20, 20, 20, 255));
+        a.g->gpu().rectangulo(x0, y0, w, h, k + (1ull << 24), rgba(250, 248, 236, 235));
+        const int cx = static_cast<int>(centro_x);  // la cola: tres escalones bajo el recuadro
+        a.g->gpu().rectangulo(cx - 4, y0 + h, 8, 2, k, rgba(20, 20, 20, 255));
+        a.g->gpu().rectangulo(cx - 2, y0 + h + 2, 4, 2, k, rgba(20, 20, 20, 255));
+        a.g->gpu().rectangulo(cx - 4, y0 + h, 8, 1, k + (1ull << 24), rgba(250, 248, 236, 235));
+        for (int i = 0; i < n; ++i) {
+            int w_fila = ancho_texto(filas[i].data(), filas[i].size());
+            a.g->texto(filas[i], centro_x - w_fila / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
+                       rgba(20, 20, 20));
+        }
+        return;
+    }
     for (int i = 0; i < n; ++i) {
         int w = ancho_texto(filas[i].data(), filas[i].size());
         a.g->texto_sombra(filas[i], centro_x - w / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
