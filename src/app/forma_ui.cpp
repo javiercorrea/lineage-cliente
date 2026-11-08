@@ -5,14 +5,18 @@
 // Como en el original, se escribe el nombre del monstruo (en inglés, como en PolyTable del
 // servidor). Abajo se sugieren los de polymorph.tbl del cliente que contienen lo escrito; clic en
 // uno lo elige. "none" (botón Undo) vuelve a la forma normal.
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
+#include <fstream>
 #include "app/app.h"
+#include <SDL3/SDL.h>
 
 namespace lin {
 
 namespace {
 
-constexpr int ANCHO = 280, ALTO = 214, SUGERENCIAS = 9;
+constexpr int ANCHO = 280, ALTO = 226, SUGERENCIAS = 9;
 constexpr size_t MAX_NOMBRE = 40;
 
 bool contiene(std::string_view t, std::string_view buscado) {
@@ -37,16 +41,29 @@ void elegir(App& a, std::string_view nombre) {
 }  // namespace
 
 bool cargar_formas(App& a) {
+    a.formas.clear();
+    // datos/formas.txt: "<nivel><TAB><nombre>" por línea, ya ordenado por nivel.
+    const char* base = SDL_GetBasePath();
+    std::ifstream in(std::string(base ? base : "") + "datos/formas.txt");
+    if (!in) in.open("datos/formas.txt");
+    for (std::string linea; std::getline(in, linea);) {
+        const size_t tab = linea.find('\t');
+        if (tab == std::string::npos) continue;
+        if (!linea.empty() && linea.back() == '\r') linea.pop_back();
+        a.formas.push_back({std::atoi(linea.substr(0, tab).c_str()), linea.substr(tab + 1)});
+    }
+    if (!a.formas.empty()) return true;
+    // Sin datos/formas.txt: los nombres de polymorph.tbl del juego, sin nivel.
+    LIN_LOG("Aviso: no se encontró datos/formas.txt: la lista de polymorph sale de polymorph.tbl, sin niveles");
     // polymorph.tbl: cantidad y luego "<gfx> <n> \"<nombre>\" ; <nombre coreano>".
     std::vector<u8> d;
     if (!a.rec.texto("polymorph.tbl", d)) return false;
     std::string_view t(reinterpret_cast<const char*>(d.data()), d.size());
-    a.formas.clear();
     size_t p = 0;
     while ((p = t.find('"', p)) != std::string_view::npos) {
         size_t q = t.find('"', p + 1);
         if (q == std::string_view::npos) break;
-        a.formas.emplace_back(t.substr(p + 1, q - p - 1));
+        a.formas.push_back({0, std::string(t.substr(p + 1, q - p - 1))});
         p = t.find('\n', q);
         if (p == std::string_view::npos) break;
     }
@@ -57,6 +74,7 @@ void abrir_forma(App& a, ObjId pergamino) {
     a.ventana_forma = true;
     a.forma_item = pergamino;
     a.forma_texto.clear();
+    a.scroll.forma_pos = UINT32_MAX;  // la barra lo acota: abre en las formas de más nivel
 }
 
 void eventos_forma(App& a, const Evento& e) {
@@ -77,16 +95,34 @@ void dibujar_forma(App& a) {
     g.gpu().rectangulo(x0 + 10, y0 + 26, ANCHO - 20, ALTO_GLIFO + 6, kf + (1u << 24), rgba(40, 32, 25, 255));
     bool enter = ui::caja_texto(g, e, a.forma_texto, x0 + 14, y0 + 29, ANCHO - 28, true, false, MAX_NOMBRE);
 
-    // Sugerencias de polymorph.tbl que contienen lo escrito.
-    int y = y0 + 50, mostradas = 0;
-    for (const std::string& f : a.formas) {
-        if (mostradas == SUGERENCIAS || !contiene(f, a.forma_texto)) continue;
-        bool encima = ui::sobre(e, x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2);
-        if (encima) g.gpu().rectangulo(x0 + 10, y - 1, ANCHO - 20, ALTO_GLIFO + 2, kf + (1u << 24), rgba(60, 50, 35, 255));
-        g.texto(f, static_cast<float>(x0 + 14), static_cast<float>(y), kt, rgba(200, 220, 255));
-        if (encima && e.clic) a.forma_texto = f;
-        y += ALTO_GLIFO + 2;
-        ++mostradas;
+    // Sugerencias: las que contienen lo escrito y el nivel permite (L1PolyScroll: min_level <= nivel; un
+    // GM puede escribir cualquier otra). Van por nivel; al cambiar lo escrito se ven las de más nivel.
+    const int nivel = a.mundo.jugador.nivel;
+    auto disponible = [&](const App::Forma& f) { return f.nivel <= nivel && contiene(f.nombre, a.forma_texto); };
+    u32 total = 0;
+    for (const App::Forma& f : a.formas)
+        if (disponible(f)) ++total;
+    if (a.scroll.forma_filtro != a.forma_texto) {
+        a.scroll.forma_filtro = a.forma_texto;
+        a.scroll.forma_pos = UINT32_MAX;
+    }
+    const int alto_fila = ALTO_GLIFO + 2;
+    barra_scroll_ventana(a, a.scroll.forma, x0 + ANCHO - 22, y0 + 50, SUGERENCIAS * alto_fila, total, SUGERENCIAS,
+                         a.scroll.forma_pos, kf + (2u << 24), sobre_forma(a));
+    u32 indice = 0;
+    for (const App::Forma& f : a.formas) {
+        if (!disponible(f)) continue;
+        const u32 k = indice++;
+        if (k < a.scroll.forma_pos || k >= a.scroll.forma_pos + SUGERENCIAS) continue;
+        const int y = y0 + 50 + static_cast<int>(k - a.scroll.forma_pos) * alto_fila;
+        bool encima = ui::sobre(e, x0 + 10, y - 1, ANCHO - 36, alto_fila);
+        if (encima) g.gpu().rectangulo(x0 + 10, y - 1, ANCHO - 36, alto_fila, kf + (1u << 24), rgba(60, 50, 35, 255));
+        // Con su nivel, que es el orden de la lista: "Lv 52  death knight". Sin nivel, solo el nombre.
+        char etiqueta[96];
+        if (f.nivel > 0) std::snprintf(etiqueta, sizeof etiqueta, "Lv %d  %s", f.nivel, f.nombre.c_str());
+        else std::snprintf(etiqueta, sizeof etiqueta, "%s", f.nombre.c_str());
+        g.texto(etiqueta, static_cast<float>(x0 + 14), static_cast<float>(y), kt, rgba(200, 220, 255));
+        if (encima && e.clic) a.forma_texto = f.nombre;
     }
     const int yb = y0 + ALTO - 26;
     bool ok = ui::boton_texto(g, e, "OK", x0 + 10, yb, 80, 18);

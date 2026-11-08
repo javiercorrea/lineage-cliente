@@ -826,6 +826,26 @@ bool decodificar(Bytes cuerpo, const TablaOpcodes& tabla, Arena& arena, std::vec
     l.datos = cuerpo.subspan(1);
     l.arena = &arena;
     l.perfil = tabla.perfil;
+    if (e.origen == Srv::PETCTRL && cuerpo.size() > 1 && cuerpo[1] == 42) {
+        // S_BookmarkLoad (mismo opcode que S_CharReset, subtipo 42): al entrar, todos los marcadores.
+        // c 42, c 105, c 0, c 2, 104 × c (índices o 0xff), c 100, c 0, c n, c 0; y n × (h x, h y, s nombre,
+        // h mapa, d id). Un evento por marcador, como S_Bookmarks.
+        l.c();
+        for (int i = 0; i < 3 + 104 + 2; ++i) l.c();
+        const int n = l.c();
+        l.c();
+        for (int i = 0; i < n && !l.error; ++i) {
+            Evento m = e;
+            m.tipo = Ev::MARCADOR;
+            m.v[MK_X] = l.h();
+            m.v[MK_Y] = l.h();
+            m.s[0] = l.s();
+            m.v[MK_MAPA] = l.h();
+            m.id = l.d();
+            if (!l.error) salida.push_back(m);
+        }
+        return !l.error;
+    }
     if (e.origen == Srv::INVLIST) {
         // S_InvList: c n + n ítems. Vacía el inventario y lo vuelve a llenar.
         int n = l.c();

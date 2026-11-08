@@ -15,8 +15,7 @@ const RegionAtlas& Graficos::cargar(u64 k, F&& decodificar) {
     u64 t0 = SDL_GetPerformanceCounter();
     Carga c = decodificar();
     if (c == Carga::PENDIENTE) {
-        static const RegionAtlas vacia;  // no se recuerda: se vuelve a pedir el frame siguiente
-        return vacia;
+        return pendiente_;  // no se recuerda: se vuelve a pedir el frame siguiente
     }
     const RegionAtlas& r = guardar(k, c == Carga::OK);
     ms_decodificacion_ += static_cast<double>(SDL_GetPerformanceCounter() - t0) * 1000.0 / SDL_GetPerformanceFrequency();
@@ -27,9 +26,8 @@ const RegionAtlas& Graficos::cargar(u64 k, F&& decodificar) {
 const RegionAtlas& Graficos::guardar(u64 k, bool ok) {
     RegionAtlas r;
     if (ok && !gpu_.subir(tmp_, r)) {
-        // Sin lugar este frame (buffer de subida lleno): no se recuerda el fallo, se reintenta.
-        static const RegionAtlas vacia;
-        return vacia;
+        // Sin lugar este frame (buffer de subida lleno o atlas sin página libre): no se recuerda, se reintenta.
+        return pendiente_;
     }
     if (int p = gpu_.tomar_pagina_reemplazada(); p >= 0) olvidar_pagina(static_cast<u16>(p));
     u32 i;

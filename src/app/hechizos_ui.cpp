@@ -14,7 +14,8 @@ namespace lin {
 namespace {
 
 constexpr int FILA = ALTO_GLIFO + 3;
-constexpr int LISTA_X = 14, LISTA_Y = 30, LISTA_FILAS = 17;
+constexpr int LISTA_X = 14, LISTA_Y = 30, LISTA_FILAS = 14;  // 30 + 14 × 17 px + pie: dentro de los 304 px
+constexpr int BARRA_X = ui::VENTANA_ANCHO - 12;
 
 // Hechizos que sabe el personaje, en orden (para la ventana).
 int hechizos_sabidos(const App& a, u16* ids, int cap) {
@@ -367,7 +368,9 @@ u32 hechizo_bajo_puntero(const App& a) {
     }
     u16 ids[CANTIDAD_HECHIZOS];
     int n = hechizos_sabidos(a, ids, CANTIDAD_HECHIZOS);
-    const int y0 = rect_ventana(a, IdVentana::HECHIZOS).y;
+    const Rect rv = rect_ventana(a, IdVentana::HECHIZOS);
+    const int y0 = rv.y;
+    if (a.entrada.mx >= rv.x + BARRA_X) return 0;  // sobre la barra de scroll: ni lanza ni arrastra el hechizo
     int fila = (a.entrada.my - (y0 + LISTA_Y)) / FILA;
     if (a.entrada.my < y0 + LISTA_Y || fila >= LISTA_FILAS) return 0;
     int i = static_cast<int>(a.hechizos_desplazamiento) + fila;
@@ -430,12 +433,8 @@ void dibujar_hechizos(App& a) {
         g.texto("(no spells)", static_cast<float>(x0 + LISTA_X), static_cast<float>(y0 + LISTA_Y), kt, rgba(160, 150, 130));
         return;
     }
-    u32 max_desp = n > LISTA_FILAS ? static_cast<u32>(n - LISTA_FILAS) : 0;
-    if (sobre_hechizos(a) && e.rueda) {
-        i64 d = static_cast<i64>(a.hechizos_desplazamiento) - e.rueda;
-        a.hechizos_desplazamiento = static_cast<u32>(std::clamp<i64>(d, 0, max_desp));
-    }
-    a.hechizos_desplazamiento = std::min(a.hechizos_desplazamiento, max_desp);
+    barra_scroll_ventana(a, a.scroll.hechizos, x0 + BARRA_X, y0 + LISTA_Y, LISTA_FILAS * FILA, static_cast<u32>(n),
+                         LISTA_FILAS, a.hechizos_desplazamiento, clave_orden(CAPA_UI, 14), sobre_hechizos(a));
     const u32 bajo = hechizo_bajo_puntero(a);
     for (int f = 0; f < LISTA_FILAS; ++f) {
         int i = static_cast<int>(a.hechizos_desplazamiento) + f;

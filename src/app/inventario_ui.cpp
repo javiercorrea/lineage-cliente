@@ -105,15 +105,10 @@ void dibujar_inventario(App& a) {
     const int x0 = rv.x, y0 = rv.y;
     if (ui::ventana(g, e, a.cfg.ui_simple, x0, y0, "Inventory", opacidad_ventanas(a))) a.ventana_inventario = false;
 
-    // Desplazamiento con la rueda si hay más ítems que celdas.
-    u32 filas_total = static_cast<u32>((t.tamano() + COLUMNAS - 1) / COLUMNAS);
-    u32 max_desp = filas_total > FILAS ? filas_total - FILAS : 0;
-    if (sobre_inventario(a) && e.rueda) {
-        i64 d = static_cast<i64>(a.inventario_desplazamiento) - e.rueda;
-        a.inventario_desplazamiento = static_cast<u32>(std::clamp<i64>(d, 0, max_desp));
-    }
-    a.inventario_desplazamiento = std::min(a.inventario_desplazamiento, max_desp);
-
+    // Barra y rueda si hay más ítems que celdas.
+    const u32 filas_total = static_cast<u32>((t.tamano() + COLUMNAS - 1) / COLUMNAS);
+    barra_scroll_ventana(a, a.scroll.inventario, x0 + GRILLA_X + COLUMNAS * CELDA + 2, y0 + GRILLA_Y, FILAS * CELDA, filas_total,
+                         FILAS, a.inventario_desplazamiento, clave_orden(CAPA_UI, 14), sobre_inventario(a));
     const u64 kf = clave_orden(CAPA_UI, 12), ki = clave_orden(CAPA_UI, 13), kt = clave_orden(CAPA_UI_TEXTO, 12);
     const int bajo = celda_bajo_puntero(a, x0, y0);
     const size_t primero = static_cast<size_t>(a.inventario_desplazamiento) * COLUMNAS;
