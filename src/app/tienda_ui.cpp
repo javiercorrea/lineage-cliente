@@ -16,6 +16,23 @@ namespace lin {
 
 namespace {
 
+// Título de un vendedor sin sus códigos de color: "\fX" (texto) y "\bX" (fondo), en bytes o escritos
+// con barra invertida. El color no se dibuja todavía; el código sobrante ensuciaba el texto.
+std::string sin_codigos_color(std::string_view t) {
+    std::string r;
+    for (size_t i = 0; i < t.size(); ++i) {
+        const char c = t[i];
+        if (c == '\f' || c == '\b') {
+            ++i;
+        } else if (c == '\\' && i + 1 < t.size() && (t[i + 1] == 'f' || t[i + 1] == 'b')) {
+            i += 2;
+        } else {
+            r += c;
+        }
+    }
+    return r;
+}
+
 constexpr int ANCHO = 320, FILA = 36, FILAS = 8;  // FILAS: filas a la vista (de la tienda mirada o la propia)
 constexpr int FILA_VENTA = ALTO_GLIFO + 6;
 
@@ -60,7 +77,7 @@ void eventos_tienda(App& a, const Evento& e) {
     case Ev::ACCION_OBJETO:
         if (e.v[0] == 70) {  // abrió la tienda (también al aparecer, si ya la tenía)
             quitar_vendedor(a, e.id);
-            t.vendedores.push_back({e.id, std::string(e.s[0])});
+            t.vendedores.push_back({e.id, sin_codigos_color(e.s[0])});
         } else if (e.v[0] == ACC_QUIETO) {  // la cerró
             quitar_vendedor(a, e.id);
             if (t.vista == e.id) t.vista = 0;

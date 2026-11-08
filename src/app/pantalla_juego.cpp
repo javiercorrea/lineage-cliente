@@ -492,9 +492,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
             if (const Vendedor* v = vendedor(a, o.ids()[s]); v && !v->titulo.empty()) {  // título de la tienda
                 const int wt = ancho_texto(v->titulo.data(), v->titulo.size());
-                g.gpu().rectangulo(static_cast<int>(sx) + 24 - wt / 2 - 3, static_cast<int>(top) - 30, wt + 6, ALTO_GLIFO + 4,
-                                   clave_orden(CAPA_EFECTOS, 0), rgba(60, 40, 10, 210));
-                g.texto(v->titulo, sx + 24 - wt / 2, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
+                g.texto_sombra(v->titulo, sx + 24 - wt / 2, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
             }
             // Marcado con True Target: la marca y su mensaje encima del nombre.
             if (o.ids()[s] == a.marca_objetivo) {
