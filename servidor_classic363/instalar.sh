@@ -25,6 +25,9 @@ if [ ! -d l1jen ]; then
     git -C l1jen fetch -q origin 363
     git -C l1jen checkout -q "$COMMIT"
 fi
+# Parche: un personaje transformado que muere nunca recibía el S_DoActionGFX de muerte (Death.run se
+# reprogramaba cada 100 ms para siempre). Se aplica una sola vez (--check falla si ya está).
+git -C l1jen apply --check ../muerte_polymorph.patch 2>/dev/null && git -C l1jen apply ../muerte_polymorph.patch
 # Compilar (l1jen.jar). Viejo pero compila con el openjdk actual (solo avisos).
 (cd l1jen && PATH="$JAVA:$PATH" ant >/dev/null)
 

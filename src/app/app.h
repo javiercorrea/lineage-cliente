@@ -232,7 +232,7 @@ struct Intercambio {
 };
 
 // Cursor del mouse (cursores.cpp): mano, espada sobre un monstruo, círculo al elegir objetivo.
-enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, LABIOS, CANTIDAD };
+enum class Cursor : u8 { MANO, ESPADA, OBJETIVO, LABIOS, MONEDA, CANTIDAD };
 
 struct App {
     Config cfg;
@@ -463,6 +463,9 @@ const char* nombre_clase(int clase);
 
 // Ventanas (ventanas.cpp).
 Rect rect_ventana(const App& a, IdVentana v);
+// Nivel de ventana de los diálogos y avisos: encima de todas las ventanas (Gpu::nivel_ventana).
+constexpr u32 NIVEL_SOBRE_VENTANAS = 31;
+
 // ui::barra_scroll y, mientras se la usa, sin caminar aunque el puntero salga de la ventana.
 void barra_scroll_ventana(App& a, ui::BarraScroll& st, int x, int y, int alto, u32 total, u32 visibles, u32& pos,
                           u64 clave, bool sobre_lista);

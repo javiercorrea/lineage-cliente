@@ -93,13 +93,18 @@ void cuadro_texto(App& a, std::string_view t, int x, int y) {
     }
     x = std::min(x, a.gpu.ancho() - ancho - 8);
     y = std::min(y, a.gpu.alto() - lineas * FILA - 8);
-    g.gpu().rectangulo(x - 4, y - 3, ancho + 8, lineas * FILA + 4, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 225));
+    // Encima de todas las ventanas: dibujado con el nivel de la ventana de magias, su texto (que va
+    // sobre cualquier fondo del mismo nivel) se vería a través del cuadro.
+    const u32 nivel = a.gpu.nivel_ventana();
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
+    g.gpu().rectangulo(x - 4, y - 3, ancho + 8, lineas * FILA + 4, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 240));
     int fy = y;
     for (std::string_view r = t; !r.empty(); fy += FILA) {
         std::string_view l = r.substr(0, r.find('\n'));
         g.texto(l, static_cast<float>(x), static_cast<float>(fy), clave_orden(CAPA_UI_TEXTO, 30), rgba(230, 220, 190));
         r = l.size() < r.size() ? r.substr(l.size() + 1) : std::string_view{};
     }
+    a.gpu.nivel_ventana(nivel);
 }
 
 }  // namespace

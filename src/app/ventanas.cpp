@@ -331,6 +331,8 @@ void dibujar_opciones(App& a) {
         a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
     if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))
         a.cfg.texto_dano = !a.cfg.texto_dano, cambio = true;
+    if (fila("Speech balloons", a.cfg.globos_comic ? "Comic" : "Text"))
+        a.cfg.globos_comic = !a.cfg.globos_comic, cambio = true;
     if (fila("Attack compensation", a.cfg.compensar_ataque ? "On" : "Off"))
         a.cfg.compensar_ataque = !a.cfg.compensar_ataque, cambio = true;
     if (fila("Night and dungeons",a.cfg.efecto_luz ? "On" : "Off")) a.cfg.efecto_luz = !a.cfg.efecto_luz, cambio = true;
@@ -372,6 +374,7 @@ void dibujar_ayuda_teclas(App& a) {
         {"F4 / Shift+F4", "Camera / shade in shadows"},
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},
+        {"Shift+click", "Turn that way (to face someone)"},
         {"1..0 / Alt+1..0", "Shortcut bar (spells, items)"},
         {"Enter", "Open chat / send (Esc: cancel)"},
         {"A", "Keep attacking the target (until it dies or you walk)"},

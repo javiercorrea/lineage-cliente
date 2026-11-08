@@ -74,6 +74,28 @@ TEST_CASE("Decodificar: nivel de S_NPCPack y S_PinkName") {
     CHECK(ev[0].tipo == Ev::PONER_OBJETO);
     CHECK(ev[0].v[OB_GFX] == 49);
     CHECK(ev[0].v[OB_NIVEL] == 25);
+    CHECK(ev[0].v[OB_MASCOTA] == 0);
+    // S_PetPack: el nombre del dueño va en el segundo texto tras el clan (vacío en NPCs y personajes).
+    ev.clear();
+    const u8 m[] = {3,                          // opcode S_CharPack
+                    0x10, 0x80,                 // h x
+                    0x20, 0x80,                 // h y
+                    1, 0, 0, 0,                 // d id
+                    0x30, 0,                    // h gfx
+                    0, 0, 0, 0,                 // c estado, dirección, luz, velocidad
+                    0, 0, 0, 0,                 // d exp
+                    0, 0,                       // h legal
+                    'P', 'e', 't', 0,           // s nombre
+                    0,                          // s título
+                    0,                          // c flags
+                    0, 0, 0, 0,                 // d clan
+                    0,                          // s null (clan)
+                    'D', 'u', 'e', 'n', 'o', 0, // s dueño
+                    0, 0x50, 0, 9, 0, 0xFF, 0xFF};  // c 0, c HP 80, c 0, c nivel 9, c 0, c 0xFF, c 0xFF
+    REQUIRE(decodificar({m, sizeof m}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].v[OB_MASCOTA] == 1);
+    CHECK(ev[0].v[OB_HP] == 0x50);
     // S_PinkName: d id, d 180 segundos.
     ev.clear();
     const u8 r[] = {252, 0x30, 0, 0, 0, 180, 0, 0, 0};

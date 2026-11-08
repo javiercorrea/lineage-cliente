@@ -134,7 +134,7 @@ bool poner(Lector& l, Evento& e) {
     e.v[OB_FLAGS] = l.c();
     e.v[OB_CLAN] = static_cast<i32>(l.d());
     l.s();
-    l.s();
+    e.v[OB_MASCOTA] = l.s().empty() ? 0 : 1;  // el dueño de la mascota (vacío en los demás)
     l.c();
     e.v[OB_HP] = l.c();
     l.c();
