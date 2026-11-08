@@ -688,6 +688,15 @@ void mover_jugador(App& a, u64 ahora) {
     // algo, eso queda como objetivo. Soltar lo abandona, salvo con la tecla A (ataque sostenido).
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
+    // Shift+clic en el mundo: solo girar hacia ahí, sin caminar ni elegir objetivo (por ejemplo, para
+    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina.
+    if (clic_en_mundo && e.pulsado && e.shift && s != SIN_SLOT && !a.mundo.jugador.muerto) {
+        const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
+        o.col<O_DIR>()[s] = d;
+        enviar(a, cmd::girar(a.op, d));
+        a.clic_consumido = true;
+        return;
+    }
     // Antes de esperar el fin del paso: el frame en que se aprieta no se pierde.
     if (clic_en_mundo && e.pulsado) {
         a.hechizo_pendiente = 0;  // un clic nuevo cancela el hechizo en camino

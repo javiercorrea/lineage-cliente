@@ -1,0 +1,16 @@
+--- a/src/l1j/server/server/model/Instance/L1PcInstance.java
++++ b/src/l1j/server/server/model/Instance/L1PcInstance.java
+@@ -247,10 +247,11 @@
+ 				if (tempchargfx == 5727 || tempchargfx == 5730 || tempchargfx == 5733 || tempchargfx == 5736) {
+ 					tempchargfx = 0;
+ 				}
++				// La forma de antes de la cancelación vuelve y, en el mismo paso, se avisa la muerte. Volver a
++				// programar este Runnable cada 100 ms repetía la cancelación y el cambio de forma sin llegar
++				// nunca al S_DoActionGFX: un personaje transformado moría sin que su cliente lo supiera.
+ 				if (tempchargfx != 0) {
+ 					sendAndBroadcast(new S_ChangeShape(getId(), tempchargfx));
+-					GeneralThreadPool.getInstance().schedule(this, 100);
+-					return;
+ 				} 
+ 
+ 				sendAndBroadcast(new S_DoActionGFX(targetobjid, ActionCodes.ACTION_Die));

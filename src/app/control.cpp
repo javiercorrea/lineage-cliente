@@ -80,6 +80,7 @@ struct Control {
     std::deque<std::string> textos;  // un SDL_EVENT_TEXT_INPUT por frame
     std::string texto_actual;        // el que SDL está por leer (tiene que seguir vivo)
     bool ctrl = false;               // "ctrl on": Ctrl mantenido (forzar ataque)
+    bool shift = false;              // "shift on": Shift mantenido (Shift+clic gira)
     static constexpr u32 RECIENTES = 256;
     Srv recientes[RECIENTES] = {};   // los últimos paquetes recibidos ("paquetes", "esperar paquete=")
     u32 n_recientes = 0;
@@ -258,8 +259,9 @@ void estado(App& a, Conexion& c) {
     const Slot s = a.mundo.objetos.buscar(j.id);
     const int x = s != SIN_SLOT ? a.mundo.objetos.col<O_X>()[s] : 0, y = s != SIN_SLOT ? a.mundo.objetos.col<O_Y>()[s] : 0;
     const std::string_view nombre = nombre_personaje(a);
-    std::snprintf(l, sizeof l, "personaje=%.*s mapa=%u x=%d y=%d nivel=%d hp=%d/%d mp=%d/%d", static_cast<int>(nombre.size()),
-                  nombre.data(), static_cast<unsigned>(a.mundo.mapa), x, y, j.nivel, j.hp, j.hp_max, j.mp, j.mp_max);
+    std::snprintf(l, sizeof l, "personaje=%.*s mapa=%u x=%d y=%d nivel=%d hp=%d/%d mp=%d/%d muerto=%d estado=%d",
+                  static_cast<int>(nombre.size()), nombre.data(), static_cast<unsigned>(a.mundo.mapa), x, y, j.nivel, j.hp,
+                  j.hp_max, j.mp, j.mp_max, j.muerto ? 1 : 0, s != SIN_SLOT ? a.mundo.objetos.col<O_ESTADO>()[s] : -1);
     responder(c, l);
     std::string asedios = "asedios=";
     for (int k = 1; k <= 8; ++k)
@@ -281,7 +283,7 @@ const char* AYUDA[] = {
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
     "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio   cancelar-intercambio",
     "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>   raton <x> <y> down|up",
-    "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off",
+    "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off   shift on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
     "forzar-hora <segundos del día 0-86399>|off (luz y sonido, para pruebas; el día del año pasa a ser el 1 de enero)",
@@ -520,6 +522,8 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         g.textos.push_back(p[1]);
     } else if (cmd == "ctrl") {
         g.ctrl = p.size() > 1 && p[1] == "on";
+    } else if (cmd == "shift") {
+        g.shift = p.size() > 1 && p[1] == "on";
     } else if (cmd == "mudo") {
         a.mudo = p.size() < 2 || p[1] == "on";
         aplicar_volumenes(a);
@@ -705,6 +709,7 @@ void control_frame(App& a) {
 void control_entrada(App& a) {
     EntradaFrame& e = a.entrada;
     if (g.ctrl) e.ctrl = true;
+    if (g.shift) e.shift = true;
     if (g.mouse.empty()) return;
     const PasoMouse m = g.mouse.front();
     g.mouse.pop_front();

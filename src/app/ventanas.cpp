@@ -372,6 +372,7 @@ void dibujar_ayuda_teclas(App& a) {
         {"F4 / Shift+F4", "Camera / shade in shadows"},
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},
+        {"Shift+click", "Turn that way (to face someone)"},
         {"1..0 / Alt+1..0", "Shortcut bar (spells, items)"},
         {"Enter", "Open chat / send (Esc: cancel)"},
         {"A", "Keep attacking the target (until it dies or you walk)"},

@@ -198,6 +198,7 @@ title is shown as text.
   buttons minimize and close it (on macOS they are on the left, like the system's). Full screen has no bar.
 - **Shift+F4:** darken characters standing in a tree's shadow (default) or not.
 - **Shift+F12:** saves `captura.bmp`.
+- **Shift+click on the world:** turns the character that way without walking (to face someone, e.g. to trade).
 - **Ctrl/⌘ + and Ctrl/⌘ −:** zoom in and out (integer scale; zooming out shows more map).
 - **Ctrl/⌘ 0:** automatic zoom, the largest that fits 640×480.
 - **Game view:** adapts to the window. Enlarging it shows more map, with the panel centered at the

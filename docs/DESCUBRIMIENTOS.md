@@ -299,6 +299,10 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 - **Un GM no muere** (al llegar a 0 vuelve a HP máximo) **ni gasta MP**. El GM se decide por el
   `access_level` del **personaje**, que hereda el de la cuenta al crearse: los personajes creados en
   una cuenta GM son inmortales.
+- **classic363: un personaje transformado no recibía su muerte.** `Death.run()` restauraba la forma
+  y se volvía a programar cada 100 ms, sin llegar nunca al `S_DoActionGFX` de muerte: el servidor lo
+  daba por muerto (los monstruos lo dejan) y el cliente lo seguía viendo vivo, con más de dos mil
+  `S_ChangeShape` en cuatro minutos. Corregido en `servidor_classic363/muerte_polymorph.patch`.
 - **Marcadores:** ningún mapa de la base tiene `markable` = 1 (ni siquiera un GM puede marcar), y
   `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama.
 - **Espera de hechizos y línea de vista:** ver §2; los dos descartan en silencio.
