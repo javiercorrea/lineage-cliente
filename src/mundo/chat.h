@@ -8,6 +8,7 @@
 //   % alianza, * grupo de chat y "nombre texto para susurrar.
 #pragma once
 #include <span>
+#include <string>
 #include <string_view>
 #include "proto/eventos.h"
 #include "recursos/textos.h"
@@ -55,6 +56,10 @@ u32 color_chat(u8 tipo);
 
 // Reemplaza los "$N" del texto por la entrada N de desc-e.tbl. Devuelve los bytes escritos.
 size_t expandir_desc(const TablaTexto& desc, std::string_view t, char* destino, size_t capacidad);
+// Texto sin sus códigos de color: "\\fX" (texto) y "\\bX" (fondo), como bytes de control o escritos con
+// barras invertidas (los títulos de las tiendas los traen así).
+std::string sin_codigos_color(std::string_view t);
+
 // Arma el texto de un S_ServerMessage. `color` sale del primer código \fX, si lo hay.
 size_t formatear_mensaje(const TablaTexto& mensajes, const TablaTexto& desc, const Evento& e, char* destino,
                          size_t capacidad, u32& color);

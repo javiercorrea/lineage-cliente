@@ -223,3 +223,16 @@ TEST_CASE("Estado: porcentaje de experiencia y ajuste de línea") {
     CHECK(bytes_que_caben(t, 12, a * 9) == 8);   // corta después de "dos "
     CHECK(bytes_que_caben("abcdef", 6, a * 3) == 3);  // sin espacios: corta en el ancho
 }
+
+TEST_CASE("Chat: sin_codigos_color") {
+    CHECK(sin_codigos_color("hola") == "hola");
+    CHECK(sin_codigos_color("\fHsell\f> x") == "sell x");
+    CHECK(sin_codigos_color("\bAsell") == "sell");
+    CHECK(sin_codigos_color("\\f4 SELLER") == " SELLER");
+    CHECK(sin_codigos_color("\\\\f3Steel") == "Steel");
+    CHECK(sin_codigos_color("a\\b") == "a");       // código cortado al final
+    CHECK(sin_codigos_color("c:\\x") == "c:\\x");  // otra barra no es un código
+    // Shift-JIS 0x95 0x5C ("表") seguido de f: no es un código.
+    CHECK(sin_codigos_color("\x95\\fin") == "\x95\\fin");
+    CHECK(sin_codigos_color("ñ\\f3x") == "ñx");  // UTF-8
+}

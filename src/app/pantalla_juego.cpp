@@ -304,20 +304,17 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
         const int x1 = x0 + w - 1, y1 = y0 + h - 1, cx = static_cast<int>(centro_x);
         const u64 k = clave_orden(CAPA_EFECTOS, 1);
         const u32 borde = rgba(235, 235, 230, 230);
-        auto punto = [&](int x, int y) { a.g->gpu().rectangulo(x, y, 1, 1, k, borde); };
-        for (int x = x0 + 3; x <= x1 - 3; ++x) punto(x, y0), punto(x, y1);     // lados de arriba y abajo
-        for (int y = y0 + 3; y <= y1 - 3; ++y) punto(x0, y), punto(x1, y);     // lados izquierdo y derecho
-        for (int d = 0; d < 3; ++d) {                                           // esquinas redondeadas
+        Gpu& gpu = a.g->gpu();
+        gpu.rectangulo(x0 + 3, y0, w - 6, 1, k, borde);  // lados
+        gpu.rectangulo(x0 + 3, y1, w - 6, 1, k, borde);
+        gpu.rectangulo(x0, y0 + 3, 1, h - 6, k, borde);
+        gpu.rectangulo(x1, y0 + 3, 1, h - 6, k, borde);
+        auto punto = [&](int x, int y) { gpu.rectangulo(x, y, 1, 1, k, borde); };
+        for (int d = 0; d < 3; ++d) {  // esquinas redondeadas
             punto(x0 + 2 - d, y0 + d), punto(x1 - 2 + d, y0 + d);
             punto(x0 + 2 - d, y1 - d), punto(x1 - 2 + d, y1 - d);
         }
         punto(cx - 2, y1 + 1), punto(cx + 2, y1 + 1), punto(cx - 1, y1 + 2), punto(cx + 1, y1 + 2), punto(cx, y1 + 3);
-        for (int i = 0; i < n; ++i) {
-            int w_fila = ancho_texto(filas[i].data(), filas[i].size());
-            a.g->texto_sombra(filas[i], centro_x - w_fila / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
-                              rgba(255, 255, 254));
-        }
-        return;
     }
     for (int i = 0; i < n; ++i) {
         int w = ancho_texto(filas[i].data(), filas[i].size());
@@ -680,9 +677,13 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
     return true;
 }
 
-// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las mascotas
-// propias se manejan con su menú, y el cursor de espada tampoco aparece sobre ellas sin Ctrl.
-bool mascota_sin_ctrl(const App& a, Slot s) { return s != SIN_SLOT && a.mundo.objetos.col<O_MASCOTA>()[s] && !a.entrada.ctrl; }
+// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las propias
+// (a.mascotas, S_PetCtrlMenu) siguen como cualquier otro objeto.
+bool mascota_sin_ctrl(const App& a, Slot s) {
+    if (s == SIN_SLOT || !a.mundo.objetos.col<O_MASCOTA>()[s] || a.entrada.ctrl) return false;
+    const ObjId id = a.mundo.objetos.ids()[s];
+    return std::none_of(a.mascotas.begin(), a.mascotas.end(), [id](const Mascota& m) { return m.id == id; });
+}
 
 // Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
 // NPC se le habla (con Ctrl se lo ataca) y a otros personajes se los ataca con Ctrl o en modo PK
@@ -697,7 +698,10 @@ void elegir_objetivo_bajo_puntero(App& a) {
     a.hablar_objetivo = b != SIN_SLOT && (es_npc(a, b) || vendedor(a, a.objetivo)) && !e.ctrl;
     const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
     if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
-    if (b != SIN_SLOT && mascota_sin_ctrl(a, b)) a.objetivo = 0;  // la de otro jugador: solo con Ctrl
+    if (mascota_sin_ctrl(a, b)) {  // la de otro jugador: solo con Ctrl
+        a.objetivo = 0;
+        a.hablar_objetivo = false;
+    }
 }
 
 void mover_jugador(App& a, u64 ahora) {
@@ -715,12 +719,18 @@ void mover_jugador(App& a, u64 ahora) {
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
     // Shift+clic en el mundo: solo girar hacia ahí, sin caminar ni elegir objetivo (por ejemplo, para
-    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina.
+    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina. Como un clic
+    // nuevo, cancela lo que estuviera haciendo; inmóvil, a mitad de un paso o de un ataque no gira.
     if (clic_en_mundo && e.pulsado && e.shift && s != SIN_SLOT && !a.mundo.jugador.muerto) {
-        const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
-        o.col<O_DIR>()[s] = d;
-        enviar(a, cmd::girar(a.op, d));
+        a.hechizo_pendiente = 0;
+        a.ataque_sostenido = a.objetivo_fijo = a.hablar_objetivo = false;
+        a.objetivo = 0;
         a.clic_consumido = true;
+        if (!a.mundo.jugador.inmovil && !moviendose(a.mundo, s, ahora) && ahora >= a.fin_ataque) {
+            const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
+            o.col<O_DIR>()[s] = d;
+            enviar(a, cmd::girar(a.op, d));
+        }
         return;
     }
     // Antes de esperar el fin del paso: el frame en que se aprieta no se pierde.
@@ -1078,12 +1088,10 @@ void dibujar_chat(App& a) {
     }
     const bool abierta = !con_enter || a.escribiendo_chat;
     if (a.cfg.ui_simple) g.texto(">", ac.entrada_x - 12, ac.entrada_y, kt, abierta ? rgba(214, 190, 140) : rgba(110, 100, 80));
-    if (abierta && e.escape) {
+    if (abierta && e.escape && (con_enter || !a.chat_entrada.empty())) {  // sin nada que borrar, Esc sigue a las ventanas
         a.chat_entrada.clear();
-        if (con_enter) {
-            a.escribiendo_chat = false;
-            e.escape = false;
-        }
+        if (con_enter) a.escribiendo_chat = false;
+        e.escape = false;
     }
     if (!abierta) {
         g.texto("Enter: chat", ac.entrada_x, ac.entrada_y, kt, rgba(110, 100, 80));
@@ -1181,12 +1189,13 @@ void cambiar_zoom(App& a) {
 
 void dibujar_ventanas(App& a) {
     EntradaFrame& e = a.entrada;
-    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos y el
-    // chat se lo quedan antes. Con un pergamino esperando su objetivo, Esc solo cancela eso
-    // (inventario_ui.cpp). El intercambio no: cerrarlo sin cancelarlo dejaría el trade abierto.
-    if (e.escape && !a.usar_sobre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     const int mx = e.mx, my = e.my;
     const bool arrastre = a.arrastrando || a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || a.ventana_arrastrada >= 0;
+    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos, el
+    // chat y un hechizo o mascota eligiendo objetivo se lo quedan antes. Con un pergamino esperando su
+    // objetivo, Esc solo cancela eso (inventario_ui.cpp). Arrastrando algo no cierra: soltarlo lo
+    // resuelve la ventana de donde salió. El intercambio tampoco: dejaría el trade abierto.
+    if (e.escape && !a.usar_sobre && !arrastre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     for (int i = 0; i < static_cast<int>(IdVentana::CANTIDAD); ++i) {
         const IdVentana v = static_cast<IdVentana>(a.orden_ventanas[i]);
         if (!arrastre && a.ventana_arriba >= 0 && a.ventana_arriba != static_cast<int>(v)) e.mx = e.my = -10000;
@@ -1292,9 +1301,8 @@ void elegir_cursor(App& a) {
     ObjId id = objeto_bajo_puntero(a);
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
-    // Tienda de un jugador: un vendedor se ve como monstruo (sin acciones de sprite ni "^"), así que se
-    // mira antes.
-    if (vendedor(a, id)) {
+    // Tienda de un jugador: el clic camina hasta él y pide su lista. Con Ctrl, el clic lo ataca.
+    if (vendedor(a, id) && !a.entrada.ctrl) {
         a.cursor = Cursor::MONEDA;
         return;
     }
@@ -1302,7 +1310,7 @@ void elegir_cursor(App& a) {
     if ((tipo == TIPO_MONSTRUO && !mascota_sin_ctrl(a, s)) || (a.entrada.ctrl && tipo != TIPO_ITEM) ||
         (a.modo_pk && tipo == TIPO_PERSONAJE))
         a.cursor = Cursor::ESPADA;
-    else if (es_npc(a, s) && tipo != TIPO_PUERTA)  // sin Ctrl, el clic le habla
+    else if (es_npc(a, s) && tipo != TIPO_PUERTA && !mascota_sin_ctrl(a, s))  // sin Ctrl, el clic le habla
         a.cursor = Cursor::LABIOS;
 }
 
@@ -1424,7 +1432,7 @@ void frame_juego(App& a) {
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
-    a.gpu.nivel_ventana(31);
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_cantidad(a);
     a.gpu.nivel_ventana(0);
     dibujar_reinicio(a);

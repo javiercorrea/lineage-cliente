@@ -1,5 +1,6 @@
 #include <cstdio>
 #include "mundo/chat.h"
+#include "recursos/fuente.h"
 
 namespace lin {
 
@@ -82,6 +83,32 @@ std::string_view Chat::globo(ObjId id, u64 ahora) const {
         return {l.texto, l.largo};
     }
     return {};
+}
+
+std::string sin_codigos_color(std::string_view t) {
+    // Fuera de UTF-8 hay caracteres de dos bytes cuyo segundo byte puede ser una barra invertida.
+    const bool doble_byte = !es_utf8(t.data(), t.size());
+    std::string r;
+    for (size_t i = 0; i < t.size(); ++i) {
+        const char c = t[i];
+        if (doble_byte && static_cast<u8>(c) >= 0x80 && i + 1 < t.size()) {
+            r += c;
+            r += t[++i];
+            continue;
+        }
+        if (c == '\f' || c == '\b') {
+            ++i;
+            continue;
+        }
+        size_t j = i;
+        while (j < t.size() && t[j] == '\\') ++j;
+        if (j > i && j < t.size() && (t[j] == 'f' || t[j] == 'b')) {
+            i = j + 1;  // y el ++i del for salta la letra del color
+            continue;
+        }
+        r += c;
+    }
+    return r;
 }
 
 size_t expandir_desc(const TablaTexto& desc, std::string_view t, char* destino, size_t capacidad) {
