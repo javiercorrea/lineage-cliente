@@ -41,7 +41,10 @@ enum : int { PJ_CLASE, PJ_SEXO, PJ_LEGAL, PJ_HP, PJ_MP, PJ_CA, PJ_NIVEL, PJ_FUE,
 // OB_CANTIDAD: el campo "exp" de S_CharPack, que en los ítems del suelo (S_DropItem) es la cantidad.
 // OB_CLAN: id del clan (0 sin clan; para pedir su emblema).
 // OB_NIVEL: el nivel del monstruo (en los personajes, 0).
-enum : int { OB_X, OB_Y, OB_GFX, OB_ESTADO, OB_DIR, OB_LUZ, OB_VEL, OB_LEGAL, OB_FLAGS, OB_HP, OB_CANTIDAD, OB_CLAN, OB_NIVEL };
+// OB_MASCOTA: 1 si trae el nombre del dueño (S_PetPack, S_SummonPack): mascota o invocación de un
+// jugador. Un personaje propio y un NPC lo traen vacío.
+enum : int { OB_X, OB_Y, OB_GFX, OB_ESTADO, OB_DIR, OB_LUZ, OB_VEL, OB_LEGAL, OB_FLAGS, OB_HP, OB_CANTIDAD, OB_CLAN, OB_NIVEL,
+             OB_MASCOTA };
 // Campos de ESTADO_PROPIO.
 enum : int { EP_NIVEL, EP_EXP, EP_FUE, EP_INT, EP_SAB, EP_DES, EP_CON, EP_CAR, EP_HP, EP_HPMAX, EP_MP, EP_MPMAX,
              EP_CA, EP_COMIDA, EP_PESO, EP_LEGAL };

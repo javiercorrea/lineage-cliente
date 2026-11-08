@@ -172,6 +172,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_NOMBRE>()[s] = guardar_texto(m, e.s[0]);
             o.col<O_TITULO>()[s] = guardar_texto(m, e.s[1]);
             o.col<O_NIVEL>()[s] = static_cast<u8>(e.v[OB_NIVEL]);
+            o.col<O_MASCOTA>()[s] = static_cast<u8>(e.v[OB_MASCOTA]);
             break;
         }
         case Ev::LICOR: {

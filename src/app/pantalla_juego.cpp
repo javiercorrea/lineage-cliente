@@ -659,6 +659,10 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
     return true;
 }
 
+// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las mascotas
+// propias se manejan con su menú, y el cursor de espada tampoco aparece sobre ellas sin Ctrl.
+bool mascota_sin_ctrl(const App& a, Slot s) { return s != SIN_SLOT && a.mundo.objetos.col<O_MASCOTA>()[s] && !a.entrada.ctrl; }
+
 // Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
 // NPC se le habla (con Ctrl se lo ataca) y a otros personajes se los ataca con Ctrl o en modo PK
 // ("/pk"). 0 si no hay (se camina).
@@ -672,6 +676,7 @@ void elegir_objetivo_bajo_puntero(App& a) {
     a.hablar_objetivo = b != SIN_SLOT && (es_npc(a, b) || vendedor(a, a.objetivo)) && !e.ctrl;
     const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
     if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
+    if (b != SIN_SLOT && mascota_sin_ctrl(a, b)) a.objetivo = 0;  // la de otro jugador: solo con Ctrl
 }
 
 void mover_jugador(App& a, u64 ahora) {
@@ -710,7 +715,7 @@ void mover_jugador(App& a, u64 ahora) {
     if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !escribiendo_en_ventana(a)) {
         ObjId t = a.objetivo && !a.hablar_objetivo ? a.objetivo : objeto_bajo_puntero(a);
         Slot b = t ? o.buscar(t) : SIN_SLOT;
-        if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
+        if (b != SIN_SLOT && !mascota_sin_ctrl(a, b) && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
             a.objetivo = t;
             a.hablar_objetivo = false;
             a.ataque_sostenido = true;
@@ -1267,7 +1272,8 @@ void elegir_cursor(App& a) {
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
     u8 tipo = tipo_objeto(a, s);
-    if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM) || (a.modo_pk && tipo == TIPO_PERSONAJE))
+    if ((tipo == TIPO_MONSTRUO && !mascota_sin_ctrl(a, s)) || (a.entrada.ctrl && tipo != TIPO_ITEM) ||
+        (a.modo_pk && tipo == TIPO_PERSONAJE))
         a.cursor = Cursor::ESPADA;
     else if (es_npc(a, s) && tipo != TIPO_PUERTA)  // sin Ctrl, el clic le habla
         a.cursor = Cursor::LABIOS;
