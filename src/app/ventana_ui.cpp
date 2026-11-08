@@ -8,8 +8,8 @@ namespace lin {
 
 namespace {
 
-// Mismo nivel que los diálogos y avisos de pantalla_juego.cpp: la barra queda sobre las ventanas.
-constexpr u32 NIVEL_BARRA = 31;
+// La barra queda sobre las ventanas, como los diálogos.
+constexpr u32 NIVEL_BARRA = NIVEL_SOBRE_VENTANAS;
 
 }  // namespace
 

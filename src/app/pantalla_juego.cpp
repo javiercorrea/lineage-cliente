@@ -1143,10 +1143,13 @@ void cambiar_zoom(App& a) {
 // Las ventanas, de atrás hacia adelante, cada una en su nivel (Gpu::nivel_ventana). Las que no
 // son la de más arriba bajo el puntero no lo ven, así sus botones no reciben el clic de otra;
 // salvo mientras se arrastra algo: soltarlo lo resuelve la ventana de donde salió.
-constexpr u32 NIVEL_SOBRE_VENTANAS = 31;
 
 void dibujar_ventanas(App& a) {
     EntradaFrame& e = a.entrada;
+    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos y el
+    // chat se lo quedan antes. Con un pergamino esperando su objetivo, Esc solo cancela eso
+    // (inventario_ui.cpp). El intercambio no: cerrarlo sin cancelarlo dejaría el trade abierto.
+    if (e.escape && !a.usar_sobre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     const int mx = e.mx, my = e.my;
     const bool arrastre = a.arrastrando || a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || a.ventana_arrastrada >= 0;
     for (int i = 0; i < static_cast<int>(IdVentana::CANTIDAD); ++i) {
