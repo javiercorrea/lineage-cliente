@@ -169,6 +169,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `chat_con_enter` | `1` Enter opens the chat line, `0` always typing |
 | `barra_personaje` | HP/MP bar over your own character |
 | `texto_dano` | Floating damage and "Miss" over your character |
+| `globos_comic` | `1` speech and shouts in a rounded outline over the head (also in Options: "Speech balloons"), `0` plain text |
 | `compensar_ataque` | Show your swing at once, without waiting for the server's echo |
 | `logo` | PNG for the simple login screen, see below |
 | `atajos`, `barra` | F5–F12 spells and shortcut bar, per character |
@@ -227,12 +228,13 @@ title is shown as text.
   pressing). Releasing stops. The target's name turns yellow.
 - **A** (chat closed): keeps attacking the target, or the monster under the pointer, until it dies, you walk
   with the arrows, or you click elsewhere.
-- **Force attack:** Ctrl+click (or ⌘+click) attacks an NPC or another player. A plain click only attacks monsters.
+- **Force attack:** Ctrl+click (or ⌘+click) attacks an NPC, another player or another player's pet or summon.
+  A plain click only attacks monsters; a polymorphed player still counts as a player.
 - **PK mode:** `/pk` in the chat toggles it (a red "PK" indicator at the top right): clicking another
   player attacks without Ctrl. This is client-side; the server decides whether the attack counts (it does no
   damage in safe zones).
 - **Monsters without a sprite:** those missing from this installation show as a magenta block and are
-  attacked like any other.
+  attacked like any other. Players with an unknown gfx show the same block but are not attacked by a plain click.
 - **On death:** a notice appears with a **Restart** button, which sends `C_Restart`.
 - **Status effects:** poisoned (green), frozen (gray), blind (black screen except your own character), and a
   notice at the top if paralyzed, asleep, stunned or bound (you can't move or act).
@@ -295,7 +297,11 @@ title is shown as text.
 - **Trade:** stand next to the other player, facing them. Drag an item from the inventory to the window (or double-click
   with the trade open), and OK when both agree.
 - **Party:** at mid-height on the left, the list of other members with their health; the leader has a "*".
-- **Names:** blue with alignment ≥ 500, red with ≤ −500; the title above and the clan emblem to the left.
+- **Names:** a player's color follows alignment gradually: white at 0, through light blue to blue (16000 or more),
+  through pink to red (−16000 or less). The title goes above, with its `\fX` colors, and the clan emblem to the left.
+  Pets and summons show their owner above the name ("Andromeda's").
+- **Player shops:** the title goes over the seller with no background, and the cursor is a coin. Shop prices use a dot
+  every three digits (10.000).
 - **Bookmarks:** `/bookmark name` saves the place (if the map allows it) and `/delbookmark name` deletes it. With
   bookmarks, the teleport scroll and Teleport ask for the destination.
 - **Chat commands:** anything that isn't a command goes to the chat.
@@ -329,7 +335,7 @@ commands. The `release` build doesn't include it: a CMake step (`cmake/sin_contr
 | Commands | What they do |
 |---|---|
 | `ayuda` | Lists the commands |
-| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `grupo`, `chat [n]`, `paquetes [n]` | Queries: screen, view and character (and sieges), nearby objects (id, name, gfx, cell and screen position), items, the NPC page with its links, open windows (and where the movable ones are), the party, the chat, the latest packets |
+| `estado`, `objetos [radio]`, `inventario`, `html`, `ventanas`, `grupo`, `chat [n]`, `paquetes [n]` | Queries: screen, view and character (and sieges), nearby objects (id, name, gfx, cell, sprite state, file alias, table row, and screen position), items, the NPC page with its links, open windows (and where the movable ones are), the party, the chat, the latest packets |
 | `login <account> <password> [server]`, `personaje <name>`, `crear <name> <class>` | Enter (they wait for the character list or for being in the game) |
 | `decir "text"` | As if typed in the chat (`/` commands and the GM's `.` included) |
 | `hablar <obj>`, `atacar <obj>`, `parar`, `clic-objeto <obj> [der]` | `<obj>`: id, `#gfx` or part of the name (the nearest one) |
@@ -337,7 +343,7 @@ commands. The `release` build doesn't include it: a CMake step (`cmake/sin_contr
 | `usar <item> [sobre <item>]`, `soltar`, `dar <item> <obj>`, `borrar`, `lanzar <spell> [obj]` | Items and spells |
 | `girar <0-7>`, `ofrecer <item>`, `aceptar-intercambio`, `cancelar-intercambio` | Trade between two clients |
 | `abrir\|cerrar inventario\|estado\|hechizos\|opciones\|social\|salida\|teclas` | Windows |
-| `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <name>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off` | Raw input (logical coordinates) |
+| `clic <x> <y> [der\|medio]`, `arrastrar x1 y1 x2 y2`, `mantener x y frames`, `tecla <name>` (`ctrl+`, `alt+`, `shift+`), `texto "..."`, `ctrl on\|off`, `shift on\|off` | Raw input (logical coordinates) |
 | `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Wait for something instead of counting frames (`paquete=` and `chat=` also count what arrived since the previous command) |
 | `captura <path.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Screenshots and debugging |
 | `forzar-hora <seconds 0-86399>\|off` | Fix the time of day for light and ambient sound, for tests |

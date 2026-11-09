@@ -294,7 +294,7 @@ void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double 
     }
 }
 
-// Título centrado en x, con sus códigos de color (\\fX).
+// Título centrado en x, con sus códigos de color (\fX).
 void dibujar_titulo(Graficos& g, std::string_view t, float x, float y, u64 clave, u32 normal) {
     const bool doble_byte = !es_utf8(t.data(), t.size());
     int ancho = 0;

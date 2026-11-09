@@ -218,7 +218,7 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
 
 **Pendiente o conocido:**
 - **Ventana de estado:** no encontré la imagen exacta del original en esta instalación. Se usa el marco genérico `4131.img` con el contenido escrito encima.
-- **Colores:** los de cada canal y los de los códigos `\fX` son aproximados. La paleta real está en `lin.bin`.
+- **Colores:** los de cada canal son aproximados. Los códigos `\fX` usan la paleta real del original (`mundo/chat.cpp`, ver DESCUBRIMIENTOS.md); los títulos los dibujan por tramos y el chat toma el primero para toda la línea.
 - **Entrada de texto:** acepta solo ASCII. Para escribir en coreano falta la conversión de UTF-8 a CP949 de la entrada IME.
 - **Lo que todavía no hace el panel:**
   - las flechas de desplazamiento y el botón para agrandar el chat (`1045`–`1056`) son gráficos sin función;
@@ -563,7 +563,7 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Página del clan:** `S_Pledge` manda 3 datos (clan, conectados, todos), pero las páginas "pledge" y "pledgeM" leen 5 (`#1` y `#3` son las cantidades). El cliente las cuenta y reordena.
 - **Emblema:** se pide una vez por clan con `C_Clan` y llega en `S_Emblem` (16 × 12 píxeles RGB555); se dibuja a la izquierda del nombre. `/emblem` sube uno de muestra (el original lo carga de un archivo).
 
-**Títulos y alineamiento:** el título (`S_CharTitle`) va arriba del nombre. El nombre de los jugadores es azul con alineamiento ≥ 500, rojo con ≤ −500 y blanco en el medio; el objetivo sigue en amarillo.
+**Títulos y alineamiento:** el título (`S_CharTitle`) va arriba del nombre. El nombre de los jugadores cambia gradualmente con el alineamiento: blanco en 0, celeste hacia azul (16000 o más) y rosa hacia rojo (−16000 o menos); el objetivo sigue en amarillo. Mascotas e invocaciones muestran "Dueño's" arriba del nombre.
 
 **Verificado** (dos clientes a la vez contra el servidor local):
 - **Grupo:** Charla (`--decir="/invite Prueba"`) invita a Prueba (`--aceptar`), que recibe la pregunta 953 y acepta. "/party" muestra "Leader: Charla" con los dos miembros.
@@ -627,7 +627,7 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 **Monstruos sin sprite** (`tipo_objeto` en `app/npc_ui.cpp`):
 - **Qué son:** 30 de los monstruos de la base de esta versión usan un gfx que falta en la tabla de sprites y en los `.pak` (Depraved Soul, gfx 8457, y los de las islas nuevas). Se dibujan como un bloque magenta.
 - **Antes:** el bloque era de 8×8 y no se podía elegir. Además, como su gfx no tiene tipo (atributo 102), se lo trataba como un NPC: el clic caminaba hasta él para hablarle.
-- **Ahora:** el bloque es del tamaño de un cuerpo (24×36), entra en la lista de cosas clicables, y un gfx sin acciones en la tabla cuenta como monstruo: el clic lo ataca y el cursor es la espada.
+- **Ahora:** el bloque es del tamaño de un cuerpo (24×36), entra en la lista de cosas clicables, y un gfx sin acciones en la tabla cuenta como monstruo: el clic lo ataca y el cursor es la espada. Los jugadores (nombre propio y nivel 0) siguen siendo personajes.
 - **Verificado:** `.spawn 46186` junto a Charla y un clic simulado (`--arrastrar`): caminó hasta él y atacó (3 efectos de ataque). Captura: `docs/capturas/10_monstruo_sin_sprite.png`.
 
 **Techos y árboles translúcidos** (`dibujar_objetos_mapa` en `app/pantalla_juego.cpp`):
@@ -836,7 +836,7 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 ![Tienda](docs/capturas/tienda_jugador.png)
 
 - **Dónde:** solo en las salas del mercado (mapas 340, 350, 360 y 370; fuera, el servidor responde el mensaje 876).
-- **Vendedores** (`app/tienda_ui.cpp`): `S_DoActionGFX` con la acción 70 trae el título de la tienda (también a quien llega después). Se los dibuja sentados (el último cuadro de la acción 70) con el título en un recuadro sobre el nombre. Un clic camina hasta 2 celdas y pide la lista (`C_ShopList`); `S_PrivateShop` tipo 0 trae lo que vende (orden, bendición, ícono, cantidad, precio y nombre) y tipo 1 lo que compra, solo con los ítems propios que le sirven.
+- **Vendedores** (`app/tienda_ui.cpp`): `S_DoActionGFX` con la acción 70 trae el título de la tienda (también a quien llega después). Se los dibuja sentados (el último cuadro de la acción 70) con el título sin fondo y con sus colores sobre el nombre. Un clic camina hasta 2 celdas y pide la lista (`C_ShopList`); `S_PrivateShop` tipo 0 trae lo que vende (orden, bendición, ícono, cantidad, precio y nombre) y tipo 1 lo que compra, solo con los ítems propios que le sirven.
 - **Comprar y venderle:** la ventana tiene "Sells" y "Buys"; un clic en una línea pregunta cuántos con el diálogo de cantidad y manda `C_Result` tipo 0 (orden y cantidad) o tipo 1 (ítem propio, cantidad en 3 bytes y orden); después pide la lista otra vez.
 - **La propia:** `/shop Título` abre la ventana para armarla: un clic en un ítem del inventario pide el precio por unidad y lo agrega con toda la pila; "Open" la abre (`C_Shop` 0 con la lista y el título) y "Close shop" (o `/shop` otra vez) la cierra (`C_Shop` 1).
 - **Verificado** con dos clientes en el mapa 340 y `--tienda-propia` / `--cantidad`: Charla abre "Vendo pociones" con 3 Potion of Bravery a 50; Prueba la ve sentada con el título, hace clic (a 5 celdas: 3 pasos y la lista), compra 1: `S_AddItem`, su adena 106 → 56 y la lista con 2. En la base: Prueba 56 adena y 1 poción; Charla +50 adena y 2 pociones. (Después, las dos de vuelta en Talking Island.)
@@ -1032,7 +1032,8 @@ Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
 
 - **Cuándo cambia** (`app/cursores.cpp`):
   - **mano:** para moverse y sobre la interfaz;
-  - **espada:** sobre un monstruo, o con Ctrl sobre otro personaje o NPC (atacarlo);
+  - **espada:** sobre un monstruo, o con Ctrl sobre otro personaje, NPC o mascota ajena (atacarlo);
+  - **moneda:** sobre un vendedor (sin Ctrl);
   - **círculo de objetivo:** mientras un hechizo espera su objetivo.
 - **Cómo se dibujan:** son cursores del sistema (`SDL_CreateColorCursor`, con una versión de 64 px para pantallas Retina). Se mueven sin el retraso de un frame que tendría dibujarlos con el juego.
 - **Los originales no están en esta instalación:**
