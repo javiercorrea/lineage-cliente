@@ -252,3 +252,16 @@ TEST_CASE("Chat: códigos de color y miles") {
     CHECK(std::string(con_miles(10000, b, sizeof b)) == "10.000");
     CHECK(std::string(con_miles(1234567, b, sizeof b)) == "1.234.567");
 }
+
+TEST_CASE("Chat: color del nombre según el alineamiento") {
+    auto c = [](u8 r, u8 g, u8 b) { return static_cast<u32>(r | (g << 8) | (b << 16)) | 0xFF000000u; };
+    CHECK(color_alineamiento(0) == c(240, 240, 240));
+    CHECK(color_alineamiento(8000) == c(150, 215, 255));
+    CHECK(color_alineamiento(16000) == c(70, 120, 255));
+    CHECK(color_alineamiento(32767) == c(70, 120, 255));
+    CHECK(color_alineamiento(-8000) == c(255, 170, 195));
+    CHECK(color_alineamiento(-16000) == c(255, 60, 50));
+    CHECK(color_alineamiento(-32768) == c(255, 60, 50));
+    CHECK(color_alineamiento(4000) == c(195, 228, 247));  // punto medio del primer tramo
+    CHECK(color_alineamiento(-4000) != color_alineamiento(4000));
+}

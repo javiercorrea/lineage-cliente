@@ -332,14 +332,6 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
     }
 }
 
-// Color del nombre según el alineamiento (S_CharPack / S_Lawful): legal (>= 500) azul, caótico
-// (<= -500) rojo, neutral blanco. Las graduaciones del original no están en los datos.
-u32 color_alineamiento(i32 legal) {
-    if (legal >= 500) return rgba(130, 190, 255);
-    if (legal <= -500) return rgba(255, 100, 90);
-    return rgba(240, 240, 240);
-}
-
 void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
     Graficos& g = *a.g;
     TablaObjetos& o = a.mundo.objetos;

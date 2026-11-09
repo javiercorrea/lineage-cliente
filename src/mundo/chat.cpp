@@ -1,4 +1,6 @@
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include "mundo/chat.h"
 #include "recursos/imagen.h"
 
@@ -81,6 +83,18 @@ constexpr u16 PALETA_F[0x65 - 0x30] = {
 u32 color_codigo(char c, u32 normal) {
     if (c == '>') return normal;  // blanco en la tabla; en los mensajes vuelve a su color
     return es_codigo_color(c) ? rgb555(PALETA_F[c - 0x30]) : normal;
+}
+
+u32 color_alineamiento(i32 legal) {
+    constexpr int MEDIO = 8000, TOPE = 16000;
+    struct Rgb { int r, g, b; };
+    constexpr Rgb BLANCO_{240, 240, 240}, CELESTE{150, 215, 255}, AZUL{70, 120, 255}, ROSA{255, 170, 195}, ROJO{255, 60, 50};
+    const int d = std::min(std::abs(legal), TOPE);
+    const Rgb a = d < MEDIO ? BLANCO_ : legal > 0 ? CELESTE : ROSA;
+    const Rgb b = d < MEDIO ? (legal > 0 ? CELESTE : ROSA) : legal > 0 ? AZUL : ROJO;
+    const int t = d < MEDIO ? d : d - MEDIO;  // de 0 a MEDIO dentro del tramo
+    auto mezcla = [&](int x, int y) { return static_cast<u8>(x + (y - x) * t / MEDIO); };
+    return color(mezcla(a.r, b.r), mezcla(a.g, b.g), mezcla(a.b, b.b));
 }
 
 const char* con_miles(u64 v, char* buf, size_t n) {
