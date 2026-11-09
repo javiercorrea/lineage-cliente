@@ -130,6 +130,19 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     }
     v.rango = a.sprites.accion(gfx, static_cast<u8>(base + arma));
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
+    // TODO(PARCHE PROVISIONAL): la tabla que tenemos no trae el "quieto" de estas formas; la real (list.spz,
+    // ver TablaSprites::copiar_filas_faltantes) diría qué cuadros y tiempos usar.
+    // Un personaje transformado en una forma sin "quieto" (los dark elf 52-80): el quieto de otra arma y,
+    // si no hay, parado en el primer cuadro de caminar, no dando pasos en el lugar. Los objetos sin
+    // quieto (los braseros, por ejemplo) sí se animan con caminar.
+    if (!v.rango && base == ACC_QUIETO && !muerto && tipo_objeto(a, s) == TIPO_PERSONAJE) {
+        for (u8 otra_arma : {4, 11, 20, 24, 40, 46, 50, 54, 58, 62})
+            if (!v.rango) v.rango = a.sprites.accion(gfx, static_cast<u8>(ACC_QUIETO + otra_arma));
+        if (!v.rango) {
+            v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
+            v.inicio = ahora;
+        }
+    }
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_QUIETO);
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
     // Sin quieto ni caminar (la torre de guardia sana, la corona): su primera acción, quieta.
@@ -281,6 +294,15 @@ void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double 
     }
 }
 
+// Título centrado en x, con sus códigos de color (\\fX).
+void dibujar_titulo(Graficos& g, std::string_view t, float x, float y, u64 clave, u32 normal) {
+    const bool doble_byte = !es_utf8(t.data(), t.size());
+    int ancho = 0;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32) { ancho += ancho_texto(s.data(), s.size()); });
+    float cx = x - ancho / 2;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32 c) { cx += g.texto_sombra(s, cx, y, clave, c); });
+}
+
 // Lo último que dijo el objeto, sobre su nombre (hasta 3 filas centradas). Se quita el
 // "Nombre: " / "<Nombre> " que agrega el servidor porque el nombre ya está debajo.
 void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
@@ -304,34 +326,23 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
         const int x1 = x0 + w - 1, y1 = y0 + h - 1, cx = static_cast<int>(centro_x);
         const u64 k = clave_orden(CAPA_EFECTOS, 1);
         const u32 borde = rgba(235, 235, 230, 230);
-        auto punto = [&](int x, int y) { a.g->gpu().rectangulo(x, y, 1, 1, k, borde); };
-        for (int x = x0 + 3; x <= x1 - 3; ++x) punto(x, y0), punto(x, y1);     // lados de arriba y abajo
-        for (int y = y0 + 3; y <= y1 - 3; ++y) punto(x0, y), punto(x1, y);     // lados izquierdo y derecho
-        for (int d = 0; d < 3; ++d) {                                           // esquinas redondeadas
+        Gpu& gpu = a.g->gpu();
+        gpu.rectangulo(x0 + 3, y0, w - 6, 1, k, borde);  // lados
+        gpu.rectangulo(x0 + 3, y1, w - 6, 1, k, borde);
+        gpu.rectangulo(x0, y0 + 3, 1, h - 6, k, borde);
+        gpu.rectangulo(x1, y0 + 3, 1, h - 6, k, borde);
+        auto punto = [&](int x, int y) { gpu.rectangulo(x, y, 1, 1, k, borde); };
+        for (int d = 0; d < 3; ++d) {  // esquinas redondeadas
             punto(x0 + 2 - d, y0 + d), punto(x1 - 2 + d, y0 + d);
             punto(x0 + 2 - d, y1 - d), punto(x1 - 2 + d, y1 - d);
         }
         punto(cx - 2, y1 + 1), punto(cx + 2, y1 + 1), punto(cx - 1, y1 + 2), punto(cx + 1, y1 + 2), punto(cx, y1 + 3);
-        for (int i = 0; i < n; ++i) {
-            int w_fila = ancho_texto(filas[i].data(), filas[i].size());
-            a.g->texto_sombra(filas[i], centro_x - w_fila / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
-                              rgba(255, 255, 254));
-        }
-        return;
     }
     for (int i = 0; i < n; ++i) {
         int w = ancho_texto(filas[i].data(), filas[i].size());
         a.g->texto_sombra(filas[i], centro_x - w / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
                           rgba(255, 255, 254));
     }
-}
-
-// Color del nombre según el alineamiento (S_CharPack / S_Lawful): legal (>= 500) azul, caótico
-// (<= -500) rojo, neutral blanco. Las graduaciones del original no están en los datos.
-u32 color_alineamiento(i32 legal) {
-    if (legal >= 500) return rgba(130, 190, 255);
-    if (legal <= -500) return rgba(255, 100, 90);
-    return rgba(240, 240, 240);
 }
 
 void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
@@ -417,7 +428,8 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
             // Invisible (S_Invis; un GM también ve así a los demás): translúcido.
             if (o.col<O_FLAGS>()[s] & FLAG_INVISIBLE) color = (color & 0x00FFFFFFu) | (110u << 24);
-            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
+            // Atributo 104 bit 8 (fuego, braseros...): suma luz, su fondo oscuro no tapa.
+            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color, a.sprites.aditivo(gfx) ? Mezcla::ADITIVA : Mezcla::NORMAL);
             // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
             // translúcidas superpuestas casi lo esconden).
             if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
@@ -427,7 +439,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, 0});
         } else {
             // Sin sprite: un bloque del tamaño de un cuerpo, que se puede elegir con el clic. Verde mientras
             // el sprite todavía se carga (o el atlas no tiene lugar); magenta si de verdad falta.
@@ -437,7 +449,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), color_marca);
             top = y0;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, static_cast<u8>(rg_pendiente ? 1 : 2)});
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.
@@ -514,8 +526,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
             if (const Vendedor* v = vendedor(a, o.ids()[s]); v && !v->titulo.empty()) {  // título de la tienda
-                const int wt = ancho_texto(v->titulo.data(), v->titulo.size());
-                g.texto_sombra(v->titulo, sx + 24 - wt / 2, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
+                dibujar_titulo(g, v->titulo, sx + 24, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
             }
             // Marcado con True Target: la marca y su mensaje encima del nombre.
             if (o.ids()[s] == a.marca_objetivo) {
@@ -538,12 +549,11 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             }
             top -= 14;
             // Título encima del nombre: el del NPC ("Merchant^...") o el del personaje (O_TITULO).
-            std::string_view titulo = !titulo_npc.empty() ? titulo_npc
-                                      : personaje         ? texto(a.mundo, o.col<O_TITULO>()[s])
+            std::string_view titulo = !titulo_npc.empty()                  ? titulo_npc
+                                      : personaje || o.col<O_MASCOTA>()[s] ? texto(a.mundo, o.col<O_TITULO>()[s])
                                                           : std::string_view{};
             if (!titulo.empty()) {
-                int wt = ancho_texto(titulo.data(), titulo.size());
-                g.texto_sombra(titulo, sx + 24 - wt / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
+                dibujar_titulo(g, titulo, sx + 24, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
                 top -= 14;
             }
         }
@@ -680,9 +690,13 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
     return true;
 }
 
-// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las mascotas
-// propias se manejan con su menú, y el cursor de espada tampoco aparece sobre ellas sin Ctrl.
-bool mascota_sin_ctrl(const App& a, Slot s) { return s != SIN_SLOT && a.mundo.objetos.col<O_MASCOTA>()[s] && !a.entrada.ctrl; }
+// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las propias
+// (a.mascotas, S_PetCtrlMenu) siguen como cualquier otro objeto.
+bool mascota_sin_ctrl(const App& a, Slot s) {
+    if (s == SIN_SLOT || !a.mundo.objetos.col<O_MASCOTA>()[s] || a.entrada.ctrl) return false;
+    const ObjId id = a.mundo.objetos.ids()[s];
+    return std::none_of(a.mascotas.begin(), a.mascotas.end(), [id](const Mascota& m) { return m.id == id; });
+}
 
 // Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
 // NPC se le habla (con Ctrl se lo ataca) y a otros personajes se los ataca con Ctrl o en modo PK
@@ -697,7 +711,10 @@ void elegir_objetivo_bajo_puntero(App& a) {
     a.hablar_objetivo = b != SIN_SLOT && (es_npc(a, b) || vendedor(a, a.objetivo)) && !e.ctrl;
     const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
     if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
-    if (b != SIN_SLOT && mascota_sin_ctrl(a, b)) a.objetivo = 0;  // la de otro jugador: solo con Ctrl
+    if (mascota_sin_ctrl(a, b)) {  // la de otro jugador: solo con Ctrl
+        a.objetivo = 0;
+        a.hablar_objetivo = false;
+    }
 }
 
 void mover_jugador(App& a, u64 ahora) {
@@ -715,12 +732,18 @@ void mover_jugador(App& a, u64 ahora) {
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
     // Shift+clic en el mundo: solo girar hacia ahí, sin caminar ni elegir objetivo (por ejemplo, para
-    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina.
+    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina. Como un clic
+    // nuevo, cancela lo que estuviera haciendo; inmóvil, a mitad de un paso o de un ataque no gira.
     if (clic_en_mundo && e.pulsado && e.shift && s != SIN_SLOT && !a.mundo.jugador.muerto) {
-        const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
-        o.col<O_DIR>()[s] = d;
-        enviar(a, cmd::girar(a.op, d));
+        a.hechizo_pendiente = 0;
+        a.ataque_sostenido = a.objetivo_fijo = a.hablar_objetivo = false;
+        a.objetivo = 0;
         a.clic_consumido = true;
+        if (!a.mundo.jugador.inmovil && !moviendose(a.mundo, s, ahora) && ahora >= a.fin_ataque) {
+            const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
+            o.col<O_DIR>()[s] = d;
+            enviar(a, cmd::girar(a.op, d));
+        }
         return;
     }
     // Antes de esperar el fin del paso: el frame en que se aprieta no se pierde.
@@ -1078,12 +1101,10 @@ void dibujar_chat(App& a) {
     }
     const bool abierta = !con_enter || a.escribiendo_chat;
     if (a.cfg.ui_simple) g.texto(">", ac.entrada_x - 12, ac.entrada_y, kt, abierta ? rgba(214, 190, 140) : rgba(110, 100, 80));
-    if (abierta && e.escape) {
+    if (abierta && e.escape && (con_enter || !a.chat_entrada.empty())) {  // sin nada que borrar, Esc sigue a las ventanas
         a.chat_entrada.clear();
-        if (con_enter) {
-            a.escribiendo_chat = false;
-            e.escape = false;
-        }
+        if (con_enter) a.escribiendo_chat = false;
+        e.escape = false;
     }
     if (!abierta) {
         g.texto("Enter: chat", ac.entrada_x, ac.entrada_y, kt, rgba(110, 100, 80));
@@ -1181,12 +1202,13 @@ void cambiar_zoom(App& a) {
 
 void dibujar_ventanas(App& a) {
     EntradaFrame& e = a.entrada;
-    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos y el
-    // chat se lo quedan antes. Con un pergamino esperando su objetivo, Esc solo cancela eso
-    // (inventario_ui.cpp). El intercambio no: cerrarlo sin cancelarlo dejaría el trade abierto.
-    if (e.escape && !a.usar_sobre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     const int mx = e.mx, my = e.my;
     const bool arrastre = a.arrastrando || a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || a.ventana_arrastrada >= 0;
+    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos, el
+    // chat y un hechizo o mascota eligiendo objetivo se lo quedan antes. Con un pergamino esperando su
+    // objetivo, Esc solo cancela eso (inventario_ui.cpp). Arrastrando algo no cierra: soltarlo lo
+    // resuelve la ventana de donde salió. El intercambio tampoco: dejaría el trade abierto.
+    if (e.escape && !a.usar_sobre && !arrastre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     for (int i = 0; i < static_cast<int>(IdVentana::CANTIDAD); ++i) {
         const IdVentana v = static_cast<IdVentana>(a.orden_ventanas[i]);
         if (!arrastre && a.ventana_arriba >= 0 && a.ventana_arriba != static_cast<int>(v)) e.mx = e.my = -10000;
@@ -1292,9 +1314,8 @@ void elegir_cursor(App& a) {
     ObjId id = objeto_bajo_puntero(a);
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
-    // Tienda de un jugador: un vendedor se ve como monstruo (sin acciones de sprite ni "^"), así que se
-    // mira antes.
-    if (vendedor(a, id)) {
+    // Tienda de un jugador: el clic camina hasta él y pide su lista. Con Ctrl, el clic lo ataca.
+    if (vendedor(a, id) && !a.entrada.ctrl) {
         a.cursor = Cursor::MONEDA;
         return;
     }
@@ -1302,7 +1323,7 @@ void elegir_cursor(App& a) {
     if ((tipo == TIPO_MONSTRUO && !mascota_sin_ctrl(a, s)) || (a.entrada.ctrl && tipo != TIPO_ITEM) ||
         (a.modo_pk && tipo == TIPO_PERSONAJE))
         a.cursor = Cursor::ESPADA;
-    else if (es_npc(a, s) && tipo != TIPO_PUERTA)  // sin Ctrl, el clic le habla
+    else if (es_npc(a, s) && tipo != TIPO_PUERTA && !mascota_sin_ctrl(a, s))  // sin Ctrl, el clic le habla
         a.cursor = Cursor::LABIOS;
 }
 
@@ -1424,7 +1445,7 @@ void frame_juego(App& a) {
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
-    a.gpu.nivel_ventana(31);
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_cantidad(a);
     a.gpu.nivel_ventana(0);
     dibujar_reinicio(a);

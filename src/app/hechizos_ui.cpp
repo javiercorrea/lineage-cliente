@@ -279,6 +279,7 @@ void procesar_hechizos(App& a, u64 ahora) {
     if (a.hechizo_apuntando) {
         if (e.clic_derecho || e.escape) {
             a.hechizo_apuntando = 0;
+            e.escape = false;  // Esc cancela solo esto
         } else if (e.pulsado && !sobre_hechizos(a) && !sobre_inventario(a) && !sobre_barra(a)) {
             ObjId obj = objeto_bajo_puntero(a, true);
             if (obj) pedir_hechizo(a, a.hechizo_apuntando, obj);

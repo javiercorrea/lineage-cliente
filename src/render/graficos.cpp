@@ -87,7 +87,10 @@ void Graficos::poner_emblema(u32 clan, Bytes datos) {
     constexpr int W = 16, H = 12;
     if (datos.size() < W * H * 2) return;
     tmp_.preparar(W, H);
-    for (int i = 0; i < W * H; ++i) tmp_.px[i] = rgb555(static_cast<u16>(datos[2 * i] | (datos[2 * i + 1] << 8)));
+    for (int i = 0; i < W * H; ++i) {  // el negro puro es el fondo transparente del emblema
+        const u16 c = static_cast<u16>(datos[2 * i] | (datos[2 * i + 1] << 8));
+        tmp_.px[i] = (c & 0x7FFF) == 0 ? 0 : rgb555(c);
+    }
     indice_.quitar(clave(T_EMBLEMA, clan));  // uno nuevo reemplaza al anterior
     guardar(clave(T_EMBLEMA, clan), true);
 }

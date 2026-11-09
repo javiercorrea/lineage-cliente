@@ -8,6 +8,7 @@
 //   % alianza, * grupo de chat y "nombre texto para susurrar.
 #pragma once
 #include <span>
+#include <string>
 #include <string_view>
 #include "proto/eventos.h"
 #include "recursos/textos.h"
@@ -55,6 +56,50 @@ u32 color_chat(u8 tipo);
 
 // Reemplaza los "$N" del texto por la entrada N de desc-e.tbl. Devuelve los bytes escritos.
 size_t expandir_desc(const TablaTexto& desc, std::string_view t, char* destino, size_t capacidad);
+// Color del código \fX (de '0' a 'd', paleta del original); `normal` si no es un código.
+inline bool es_codigo_color(char c) { return c >= 0x30 && c < 0x65; }
+u32 color_codigo(char c, u32 normal);
+
+// Color del nombre de un jugador según su alineamiento: blanco en 0, hacia celeste y azul (16000 o más)
+// o hacia rosa y rojo (-16000 o menos).
+u32 color_alineamiento(i32 legal);
+
+// Número con punto cada tres cifras (10.000), en buf.
+const char* con_miles(u64 v, char* buf, size_t n);
+
+// Recorre un texto con códigos llamando a f(tramo, color) por cada tramo visible, como el original
+// (sub_432590): \fX cambia el color; \bX, \iN, \k, \j, \c y \\ no se muestran. `doble_byte`: fuera de
+// UTF-8, un carácter de dos bytes puede tener una barra como segundo byte.
+template <class F>
+void recorrer_codigos(std::string_view t, u32 normal, bool doble_byte, F&& f) {
+    u32 color = normal;
+    size_t ini = 0;
+    auto cortar = [&](size_t fin) {
+        if (fin > ini) f(t.substr(ini, fin - ini), color);
+    };
+    for (size_t i = 0; i < t.size();) {
+        if (doble_byte && static_cast<unsigned char>(t[i]) >= 0x80) {
+            i += 2;
+            continue;
+        }
+        const char c = t[i] == '\\' && i + 1 < t.size() ? t[i + 1] : 0;
+        const char x = i + 2 < t.size() ? t[i + 2] : 0;
+        size_t largo = 0;
+        if ((c == 'f' || c == 'b') && es_codigo_color(x)) largo = 3;
+        else if (c == 'i' && x >= '0' && x <= '5') largo = 3;
+        else if (c == 'k' || c == 'j' || c == 'c' || c == '\\') largo = 2;
+        if (!largo) {
+            ++i;
+            continue;
+        }
+        cortar(i);
+        if (c == 'f') color = color_codigo(x, normal);
+        i += largo;
+        ini = i;
+    }
+    cortar(t.size());
+}
+
 // Arma el texto de un S_ServerMessage. `color` sale del primer código \fX, si lo hay.
 size_t formatear_mensaje(const TablaTexto& mensajes, const TablaTexto& desc, const Evento& e, char* destino,
                          size_t capacidad, u32& color);

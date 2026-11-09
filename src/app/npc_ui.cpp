@@ -240,13 +240,13 @@ void dibujar_tienda(App& a, int x0, int y0) {
         // El nombre en una línea (cortado si no entra) y debajo precio y cantidad elegida.
         while (m > 0 && ancho_texto(buf, m) > w - 40) --m;
         g.texto({buf, m}, static_cast<float>(x + 38), static_cast<float>(y + 3), kt, color);
-        char linea[64];
+        char linea[64], m1[32];
         if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO || a.tienda == TipoTienda::MASCOTA)
             std::snprintf(linea, sizeof linea, "x%u", f.maximo);
         else if (a.tienda == TipoTienda::REPARAR)
-            std::snprintf(linea, sizeof linea, "Damage %u: %u adena", f.maximo, f.precio);
+            std::snprintf(linea, sizeof linea, "Damage %u: %s adena", f.maximo, con_miles(f.precio, m1, sizeof m1));
         else
-            std::snprintf(linea, sizeof linea, "%u adena", f.precio);
+            std::snprintf(linea, sizeof linea, "%s adena", con_miles(f.precio, m1, sizeof m1));
         g.texto(linea, static_cast<float>(x + 38), static_cast<float>(y + 17), kt, rgba(170, 160, 140));
         if (f.elegido) {
             std::snprintf(linea, sizeof linea, "%u", f.elegido);
@@ -270,7 +270,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
     }
     const int yp = y0 + ARRIBA + FILAS_TIENDA * FILA_TIENDA + 4;
-    char pie[96];
+    char pie[96], m1[32], m2[32];
     const u64 t = total(a);
     switch (a.tienda) {
     case TipoTienda::MAGIA:
@@ -279,9 +279,9 @@ void dibujar_tienda(App& a, int x0, int y0) {
             break;
         }
         [[fallthrough]];
-    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena_inventario(a)); break;
-    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
-    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
+    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %s / %s adena", con_miles(t, m1, sizeof m1), con_miles(adena_inventario(a), m2, sizeof m2)); break;
+    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %s adena", con_miles(t, m1, sizeof m1)); break;
+    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %s adena (30 each)", con_miles(t, m1, sizeof m1)); break;
     case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
     case TipoTienda::REPARAR: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "No damaged weapons" : "Click a weapon to repair it"); break;
     default: std::snprintf(pie, sizeof pie, "Click: +1  Shift: +10  Right: -1"); break;
@@ -296,11 +296,20 @@ void dibujar_tienda(App& a, int x0, int y0) {
 u8 tipo_objeto(const App& a, Slot s) {
     const GfxId gfx = a.mundo.objetos.col<O_GFX>()[s];
     const u8 tipo = a.sprites.tipo(gfx);
+    const bool sin_tabla = tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR);
+    // Otro jugador transformado o con un gfx que esta tabla no conoce: sigue siendo un personaje. Los
+    // jugadores traen su nombre tal cual y nivel 0; monstruos y NPCs, "$N" o su nivel.
+    if (sin_tabla || tipo == TIPO_MONSTRUO) {
+        const TablaObjetos& o = a.mundo.objetos;
+        const std::string_view crudo = texto(a.mundo, o.col<O_NOMBRE>()[s]);
+        if (!crudo.empty() && crudo[0] != '$' && crudo.find('^') == std::string_view::npos && o.col<O_NIVEL>()[s] == 0 &&
+            !o.col<O_MASCOTA>()[s])
+            return TIPO_PERSONAJE;
+    }
     // Sin el gfx en la tabla de sprites (se dibuja como un bloque magenta): un monstruo de una
     // versión más nueva que esta instalación, así se lo puede atacar; salvo los NPCs de los
     // pueblos, que se llaman "Oficio^Nombre" ("Storage^Dorin") y a los que se les habla.
-    if (tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR) &&
-        s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
+    if (sin_tabla && s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
         a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s])).find('^') == std::string_view::npos)
         return TIPO_MONSTRUO;
     // Asedio: los portones son puertas; la torre de guardia y la corona se atacan con un clic (la

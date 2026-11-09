@@ -95,6 +95,7 @@ TEST_CASE("Decodificar: nivel de S_NPCPack y S_PinkName") {
     REQUIRE(decodificar({m, sizeof m}, t, arena, ev));
     REQUIRE(ev.size() == 1);
     CHECK(ev[0].v[OB_MASCOTA] == 1);
+    CHECK(ev[0].s[1] == "Dueno's");
     CHECK(ev[0].v[OB_HP] == 0x50);
     // S_PinkName: d id, d 180 segundos.
     ev.clear();

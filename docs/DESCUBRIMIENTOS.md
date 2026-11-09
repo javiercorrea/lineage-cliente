@@ -32,7 +32,12 @@ los px, lógicos (640×480 en el original).
   equivale a sumarlo al fondo. Lo oscuro dentro de una figura queda opaco (`quitar_fondo_negro`).
   Las imágenes propias (el logo del login) no pasan por esto: traen su alfa.
 - **Gráficos aditivos:** el atributo 104, bit 8, de la tabla de sprites marca 1921 gfx (efectos de
-  hechizos) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+  hechizos y objetos del mundo, como la llama de los braseros, gfx 1171) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+- **Campo `h` de los tiles de un `.spr`:** no marca transparencia (toma valores como 8, 18 o 34 en
+  cualquier sprite, personajes incluidos); usar sus bits para mezclar borra a los personajes.
+- **Códigos de texto** (`sub_432590` de `S3EP1U.bin`): `\\fX` color, con X de `0` a `d` y la tabla RGB555
+  en `0x500430` (`\\f1` azul, `\\f2` verde, `\\f3` rojo, `\\f>` blanco); `\\bX`, `\\iN`, `\\k`, `\\j`, `\\c` y `\\\\`
+  no se muestran. Los emblemas usan el negro puro como fondo transparente.
 - **Íconos:** `N.tbt`; el de cada hechizo sale de `spellicon.idx` (en `Sprite.pak`).
 
 ### Tiles (`.til`) y sombras
@@ -85,6 +90,15 @@ los px, lógicos (640×480 en el original).
   hacía que el cuerpo recorriera casi 2 celdas y volviera atrás.
 - **Ancla:** la esquina superior izquierda de la celda; los pies quedan en el centro del rombo
   (calibrado con el explorador).
+- **Gfx sin fila en la tabla (TODO, parche provisional):** `datos/sprite_table.txt` llega al gfx 8682 y la
+  tabla real del cliente va cifrada en `list.spz`, dentro de `Text.pak` (firma `S1354`; `list.spr` son 9
+  bytes en cero). `lin.bin` la lee, pero tiene un protector tipo Themida y no se puede analizar sin
+  ejecutarlo. **Hay que conseguir la tabla real con sus gfx y tiempos** y borrar los parches:
+  - `TablaSprites::copiar_filas_faltantes`: darkelf, death y spearm 75 y 80 copian la fila del nivel 70;
+    sus tiempos y su aspecto pueden no ser los correctos.
+  - `elegir_accion`: las formas sin "quieto" (darkelf) usan el quieto de otra arma.
+  - Siguen sin dibujarse los polymorphs `re *` (8781–8868), y los `young *` y `awake *` tienen archivos
+    pero no fila, por lo que no se animan.
 - **Gfx que no existen en esta instalación:** 30 de los monstruos de la base (islas nuevas, Depraved
   Soul) y algunos NPCs (el almacén de Talking Island, gfx 10669) no están ni en la tabla ni en los
   `.pak`. Se dibujan como un bloque magenta del tamaño de un cuerpo (ver §6).
