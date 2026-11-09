@@ -35,8 +35,8 @@ los px, lógicos (640×480 en el original).
   hechizos y objetos del mundo, como la llama de los braseros, gfx 1171) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
 - **Campo `h` de los tiles de un `.spr`:** no marca transparencia (toma valores como 8, 18 o 34 en
   cualquier sprite, personajes incluidos); usar sus bits para mezclar borra a los personajes.
-- **Códigos de texto** (`sub_432590` de `S3EP1U.bin`): `\\fX` color, con X de `0` a `d` y la tabla RGB555
-  en `0x500430` (`\\f1` azul, `\\f2` verde, `\\f3` rojo, `\\f>` blanco); `\\bX`, `\\iN`, `\\k`, `\\j`, `\\c` y `\\\\`
+- **Códigos de texto** (`sub_432590` de `S3EP1U.bin`): `\fX` color, con X de `0` a `d` y la tabla RGB555
+  en `0x500430` (`\f1` azul, `\f2` verde, `\f3` rojo, `\f>` blanco); `\bX`, `\iN`, `\k`, `\j`, `\c` y `\\`
   no se muestran. Los emblemas usan el negro puro como fondo transparente.
 - **Íconos:** `N.tbt`; el de cada hechizo sale de `spellicon.idx` (en `Sprite.pak`).
 
@@ -378,9 +378,12 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   jugadores; **"/pk"** (del cliente: el servidor no tiene ese comando) hace que el clic sobre un
   jugador lo ataque sin Ctrl.
 - **Cursores:** mano; espada sobre monstruos (o con Ctrl, o jugadores en modo PK); labios sobre NPCs;
-  círculo al elegir objetivo.
+  moneda sobre vendedores; círculo al elegir objetivo.
+- **Dueño de una mascota:** `S_PetPack` y `S_SummonPack` lo traen en el segundo texto tras el clan (vacío en
+  personajes y NPCs). Se muestra como "Dueño's", y sin Ctrl un clic no ataca a la mascota ajena.
 - **Monstruos sin sprite:** un gfx sin acciones en la tabla cuenta como monstruo (bloque magenta
-  atacable), salvo que el nombre sea "Oficio^Nombre" (NPC de pueblo: se le habla).
+  atacable), salvo que el nombre sea "Oficio^Nombre" (NPC de pueblo: se le habla) o sea un jugador (nombre
+  propio y nivel 0), también si está transformado en un gfx de monstruo.
 - **Dar ítems:** soltar un ítem del inventario sobre un NPC o mascota se lo da (de una pila pregunta
   cuántos); sobre el suelo, cae; sobre una ventana, no pasa nada (antes caía al suelo).
 - **Ventanas:** la que se abre o se toca pasa adelante; solo la de más arriba recibe el mouse (a las
