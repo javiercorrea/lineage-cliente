@@ -130,6 +130,8 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     }
     v.rango = a.sprites.accion(gfx, static_cast<u8>(base + arma));
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
+    // TODO(PARCHE PROVISIONAL): la tabla que tenemos no trae el "quieto" de estas formas; la real (list.spz,
+    // ver TablaSprites::copiar_filas_faltantes) diría qué cuadros y tiempos usar.
     // Un personaje transformado en una forma sin "quieto" (los dark elf 52-80): el quieto de otra arma y,
     // si no hay, parado en el primer cuadro de caminar, no dando pasos en el lugar. Los objetos sin
     // quieto (los braseros, por ejemplo) sí se animan con caminar.

@@ -67,6 +67,8 @@ TEST_CASE("Tabla de sprites (datos/sprite_table.txt)") {
     // Filas agregadas a mano: los dark elf 75 y 80 usan los archivos de los otros dark elf.
     CHECK(t.gfx_archivos(9225) == t.gfx_archivos(6160));
     CHECK(t.gfx_archivos(9226) == t.gfx_archivos(6160));
+    CHECK(t.gfx_archivos(9206) == t.gfx_archivos(6157));
+    CHECK(t.gfx_archivos(9012) == t.gfx_archivos(7341));
     CHECK(t.accion(9225, ACC_CAMINAR) != nullptr);
     CHECK(t.accion(9226, 8) != nullptr);
     CHECK(t.gfx_archivos(9224) == 9224);

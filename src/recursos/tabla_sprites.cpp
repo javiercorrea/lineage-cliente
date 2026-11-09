@@ -138,11 +138,18 @@ bool TablaSprites::cargar(const std::vector<u8>& texto) {
     return !rangos_.empty();
 }
 
-// shortcut: esta tabla (l1j-client) llega al gfx 8682; la del juego va cifrada en list.spz. Se agregan a
-// mano los gfx conocidos que no tiene, hasta tener la real.
+// TODO(PARCHE PROVISIONAL): NO son los datos reales. Esta tabla (l1j-client) llega al gfx 8682 y la del
+// juego va cifrada en list.spz (Text.pak). Estos gfx se dibujan con la fila de la forma anterior de su
+// serie, así que sus tiempos y su aspecto pueden ser incorrectos. Hay que conseguir la tabla real (gfx
+// y tiempos) y borrar esto. Ver docs/DESCUBRIMIENTOS.md, "Gfx sin fila en la tabla".
+// shortcut: copia la fila de la forma nivel 70, hasta tener list.spz descifrado.
 void TablaSprites::copiar_filas_faltantes() {
-    // Dark elf 75 y 80 (polymorphs): los de 52 a 70 usan todos los archivos de 1125.
-    static constexpr std::pair<GfxId, GfxId> FILAS[] = {{9225, 6160}, {9226, 6160}};
+    // Polymorphs 75 y 80: las formas de 52 a 70 de cada serie usan los mismos archivos.
+    static constexpr std::pair<GfxId, GfxId> FILAS[] = {
+        {9225, 6160}, {9226, 6160},  // darkelf 75 y 80 -> darkelf 70
+        {9205, 6157}, {9206, 6157},  // death 75 y 80 -> death 70
+        {9011, 7341}, {9012, 7341},  // spearm 75 y 80 -> spearm 70
+    };
     for (const auto& [nuevo, origen] : FILAS) {
         if (origen >= alias_.size()) continue;  // tabla reducida (tests)
         if (nuevo >= alias_.size()) {

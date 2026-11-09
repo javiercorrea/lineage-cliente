@@ -90,6 +90,15 @@ los px, lógicos (640×480 en el original).
   hacía que el cuerpo recorriera casi 2 celdas y volviera atrás.
 - **Ancla:** la esquina superior izquierda de la celda; los pies quedan en el centro del rombo
   (calibrado con el explorador).
+- **Gfx sin fila en la tabla (TODO, parche provisional):** `datos/sprite_table.txt` llega al gfx 8682 y la
+  tabla real del cliente va cifrada en `list.spz`, dentro de `Text.pak` (firma `S1354`; `list.spr` son 9
+  bytes en cero). `lin.bin` la lee, pero tiene un protector tipo Themida y no se puede analizar sin
+  ejecutarlo. **Hay que conseguir la tabla real con sus gfx y tiempos** y borrar los parches:
+  - `TablaSprites::copiar_filas_faltantes`: darkelf, death y spearm 75 y 80 copian la fila del nivel 70;
+    sus tiempos y su aspecto pueden no ser los correctos.
+  - `elegir_accion`: las formas sin "quieto" (darkelf) usan el quieto de otra arma.
+  - Siguen sin dibujarse los polymorphs `re *` (8781–8868), y los `young *` y `awake *` tienen archivos
+    pero no fila, por lo que no se animan.
 - **Gfx que no existen en esta instalación:** 30 de los monstruos de la base (islas nuevas, Depraved
   Soul) y algunos NPCs (el almacén de Talking Island, gfx 10669) no están ni en la tabla ni en los
   `.pak`. Se dibujan como un bloque magenta del tamaño de un cuerpo (ver §6).
