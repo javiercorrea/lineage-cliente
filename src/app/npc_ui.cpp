@@ -296,11 +296,20 @@ void dibujar_tienda(App& a, int x0, int y0) {
 u8 tipo_objeto(const App& a, Slot s) {
     const GfxId gfx = a.mundo.objetos.col<O_GFX>()[s];
     const u8 tipo = a.sprites.tipo(gfx);
+    const bool sin_tabla = tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR);
+    // Otro jugador transformado o con un gfx que esta tabla no conoce: sigue siendo un personaje. Los
+    // jugadores traen su nombre tal cual y nivel 0; monstruos y NPCs, "$N" o su nivel.
+    if (sin_tabla || tipo == TIPO_MONSTRUO) {
+        const TablaObjetos& o = a.mundo.objetos;
+        const std::string_view crudo = texto(a.mundo, o.col<O_NOMBRE>()[s]);
+        if (!crudo.empty() && crudo[0] != '$' && crudo.find('^') == std::string_view::npos && o.col<O_NIVEL>()[s] == 0 &&
+            !o.col<O_MASCOTA>()[s])
+            return TIPO_PERSONAJE;
+    }
     // Sin el gfx en la tabla de sprites (se dibuja como un bloque magenta): un monstruo de una
     // versión más nueva que esta instalación, así se lo puede atacar; salvo los NPCs de los
     // pueblos, que se llaman "Oficio^Nombre" ("Storage^Dorin") y a los que se les habla.
-    if (tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR) &&
-        s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
+    if (sin_tabla && s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
         a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s])).find('^') == std::string_view::npos)
         return TIPO_MONSTRUO;
     // Asedio: los portones son puertas; la torre de guardia y la corona se atacan con un clic (la
