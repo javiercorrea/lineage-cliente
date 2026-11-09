@@ -1,6 +1,6 @@
 #include <cstdio>
 #include "mundo/chat.h"
-#include "recursos/fuente.h"
+#include "recursos/imagen.h"
 
 namespace lin {
 
@@ -10,21 +10,6 @@ constexpr u32 color(u8 r, u8 g, u8 b) { return r | (g << 8) | (b << 16) | 0xFF00
 
 constexpr u32 COLOR_MENSAJE = color(255, 255, 255);
 constexpr u32 COLOR_AZUL = color(140, 180, 255);
-
-// Códigos \fX de string-e.tbl. PENDIENTE: la paleta exacta está en lin.bin; estos colores son
-// aproximados ("\f>" vuelve al color normal).
-u32 color_codigo(char c, u32 normal) {
-    switch (c) {
-    case '1': return color(255, 100, 100);
-    case '2': return color(130, 255, 130);
-    case '3': return color(130, 180, 255);
-    case '4': return color(255, 255, 130);
-    case '5': return color(255, 130, 255);
-    case '6': return color(130, 255, 255);
-    case 'Q': return color(255, 220, 120);
-    default: return normal;
-    }
-}
 
 // Escritura acotada en un buffer de tamaño fijo.
 struct Salida {
@@ -85,30 +70,29 @@ std::string_view Chat::globo(ObjId id, u64 ahora) const {
     return {};
 }
 
-std::string sin_codigos_color(std::string_view t) {
-    // Fuera de UTF-8 hay caracteres de dos bytes cuyo segundo byte puede ser una barra invertida.
-    const bool doble_byte = !es_utf8(t.data(), t.size());
-    std::string r;
-    for (size_t i = 0; i < t.size(); ++i) {
-        const char c = t[i];
-        if (doble_byte && static_cast<u8>(c) >= 0x80 && i + 1 < t.size()) {
-            r += c;
-            r += t[++i];
-            continue;
-        }
-        if (c == '\f' || c == '\b') {
-            ++i;
-            continue;
-        }
-        size_t j = i;
-        while (j < t.size() && t[j] == '\\') ++j;
-        if (j > i && j < t.size() && (t[j] == 'f' || t[j] == 'b')) {
-            i = j + 1;  // y el ++i del for salta la letra del color
-            continue;
-        }
-        r += c;
+// Colores de \\fX, RGB555, para X de '0' a 'd': tabla 0x500430 del cliente original (S3EP1U.bin).
+constexpr u16 PALETA_F[0x65 - 0x30] = {
+    0x0000, 0x001f, 0x03e0, 0x7c00, 0x509e, 0x3421, 0x50a5, 0x5ef7, 0x2108, 0x3def, 0x5f7f, 0x63b6, 0x7afe,
+    0x7fe0, 0x7fff, 0x6318, 0x4200, 0x5ca7, 0x1577, 0x7db2, 0x4a3f, 0x1eb2, 0x02e0, 0x4a52, 0x7fd6, 0x4e74,
+    0x662e, 0x6737, 0x14a5, 0x5fbc, 0x675f, 0x733f, 0x7f39, 0x7f99, 0x5e8d, 0x2e91, 0x3e8c, 0x3696, 0x525a,
+    0x5e38, 0x5a36, 0x6631, 0x767d, 0x102d, 0x57bd, 0x7df0, 0x5000, 0x7e1f, 0x564e, 0x3dff, 0x0014, 0x5949,
+    0x3214};
+
+u32 color_codigo(char c, u32 normal) {
+    if (c == '>') return normal;  // blanco en la tabla; en los mensajes vuelve a su color
+    return es_codigo_color(c) ? rgb555(PALETA_F[c - 0x30]) : normal;
+}
+
+const char* con_miles(u64 v, char* buf, size_t n) {
+    char t[32];
+    const int d = std::snprintf(t, sizeof t, "%llu", static_cast<unsigned long long>(v));
+    size_t k = 0;
+    for (int i = 0; i < d && k + 1 < n; ++i) {
+        if (i && (d - i) % 3 == 0 && k + 2 < n) buf[k++] = '.';
+        buf[k++] = t[i];
     }
-    return r;
+    buf[k] = 0;
+    return buf;
 }
 
 size_t expandir_desc(const TablaTexto& desc, std::string_view t, char* destino, size_t capacidad) {

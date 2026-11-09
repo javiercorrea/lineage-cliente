@@ -240,13 +240,13 @@ void dibujar_tienda(App& a, int x0, int y0) {
         // El nombre en una línea (cortado si no entra) y debajo precio y cantidad elegida.
         while (m > 0 && ancho_texto(buf, m) > w - 40) --m;
         g.texto({buf, m}, static_cast<float>(x + 38), static_cast<float>(y + 3), kt, color);
-        char linea[64];
+        char linea[64], m1[32];
         if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO || a.tienda == TipoTienda::MASCOTA)
             std::snprintf(linea, sizeof linea, "x%u", f.maximo);
         else if (a.tienda == TipoTienda::REPARAR)
-            std::snprintf(linea, sizeof linea, "Damage %u: %u adena", f.maximo, f.precio);
+            std::snprintf(linea, sizeof linea, "Damage %u: %s adena", f.maximo, con_miles(f.precio, m1, sizeof m1));
         else
-            std::snprintf(linea, sizeof linea, "%u adena", f.precio);
+            std::snprintf(linea, sizeof linea, "%s adena", con_miles(f.precio, m1, sizeof m1));
         g.texto(linea, static_cast<float>(x + 38), static_cast<float>(y + 17), kt, rgba(170, 160, 140));
         if (f.elegido) {
             std::snprintf(linea, sizeof linea, "%u", f.elegido);
@@ -270,7 +270,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
     }
     const int yp = y0 + ARRIBA + FILAS_TIENDA * FILA_TIENDA + 4;
-    char pie[96];
+    char pie[96], m1[32], m2[32];
     const u64 t = total(a);
     switch (a.tienda) {
     case TipoTienda::MAGIA:
@@ -279,9 +279,9 @@ void dibujar_tienda(App& a, int x0, int y0) {
             break;
         }
         [[fallthrough]];
-    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena_inventario(a)); break;
-    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
-    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
+    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %s / %s adena", con_miles(t, m1, sizeof m1), con_miles(adena_inventario(a), m2, sizeof m2)); break;
+    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %s adena", con_miles(t, m1, sizeof m1)); break;
+    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %s adena (30 each)", con_miles(t, m1, sizeof m1)); break;
     case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
     case TipoTienda::REPARAR: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "No damaged weapons" : "Click a weapon to repair it"); break;
     default: std::snprintf(pie, sizeof pie, "Click: +1  Shift: +10  Right: -1"); break;

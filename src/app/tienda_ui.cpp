@@ -60,7 +60,7 @@ void eventos_tienda(App& a, const Evento& e) {
     case Ev::ACCION_OBJETO:
         if (e.v[0] == 70) {  // abrió la tienda (también al aparecer, si ya la tenía)
             quitar_vendedor(a, e.id);
-            t.vendedores.push_back({e.id, sin_codigos_color(e.s[0])});
+            t.vendedores.push_back({e.id, std::string(e.s[0])});
         } else if (e.v[0] == ACC_QUIETO) {  // la cerró
             quitar_vendedor(a, e.id);
             if (t.vista == e.id) t.vista = 0;
@@ -194,7 +194,8 @@ void dibujar_tienda(App& a) {
             char nom[256];
             const size_t n = expandir_desc(a.desc, l.nombre, nom, sizeof nom);
             g.texto({nom, n}, static_cast<float>(x + 48), static_cast<float>(fy + 4), kt, l.bendicion == 1 ? rgba(255, 230, 120) : ui::COLOR_TEXTO);
-            std::snprintf(txt, sizeof txt, "%u adena  x%u", l.precio, l.cantidad);
+            char mil[32];
+            std::snprintf(txt, sizeof txt, "%s adena  x%u", con_miles(l.precio, mil, sizeof mil), l.cantidad);
             g.texto(txt, static_cast<float>(x + 48), static_cast<float>(fy + 18), kt, rgba(255, 220, 130));
             if (encima && e.clic) {
                 if (t.tipo == 0) preguntar(a, 1, t.vista, l.orden, static_cast<i32>(l.cantidad), {nom, n}, "Buy how many?");
@@ -222,7 +223,8 @@ void dibujar_tienda(App& a) {
         const Slot s = a.mundo.inventario.items.buscar(t.venta[i].item);
         char nom[256];
         const size_t n = s != SIN_SLOT ? expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), nom, sizeof nom) : 0;
-        std::snprintf(txt, sizeof txt, "%.*s  - %u adena", static_cast<int>(n), nom, t.venta[i].precio);
+        char mil[32];
+        std::snprintf(txt, sizeof txt, "%.*s  - %s adena", static_cast<int>(n), nom, con_miles(t.venta[i].precio, mil, sizeof mil));
         g.texto(txt, static_cast<float>(x + 12), static_cast<float>(fy), kt, ui::COLOR_TEXTO);
         if (!t.abierta && ui::boton_texto(g, e, "x", x + ANCHO - 44, fy - 2, 20, ALTO_GLIFO + 4)) {
             t.venta.erase(t.venta.begin() + static_cast<std::ptrdiff_t>(i));

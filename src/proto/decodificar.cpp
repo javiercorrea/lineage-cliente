@@ -134,7 +134,14 @@ bool poner(Lector& l, Evento& e) {
     e.v[OB_FLAGS] = l.c();
     e.v[OB_CLAN] = static_cast<i32>(l.d());
     l.s();
-    e.v[OB_MASCOTA] = l.s().empty() ? 0 : 1;  // el dueño de la mascota (vacío en los demás)
+    const std::string_view dueno = l.s();  // el de la mascota o invocación (vacío en los demás)
+    e.v[OB_MASCOTA] = dueno.empty() ? 0 : 1;
+    if (!dueno.empty()) {  // como el original: "Andromeda's" sobre el nombre
+        char* p = l.arena->reservar_arreglo<char>(dueno.size() + 2);
+        std::memcpy(p, dueno.data(), dueno.size());
+        std::memcpy(p + dueno.size(), "'s", 2);
+        e.s[1] = {p, dueno.size() + 2};
+    }
     l.c();
     e.v[OB_HP] = l.c();
     l.c();

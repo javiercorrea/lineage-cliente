@@ -281,6 +281,15 @@ void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double 
     }
 }
 
+// Título centrado en x, con sus códigos de color (\\fX).
+void dibujar_titulo(Graficos& g, std::string_view t, float x, float y, u64 clave, u32 normal) {
+    const bool doble_byte = !es_utf8(t.data(), t.size());
+    int ancho = 0;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32) { ancho += ancho_texto(s.data(), s.size()); });
+    float cx = x - ancho / 2;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32 c) { cx += g.texto_sombra(s, cx, y, clave, c); });
+}
+
 // Lo último que dijo el objeto, sobre su nombre (hasta 3 filas centradas). Se quita el
 // "Nombre: " / "<Nombre> " que agrega el servidor porque el nombre ya está debajo.
 void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
@@ -414,7 +423,8 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
             // Invisible (S_Invis; un GM también ve así a los demás): translúcido.
             if (o.col<O_FLAGS>()[s] & FLAG_INVISIBLE) color = (color & 0x00FFFFFFu) | (110u << 24);
-            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
+            // Atributo 104 bit 8 (fuego, braseros...): suma luz, su fondo oscuro no tapa.
+            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color, a.sprites.aditivo(gfx) ? Mezcla::ADITIVA : Mezcla::NORMAL);
             // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
             // translúcidas superpuestas casi lo esconden).
             if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
@@ -511,8 +521,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
             if (const Vendedor* v = vendedor(a, o.ids()[s]); v && !v->titulo.empty()) {  // título de la tienda
-                const int wt = ancho_texto(v->titulo.data(), v->titulo.size());
-                g.texto_sombra(v->titulo, sx + 24 - wt / 2, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
+                dibujar_titulo(g, v->titulo, sx + 24, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
             }
             // Marcado con True Target: la marca y su mensaje encima del nombre.
             if (o.ids()[s] == a.marca_objetivo) {
@@ -535,12 +544,11 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             }
             top -= 14;
             // Título encima del nombre: el del NPC ("Merchant^...") o el del personaje (O_TITULO).
-            std::string_view titulo = !titulo_npc.empty() ? titulo_npc
-                                      : personaje         ? texto(a.mundo, o.col<O_TITULO>()[s])
+            std::string_view titulo = !titulo_npc.empty()                  ? titulo_npc
+                                      : personaje || o.col<O_MASCOTA>()[s] ? texto(a.mundo, o.col<O_TITULO>()[s])
                                                           : std::string_view{};
             if (!titulo.empty()) {
-                int wt = ancho_texto(titulo.data(), titulo.size());
-                g.texto_sombra(titulo, sx + 24 - wt / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
+                dibujar_titulo(g, titulo, sx + 24, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
                 top -= 14;
             }
         }

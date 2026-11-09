@@ -1,3 +1,5 @@
+#include <string>
+#include <vector>
 #include <doctest/doctest.h>
 #include <string>
 #include "comun.h"
@@ -224,15 +226,29 @@ TEST_CASE("Estado: porcentaje de experiencia y ajuste de línea") {
     CHECK(bytes_que_caben("abcdef", 6, a * 3) == 3);  // sin espacios: corta en el ancho
 }
 
-TEST_CASE("Chat: sin_codigos_color") {
-    CHECK(sin_codigos_color("hola") == "hola");
-    CHECK(sin_codigos_color("\fHsell\f> x") == "sell x");
-    CHECK(sin_codigos_color("\bAsell") == "sell");
-    CHECK(sin_codigos_color("\\f4 SELLER") == " SELLER");
-    CHECK(sin_codigos_color("\\\\f3Steel") == "Steel");
-    CHECK(sin_codigos_color("a\\b") == "a");       // código cortado al final
-    CHECK(sin_codigos_color("c:\\x") == "c:\\x");  // otra barra no es un código
-    // Shift-JIS 0x95 0x5C ("表") seguido de f: no es un código.
-    CHECK(sin_codigos_color("\x95\\fin") == "\x95\\fin");
-    CHECK(sin_codigos_color("ñ\\f3x") == "ñx");  // UTF-8
+TEST_CASE("Chat: códigos de color y miles") {
+    auto partes = [](std::string_view t, bool doble = false) {
+        std::vector<std::pair<std::string, u32>> r;
+        recorrer_codigos(t, 7, doble, [&](std::string_view s, u32 c) { r.emplace_back(std::string(s), c); });
+        return r;
+    };
+    CHECK(partes("hola") == std::vector<std::pair<std::string, u32>>{{"hola", 7}});
+    const auto rojo = partes("a\\f3b");
+    REQUIRE(rojo.size() == 2);
+    CHECK(rojo[0] == std::pair<std::string, u32>{"a", 7});
+    CHECK(rojo[1].first == "b");
+    CHECK(rojo[1].second == color_codigo('3', 7));
+    CHECK(rojo[1].second != 7);
+    CHECK(partes("\\f3x\\f>y")[1] == std::pair<std::string, u32>{"y", 7});
+    CHECK(partes("\\bAz")[0] == std::pair<std::string, u32>{"z", 7});
+    CHECK(partes("\\\\f3a")[0].first == "f3a");     // \\ se descarta, como en el original
+    CHECK(partes("c:\\x")[0].first == "c:\\x");     // otra barra se muestra
+    CHECK(partes("\\f~")[0].first == "\\f~");       // fuera de rango: no es un código
+    CHECK(partes("\x95\\f3", true)[0].first == "\x95\\f3");  // Shift-JIS: la barra es del carácter
+
+    char b[32];
+    CHECK(std::string(con_miles(0, b, sizeof b)) == "0");
+    CHECK(std::string(con_miles(999, b, sizeof b)) == "999");
+    CHECK(std::string(con_miles(10000, b, sizeof b)) == "10.000");
+    CHECK(std::string(con_miles(1234567, b, sizeof b)) == "1.234.567");
 }

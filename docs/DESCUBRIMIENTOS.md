@@ -32,7 +32,12 @@ los px, lógicos (640×480 en el original).
   equivale a sumarlo al fondo. Lo oscuro dentro de una figura queda opaco (`quitar_fondo_negro`).
   Las imágenes propias (el logo del login) no pasan por esto: traen su alfa.
 - **Gráficos aditivos:** el atributo 104, bit 8, de la tabla de sprites marca 1921 gfx (efectos de
-  hechizos) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+  hechizos y objetos del mundo, como la llama de los braseros, gfx 1171) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+- **Campo `h` de los tiles de un `.spr`:** no marca transparencia (toma valores como 8, 18 o 34 en
+  cualquier sprite, personajes incluidos); usar sus bits para mezclar borra a los personajes.
+- **Códigos de texto** (`sub_432590` de `S3EP1U.bin`): `\\fX` color, con X de `0` a `d` y la tabla RGB555
+  en `0x500430` (`\\f1` azul, `\\f2` verde, `\\f3` rojo, `\\f>` blanco); `\\bX`, `\\iN`, `\\k`, `\\j`, `\\c` y `\\\\`
+  no se muestran. Los emblemas usan el negro puro como fondo transparente.
 - **Íconos:** `N.tbt`; el de cada hechizo sale de `spellicon.idx` (en `Sprite.pak`).
 
 ### Tiles (`.til`) y sombras
