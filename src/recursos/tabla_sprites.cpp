@@ -134,7 +134,36 @@ bool TablaSprites::cargar(const std::vector<u8>& texto) {
         }
         p = fin_reg + 1;
     }
+    copiar_filas_faltantes();
     return !rangos_.empty();
+}
+
+// shortcut: esta tabla (l1j-client) llega al gfx 8682; la del juego va cifrada en list.spz. Se agregan a
+// mano los gfx conocidos que no tiene, hasta tener la real.
+void TablaSprites::copiar_filas_faltantes() {
+    // Dark elf 75 y 80 (polymorphs): los de 52 a 70 usan todos los archivos de 1125.
+    static constexpr std::pair<GfxId, GfxId> FILAS[] = {{9225, 6160}, {9226, 6160}};
+    for (const auto& [nuevo, origen] : FILAS) {
+        if (origen >= alias_.size()) continue;  // tabla reducida (tests)
+        if (nuevo >= alias_.size()) {
+            const size_t n = nuevo + 1u;
+            for (size_t g = alias_.size(); g < n; ++g) alias_.push_back(static_cast<GfxId>(g));
+            sombra_.resize(n, -1);
+            tipo_.resize(n, 0);
+            atributos_.resize(n, 0);
+            siguiente_.resize(n, 0);
+        }
+        alias_[nuevo] = alias_[origen];
+        sombra_[nuevo] = sombra_[origen];
+        tipo_[nuevo] = tipo_[origen];
+        atributos_[nuevo] = atributos_[origen];
+        siguiente_[nuevo] = siguiente_[origen];
+        for (u64 a = 0; a < 256; ++a)
+            if (const u32* i = indice_.buscar((static_cast<u64>(origen) << 8) | a)) {
+                const u32 rango = *i;  // poner() puede mover la tabla
+                indice_.poner((static_cast<u64>(nuevo) << 8) | a, rango);
+            }
+    }
 }
 
 bool TablaSprites::cargar_archivo(const std::string& ruta) {

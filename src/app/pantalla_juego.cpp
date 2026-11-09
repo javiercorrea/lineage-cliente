@@ -130,6 +130,17 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     }
     v.rango = a.sprites.accion(gfx, static_cast<u8>(base + arma));
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
+    // Un personaje transformado en una forma sin "quieto" (los dark elf 52-80): el quieto de otra arma y,
+    // si no hay, parado en el primer cuadro de caminar, no dando pasos en el lugar. Los objetos sin
+    // quieto (los braseros, por ejemplo) sí se animan con caminar.
+    if (!v.rango && base == ACC_QUIETO && !muerto && tipo_objeto(a, s) == TIPO_PERSONAJE) {
+        for (u8 otra_arma : {4, 11, 20, 24, 40, 46, 50, 54, 58, 62})
+            if (!v.rango) v.rango = a.sprites.accion(gfx, static_cast<u8>(ACC_QUIETO + otra_arma));
+        if (!v.rango) {
+            v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
+            v.inicio = ahora;
+        }
+    }
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_QUIETO);
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
     // Sin quieto ni caminar (la torre de guardia sana, la corona): su primera acción, quieta.
