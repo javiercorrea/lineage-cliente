@@ -434,7 +434,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             top = py + rg.oy - desfase_y;
             const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, 0});
         } else {
             // Sin sprite: un bloque del tamaño de un cuerpo, que se puede elegir con el clic. Verde mientras
             // el sprite todavía se carga (o el atlas no tiene lugar); magenta si de verdad falta.
@@ -444,7 +444,7 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), color_marca);
             top = y0;
             bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, static_cast<u8>(rg_pendiente ? 1 : 2)});
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.

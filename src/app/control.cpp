@@ -212,10 +212,20 @@ void objetos(App& a, Conexion& c, int radio) {
         const ObjId id = o.ids()[s];
         const std::string_view n = a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s]));
         int px = -1, py = -1;  // centro en pantalla (coordenadas de "clic"), si se dibujó
+        const char* sprite = "fuera";
         for (const App::ObjetoEnPantalla& r : a.en_pantalla)
-            if (r.id == id) px = static_cast<int>((r.x0 + r.x1) / 2), py = static_cast<int>((r.y0 + r.y1) / 2);
-        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" gfx=%u tipo=%u x=%d y=%d pantalla=%d,%d%s", id, static_cast<int>(n.size()), n.data(),
-                      static_cast<unsigned>(o.col<O_GFX>()[s]), static_cast<unsigned>(tipo_objeto(a, s)), x, y, px, py,
+            if (r.id == id) {
+                px = static_cast<int>((r.x0 + r.x1) / 2), py = static_cast<int>((r.y0 + r.y1) / 2);
+                sprite = r.sprite == 0 ? "ok" : r.sprite == 1 ? "pendiente" : "falta";
+            }
+        // Para diagnosticar un bloque de color: el archivo que se busca y su acción de estar quieto.
+        const GfxId gfx = o.col<O_GFX>()[s], alias = a.sprites.gfx_archivos(gfx);
+        char spr0[32];
+        std::snprintf(spr0, sizeof spr0, "%u-0.spr", alias);
+        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" gfx=%u tipo=%u x=%d y=%d sprite=%s alias=%u tabla=%d archivo=%zu estado=%u pantalla=%d,%d%s", id, static_cast<int>(n.size()), n.data(),
+                      static_cast<unsigned>(gfx), static_cast<unsigned>(tipo_objeto(a, s)), x, y, sprite, static_cast<unsigned>(alias),
+                      a.sprites.accion(gfx, ACC_QUIETO) || a.sprites.accion(gfx, ACC_CAMINAR) ? 1 : 0, a.rec.sprite(spr0).size(),
+                      static_cast<unsigned>(o.col<O_ESTADO>()[s]), px, py,
                       o.col<O_ESTADO>()[s] == ESTADO_MUERTO ? " muerto" : s == yo ? " yo" : "");
         responder(c, l);
     }

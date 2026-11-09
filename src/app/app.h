@@ -302,6 +302,7 @@ struct App {
         ObjId id;
         float x0, y0, x1, y1;
         u32 profundidad;
+        u8 sprite;  // 0 dibujado, 1 pendiente (bloque verde), 2 faltante (bloque magenta)
     };
     std::vector<ObjetoEnPantalla> en_pantalla;
     // Fuentes de luz del frame, en los pies. Aparte de en_pantalla, que deja afuera a los muertos.
