@@ -53,6 +53,16 @@ LINEAGE_DIR="/path/to/game" ctest --preset debug   # without LINEAGE_DIR, tests 
 | `build/<preset>/explorador` | [Resource explorer](#resource-explorer) |
 | `build/<preset>/lin_tests` | Tests |
 
+### Packaging and releases (macOS)
+
+- **Locally:** `herramientas/empaquetar_macos.sh [VERSION]` builds `Lineage.app` and `Lineage Settings.app`
+  (universal: arm64 and x86_64, ad-hoc signed, with `datos/` inside) and leaves `dist/Lineage-VERSION-macos.dmg`.
+- **On GitHub:** pushing a `v*` tag (`git tag v0.1.0 && git push origin v0.1.0`) runs
+  `.github/workflows/release.yml`: tests, the `.dmg`, and a GitHub release with it and generated notes. Run the
+  workflow by hand (Actions > Release) to get only the `.dmg` as an artifact.
+- **Not notarized yet:** macOS warns that it cannot verify the developer; the first time, right-click the app and
+  choose Open. Game resources are not included: pick the game folder in Settings.
+
 ## Local test servers
 
 All development and testing happens against local servers; the real private server is never touched.

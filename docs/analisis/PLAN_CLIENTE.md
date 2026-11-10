@@ -425,7 +425,10 @@ jugador elige la carpeta de su instalación en `settings`.
   transparente) y `settings.png` (la misma L con un engranaje abajo a la derecha). Con `--icns CARPETA`
   arma los `.icns` del `.app` (macOS: `sips` + `iconutil`); el `.ico` de Windows y los PNG de Linux salen
   del mismo PNG de 1024. Los dos programas ya ponen su ícono de ventana al arrancar.
-- **macOS:** `Lineage.app` y `Lineage Settings.app` (universal, firmados y notarizados) en un `.dmg`.
+- **macOS (hecho, salvo la notarización):** `herramientas/empaquetar_macos.sh` arma `Lineage.app` y
+  `Lineage Settings.app` (universales, con firma ad hoc) en un `.dmg`. `.github/workflows/release.yml`
+  lo corre con cada tag `v*` y publica la release en GitHub. Pendiente: firmar con un Developer ID y
+  notarizar (secretos del repo: certificado y cuenta de Apple), para que macOS no avise al abrirlas.
 - **Windows:** instalador `.exe`. **Linux:** AppImage.
 - **Homebrew (macOS y Linux), dos variantes en un tap propio** (`brew tap javiercorrea/lineage`):
   - **Binario:** `brew install --cask lineage` baja el `.dmg` de la release de GitHub y copia los dos
