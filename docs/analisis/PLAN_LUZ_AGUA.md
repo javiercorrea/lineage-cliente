@@ -265,7 +265,7 @@ conviviera bien con el LRU, se sube a su propia textura (se resuelve en F4 midie
 | `src/app/clima.cpp` | `al_aire_libre` → `!mapa_oscuro`; capa de la lluvia y la nieve |
 | `src/app/sonido.cpp` | ambiente 330 mientras `mundo.submarino` |
 | `src/app/control*` | comando de depuración `forzar-hora <seg>` (solo `debug`, ver 4) |
-| `src/plataforma/rutas.{h,cpp}`, `tools/ajustes.cpp` | clave `infravision=1` en `settings.ini` y en el editor |
+| `src/plataforma/rutas.{h,cpp}`, `tools/settings.cpp` | clave `infravision=1` en `settings.ini` y en el editor |
 | `src/app/ventanas.cpp`, textos de i18n | casilla de infravisión en Opciones, visible solo para elfo y elfo oscuro, en los 5 idiomas |
 | `CMakeLists.txt`, `tests/` | archivos nuevos y tests |
 | `docs/DESCUBRIMIENTOS.md`, `ENTREGABLES.md`, `README.md` | sección nueva, quitar el pendiente, capturas |

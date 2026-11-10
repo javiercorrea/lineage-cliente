@@ -4,7 +4,7 @@
 // Los textos salen del catálogo (i18n/textos.h) en el idioma del juego; al cambiar el selector de
 // idioma, el editor cambia de idioma en vivo.
 //
-// Uso: ajustes [--config=RUTA]   (por defecto, el settings.ini del usuario)
+// Uso: settings [--config=RUTA]   (por defecto, el settings.ini del usuario)
 // Tab: siguiente campo de texto. Enter: cierra el campo. Esc: sale sin guardar (en un desplegable, lo cierra).
 // Desarrollo: --pestana=N (0–4) y --captura=x.bmp (guarda una imagen a los 30 frames y sale).
 #include <SDL3/SDL.h>
@@ -423,6 +423,7 @@ int main(int argc, char** argv) {
     if (!SDL_Init(SDL_INIT_VIDEO)) return 1;
     SDL_Window* v = SDL_CreateWindow(tr(Tx::AJ_TITULO_VENTANA), LOGICO_W, LOGICO_H,
                                      SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    if (v) ui::poner_icono(v, "settings.png");
     Gpu gpu;
     if (!v || !gpu.iniciar(v, LOGICO_W, LOGICO_H)) {
         SDL_Quit();

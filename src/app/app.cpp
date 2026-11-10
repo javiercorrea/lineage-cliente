@@ -301,6 +301,7 @@ bool iniciar_app(App& a) {
     a.ventana = SDL_CreateWindow("Lineage", a.cfg.ventana_ancho, a.cfg.ventana_alto,
                                  SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!a.ventana || !a.gpu.iniciar(a.ventana, 640, 480)) return false;
+    ui::poner_icono(a.ventana, "lineage.png");
     if (a.cfg.pantalla_completa) SDL_SetWindowFullscreen(a.ventana, true);
     a.ventana_sin_borde.redimensionable = true;
     SDL_StartTextInput(a.ventana);
