@@ -117,9 +117,7 @@ En Linux, la misma fórmula sirve para Homebrew en Linux.
 
 ## Pendientes ajenos a este plan
 
-- **Release `v0.1`:** el tag `v0.1` apunta a `a84b447`, de antes del arreglo del runner (`macos-14` ya no
-  existe; corregido en #19 con `macos-latest`). Ese tag no publicó nada. Hay que borrarlo y recrearlo
-  sobre `main` (`git push origin :refs/tags/v0.1`, `git tag -f -a v0.1 <main> -m "Lineage v0.1"`,
-  `git push origin v0.1`) o crear `v0.1.0`. El workflow ya se probó a mano en verde (run 42739409173).
+- **Releases:** `v0.1.0` publicada con el `.dmg` de macOS (el tag `v0.1` se borró: era de antes del
+  arreglo del runner). Las siguientes: `git tag -a vX.Y.Z -m ... && git push origin vX.Y.Z`.
 - **Notarización en macOS:** necesita una cuenta de Apple Developer y sus secretos en el repo.
 - **Tabla de sprites real** (`list.spz`): ver `docs/DESCUBRIMIENTOS.md`, "Gfx sin fila en la tabla".
