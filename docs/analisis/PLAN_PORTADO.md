@@ -106,6 +106,40 @@ Ya está detallado en `PLAN_CLIENTE.md` (entregable 11, "Empaquetado"): cask con
 el código (sin red: dependencias como `resource`, `datos/` en `share/lineage/datos`, token por ser privado).
 En Linux, la misma fórmula sirve para Homebrew en Linux.
 
+## macOS: lo que falta del empaquetado
+
+El `.dmg` ya se arma (`herramientas/empaquetar_macos.sh`, release `v0.1.0`). Esto sale del plan anterior
+`PLAN_EMPAQUETADO.md` (rama `worktree-plan-empaquetado-macos`, nunca mergeada) y sigue vigente:
+
+1. **Comprobaciones en el script** (que fallen, no que avisen):
+   - `otool -L` de cada ejecutable: solo `/System/Library/...` y `/usr/lib/...`; cualquier
+     `/opt/homebrew` o `@rpath` sin resolver es un error;
+   - `codesign --verify --deep --strict` (hoy se comprobó a mano);
+   - arrancar desde otra carpeta (`cd / && open Lineage.app`) para confirmar que `datos/` se encuentra
+     por `SDL_GetBasePath()` dentro del `.app`, no por el directorio actual. **Sin verificar todavía.**
+   - antes de cada versión, una pasada de `debug-asan` por login y mapa.
+2. **Firma Developer ID y notarización:**
+   - `codesign --force --options runtime --timestamp --sign "Developer ID Application: …"` (hardened
+     runtime, sin entitlements si no hace falta; probar que Metal y el audio siguen andando);
+   - `xcrun notarytool submit … --wait`, `xcrun stapler staple` sobre el `.dmg` y `spctl -a -vv -t install`;
+   - en CI, con secretos del repo (certificado `.p12` y una API key de App Store Connect), nunca en el
+     código; si se pide firmar y no está la identidad, el script debe fallar, no caer a firma ad hoc;
+   - requiere la cuenta de Apple Developer (USD 99 al año).
+3. **Primer arranque:**
+   - en una cuenta nueva de macOS sin `settings.ini`, debe salir la pantalla para elegir la carpeta del
+     juego, con error si no tiene `Sprite.pak`, `Text.pak` y `Tile.pak`;
+   - en una cuenta sin permisos de administrador, todo desde `~/Library`;
+   - que no pida permisos que no usa;
+   - un README corto dentro del `.dmg`: qué carpeta del juego hace falta y que el juego no viene incluido.
+4. **Decisiones del titular (no técnicas):**
+   - **Licencia GPLv3:** distribuir binarios obliga a ofrecer el código fuente; incluir `LICENSE` y la
+     nota de origen de `datos/sprite_table.txt` (l1j-client) en `Resources/`. Con el repo privado hay que
+     decidir cómo se ofrece la fuente.
+   - **Marca:** "Lineage" es del juego original; el plan anterior proponía llamar al paquete
+     "Lineage Cliente". Hoy los `.app` se llaman `Lineage` y `Lineage Settings`.
+   - **Versión mínima:** el `Info.plist` declara macOS 13.0, pero solo se probó en la versión actual.
+   - **Actualizaciones:** no hay mecanismo; se baja la versión nueva.
+
 ## Riesgos
 
 | Riesgo | Mitigación |
