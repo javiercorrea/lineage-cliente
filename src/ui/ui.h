@@ -115,6 +115,10 @@ struct Barra {
 bool barra_evento(Gpu& gpu, SDL_Window* ventana, Barra& b, const SDL_Event& ev, bool activa);
 // Cada frame: sigue el arrastre (lo suelta si el botón ya no está) y devuelve la acción pedida.
 AccionBarra barra_frame(SDL_Window* ventana, Barra& b);
+
+// Ícono de la ventana (y del Dock en macOS): datos/iconos/<archivo> junto al ejecutable o en el directorio
+// actual (tools/generar_iconos.py). Sin el archivo, queda el del sistema.
+void poner_icono(SDL_Window* ventana, const char* archivo);
 // Dibuja la barra arriba del todo, en coordenadas del llamador (`x0`, `y0`: su esquina).
 void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho);
 

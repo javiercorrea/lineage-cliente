@@ -415,6 +415,34 @@ indica qué partes de la infraestructura nacen o crecen en ese entregable.
 - **Terminado cuando:** se instala en una máquina limpia de cada sistema y conecta con un servidor de
   otra versión, con autorización de su operador.
 
+#### Empaquetado
+
+Se distribuyen dos programas: `lineage` (el juego) y `settings` (el editor de `settings.ini`), con
+`datos/` (tabla de sprites, formas, fuentes, íconos). Los recursos del juego **no** se incluyen: el
+jugador elige la carpeta de su instalación en `settings`.
+
+- **Íconos:** `tools/generar_iconos.py` dibuja `datos/iconos/lineage.png` (L cursiva roja, fondo
+  transparente) y `settings.png` (la misma L con un engranaje abajo a la derecha). Con `--icns CARPETA`
+  arma los `.icns` del `.app` (macOS: `sips` + `iconutil`); el `.ico` de Windows y los PNG de Linux salen
+  del mismo PNG de 1024. Los dos programas ya ponen su ícono de ventana al arrancar.
+- **macOS:** `Lineage.app` y `Lineage Settings.app` (universal, firmados y notarizados) en un `.dmg`.
+- **Windows:** instalador `.exe`. **Linux:** AppImage.
+- **Homebrew (macOS y Linux), dos variantes en un tap propio** (`brew tap javiercorrea/lineage`):
+  - **Binario:** `brew install --cask lineage` baja el `.dmg` de la release de GitHub y copia los dos
+    `.app`. Es lo más simple para el jugador.
+  - **Desde el código fuente:** una fórmula `lineage` que compila con CMake (`depends_on "cmake" =>
+    :build`, `"ninja" => :build`). `brew install lineage` usa la *bottle* precompilada si hay;
+    `brew install --build-from-source lineage` compila la release, y `brew install --HEAD lineage`
+    compila `main`. Instala `bin/lineage`, `bin/settings` y `share/lineage/datos/`.
+  - **Pendiente para la fórmula:**
+    - Homebrew compila sin red. Las dependencias que hoy baja `cmake/dependencias.cmake` (SDL3,
+      stb_image, dr_mp3, doctest) tienen que ir como `resource` de la fórmula, o usar `depends_on "sdl3"`
+      con una opción de CMake para tomar el SDL3 del sistema.
+    - Los programas buscan `datos/` junto al ejecutable. En la instalación de brew está en
+      `../share/lineage/datos`: hay que agregar esa ruta a la búsqueda.
+    - El repo es privado: el tap y la descarga del código necesitan un token
+      (`HOMEBREW_GITHUB_API_TOKEN`) o publicar las releases en un repo público.
+
 **Opcional, antes del 1:** un entregable 0 con el `explorer` (visor de sprites, tiles y mapas). No es
 jugable, pero valida los decodificadores y el aspecto antes de tener red.
 

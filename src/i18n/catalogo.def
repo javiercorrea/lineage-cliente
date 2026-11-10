@@ -78,7 +78,7 @@ X(CLASE_CABALLERO_DRAGON, "Caballero dragón", "Dragon Knight", "Cavaleiro drag�
   "Chevalier dragon")
 X(CLASE_ILUSIONISTA, "Ilusionista", "Illusionist", "Ilusionista", "Illusionist", "Illusionniste")
 
-// --- Editor de ajustes (tools/ajustes.cpp) -------------------------------------------------
+// --- Editor de ajustes (tools/settings.cpp) -------------------------------------------------
 X(AJ_TITULO, "AJUSTES DEL CLIENTE", "CLIENT SETTINGS", "AJUSTES DO CLIENTE", "CLIENT-EINSTELLUNGEN",
   "PARAMÈTRES DU CLIENT")
 X(AJ_TITULO_VENTANA, "Ajustes del cliente Lineage", "Lineage client settings", "Configurações do cliente Lineage",

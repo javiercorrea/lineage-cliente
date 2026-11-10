@@ -49,7 +49,7 @@ LINEAGE_DIR="/path/to/game" ctest --preset debug   # without LINEAGE_DIR, tests 
 | Program | What it is |
 |---|---|
 | `build/<preset>/lineage` | The game |
-| `build/<preset>/ajustes` | [Settings editor](#settings-editor) |
+| `build/<preset>/settings` | [Settings editor](#settings-editor) |
 | `build/<preset>/explorador` | [Resource explorer](#resource-explorer) |
 | `build/<preset>/lin_tests` | Tests |
 
@@ -108,7 +108,7 @@ The client takes **no command-line parameters**: everything comes from `settings
 
 ### Settings editor
 
-`build/<preset>/ajustes` edits `settings.ini` in a form with tabs (Game, Interface, Audio, Servers,
+`build/<preset>/settings` edits `settings.ini` in a form with tabs (Game, Interface, Audio, Servers,
 Characters), without touching the text file. It uses the same simple interface as the game, writes the
 same file and validates numeric fields before saving. In the Characters tab, you can remove a
 character's saved shortcuts and bar, and reset window positions. `--config=PATH` edits another file.
@@ -399,7 +399,7 @@ Identifiers and comments in the code are in Spanish.
 | `src/audio` | SDL3 device and streams: MP3 music (dr_mp3), WAV effects, ambience |
 | `src/ui` | Immediate-mode UI: image buttons (N/N+1), text boxes, simple-interface controls |
 | `src/app` | Main loop, screens (login, characters, creation, game) and one `*_ui.cpp` per game feature |
-| `tools/` | `ajustes.cpp` (settings editor), `explorador.cpp` (resource explorer), `generar_fuente_ui.py` (embedded font) |
+| `tools/` | `settings.cpp` (settings editor), `explorador.cpp` (resource explorer), `generar_fuente_ui.py` (embedded font), `generar_iconos.py` (icons in `datos/iconos/` and `.icns`) |
 | `tests/` | doctest: core, encryption (vectors from `docs/analisis/scripts/lineage_proto.py`), DES, protocol, real resources, map against the server, world, chat, fonts and texts |
 | `datos/` | `sprite_table.txt` (sprite action table from l1j-client, GPLv3; this installation only has an encrypted `list.enx`) and the interface font |
 

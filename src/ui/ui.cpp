@@ -1,4 +1,6 @@
 #include <algorithm>
+#include "plataforma/archivo_mapeado.h"
+#include "recursos/imagen.h"
 #include "ui/ui.h"
 
 namespace lin::ui {
@@ -321,6 +323,21 @@ AccionBarra barra_frame(SDL_Window* v, Barra& b) {
     const AccionBarra acc = b.accion;
     b.accion = AccionBarra::NINGUNA;
     return acc;
+}
+
+void poner_icono(SDL_Window* ventana, const char* archivo) {
+    const char* base = SDL_GetBasePath();
+    std::vector<u8> b;
+    if (!leer_archivo(std::string(base ? base : "") + "datos/iconos/" + archivo, b) &&
+        !leer_archivo(std::string("datos/iconos/") + archivo, b))
+        return;
+    ImagenRGBA img;
+    if (!decodificar_png(b, img, false)) return;
+    // RGBA32 = bytes R, G, B, A, como ImagenRGBA.
+    if (SDL_Surface* s = SDL_CreateSurfaceFrom(img.ancho, img.alto, SDL_PIXELFORMAT_RGBA32, img.px.data(), img.ancho * 4)) {
+        SDL_SetWindowIcon(ventana, s);
+        SDL_DestroySurface(s);
+    }
 }
 
 }  // namespace lin::ui

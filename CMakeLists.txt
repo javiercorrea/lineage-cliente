@@ -148,8 +148,8 @@ add_executable(explorador tools/explorador.cpp)
 target_link_libraries(explorador PRIVATE lin_ui)
 
 # Editor visual de settings.ini: la misma UI simple del juego, sin cargar el juego.
-add_executable(ajustes tools/ajustes.cpp)
-target_link_libraries(ajustes PRIVATE lin_ui)
+add_executable(settings tools/settings.cpp)
+target_link_libraries(settings PRIVATE lin_ui)
 
 if(LIN_TESTS)
     enable_testing()

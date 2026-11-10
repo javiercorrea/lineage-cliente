@@ -6,7 +6,7 @@
 
 using namespace lin;
 
-// Etiquetas del editor de ajustes (la columna izquierda mide 210 px: ver tools/ajustes.cpp). Si una
+// Etiquetas del editor de ajustes (la columna izquierda mide 210 px: ver tools/settings.cpp). Si una
 // traducción es más ancha, se mete debajo del campo.
 TEST_CASE("editor de ajustes: las etiquetas caben en 210 px en los cinco idiomas") {
     const Tx etiquetas[] = {Tx::AJ_CARPETA, Tx::AJ_CAMARA, Tx::AJ_CHAT_ENTER, Tx::AJ_SOMBRA, Tx::AJ_COMPENSAR,
