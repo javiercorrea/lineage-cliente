@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   macos:
-    runs-on: macos-14
+    runs-on: macos-latest  # Apple Silicon; las versiones fijas dejan de existir (macos-14 ya no está)
     steps:
       - uses: actions/checkout@v4
 
