@@ -30,6 +30,13 @@ TEST_CASE("glifos_de_texto: un carácter UTF-8 es un solo glifo TTF") {
     CHECK(g[0].ancho == ancho_ttf(0xF1));
 }
 
+TEST_CASE("ancho_ttf: la tabla precalculada y el cálculo directo coinciden") {
+    // Un carácter que la fuente no tiene se mide como '?', esté dentro de la tabla (< 0x800) o fuera.
+    CHECK(ancho_ttf(0x7FF) == ancho_ttf('?'));  // último de la tabla (no está en Latin-1)
+    CHECK(ancho_ttf(0x4E00) == ancho_ttf('?'));  // fuera de la tabla
+    CHECK(ancho_ttf(' ') > 0);
+}
+
 TEST_CASE("ancho_ttf: Departure Mono a 11 px avanza 7 px por letra (cuadrícula entera)") {
     // 350 unidades de avance x 11 px / 550 de em = 7 px exactos. La bitmap original usa 6 (no es lo mismo).
     CHECK(ancho_ttf('a') == 7);

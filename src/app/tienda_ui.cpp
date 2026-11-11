@@ -70,6 +70,12 @@ void eventos_tienda(App& a, const Evento& e) {
         quitar_vendedor(a, e.id);
         if (t.vista == e.id) t.vista = 0;
         break;
+    case Ev::MAPA:  // otro mapa: los vendedores del anterior ya no están (el servidor no manda su QUITAR)
+        if (static_cast<MapId>(e.v[0]) != a.mundo.mapa) {  // los eventos de la app van antes que aplicar_eventos
+            t.vendedores.clear();
+            t.vista = 0;
+        }
+        break;
     case Ev::TIENDA:
         // Otra tienda u otra lista: desde arriba. La misma (tras una compra) conserva la posición.
         if (t.vista != e.id || t.tipo != static_cast<u8>(e.v[TP_TIPO])) t.desplaza_vista = 0;

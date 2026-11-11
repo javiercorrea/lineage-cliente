@@ -147,8 +147,13 @@ const char* nombre_clase(int c) {
 void eventos_personajes(App& a, const Evento& e) {
     switch (e.tipo) {
     case Ev::CANTIDAD_PERSONAJES:
-        // También al volver desde el juego (C_ChangeChar): lo del personaje anterior ya no vale.
+        // También al volver desde el juego (C_ChangeChar) o tras perder la conexión: lo del personaje
+        // anterior ya no vale (el servidor vuelve a mandar señores de castillo, asedios y emblemas).
         a.mundo.limpiar();
+        a.tienda_pj.vendedores.clear();
+        a.tienda_pj.vista = 0;
+        a.castillos = {};
+        a.emblemas_pedidos.clear();
         a.cantidad_pj = e.v[0];
         a.max_pj = e.v[1];
         a.pjs.clear();
