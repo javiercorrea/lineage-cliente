@@ -345,12 +345,14 @@ struct App {
     u16 atajos[8] = {};               // F5..F12
     std::string atajos_de;            // personaje cuyos atajos están cargados
     // Barra de atajos (Alt+1..Alt+0; barra_ui.cpp): hechizos o ítems arrastrados a sus casilleros.
-    Atajo barra[CASILLEROS_BARRA];
+    // Páginas (cfg.paginas_barra a la vista; las de más se conservan) y la visible.
+    Atajo barra[PAGINAS_BARRA_MAX][CASILLEROS_BARRA];
+    int pagina_barra = 0;
     std::string barra_de;             // personaje cuya barra está cargada
     int barra_x = 0, barra_y = -1000; // posición del último frame (para el puntero)
     u32 arrastrando_hechizo = 0;      // desde la ventana de hechizos
     int arrastrando_atajo = -1;       // desde un casillero de la barra
-    int casillero_elegido = -1;       // el que usa el clic del medio sobre el mundo (-1 ninguno)
+    int casillero_elegido = -1;       // el que usa el clic del medio sobre el mundo: página * CASILLEROS_BARRA + casillero (-1 ninguno)
     int arrastre_x0 = 0, arrastre_y0 = 0;
     // Polymorph (forma_ui.cpp): diálogo para escribir el monstruo.
     bool ventana_forma = false;
@@ -570,7 +572,9 @@ void control_cerrar();
 #endif
 // Casillero bajo el puntero, -1 si no hay.
 int casillero_bajo_puntero(const App& a);
-bool sobre_barra(const App& a);
+bool sobre_barra(const App& a);  // también el selector de página
+// Página visible de la barra (con vuelta: de la última a la primera).
+void cambiar_pagina_barra(App& a, int pagina);
 void poner_atajo(App& a, int casillero, Atajo atajo);
 // Al comienzo del frame del juego: Alt+número y carga de la barra del personaje.
 void procesar_barra(App& a);

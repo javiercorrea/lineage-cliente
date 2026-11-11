@@ -327,6 +327,11 @@ void dibujar_opciones(App& a) {
         a.escribiendo_chat = false;
         cambio = true;
     }
+    std::snprintf(t, sizeof t, "%d", a.cfg.paginas_barra);
+    if (fila("Hotbar pages", t)) {  // 1 -> 2 ... -> 9 -> 1; las que dejan de verse se conservan
+        a.cfg.paginas_barra = a.cfg.paginas_barra % PAGINAS_BARRA_MAX + 1;
+        cambio = true;
+    }
     if (fila("HP/MP bar over char", a.cfg.barra_personaje ? "On" : "Off"))
         a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
     if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))

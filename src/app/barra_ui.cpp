@@ -5,6 +5,9 @@
 // el inventario). Clic del medio sobre un casillero lo elige (marco dorado; otra vez lo suelta) y
 // el botón del medio sobre el mundo usa el elegido sobre lo que haya bajo el puntero, como en el
 // original; mantenido, lo repite. Los hechizos muestran la espera hasta poder lanzar otro. Se guarda por personaje en settings.ini ("barra="; "*" tras el elegido).
+// Páginas (cfg.paginas_barra): un selector "^ número v" a la derecha y la rueda sobre la barra
+// cambian la visible; teclas, clics y arrastres actúan sobre ella. El elegido es de una página
+// y el botón del medio lo usa aunque esa página no esté a la vista.
 #include <charconv>
 #include <cstring>
 #include "app/app.h"
@@ -16,43 +19,69 @@ namespace {
 constexpr int CELDA = 36, SEPARACION = 2, PASO = CELDA + SEPARACION;
 constexpr int ANCHO_BARRA = CASILLEROS_BARRA * PASO - SEPARACION;
 constexpr int MOVIMIENTO_ARRASTRE = 4;  // px antes de que un clic se tome como arrastre
+// Selector de página: a la derecha de la barra, del alto de un casillero.
+constexpr int SEPARACION_SELECTOR = 8, ANCHO_SELECTOR = 18;
+
+int paginas(const App& a) { return std::clamp(a.cfg.paginas_barra, 1, PAGINAS_BARRA_MAX); }
+int ancho_total(const App& a) { return ANCHO_BARRA + (paginas(a) > 1 ? SEPARACION_SELECTOR + ANCHO_SELECTOR : 0); }
+Atajo* visible(App& a) { return a.barra[a.pagina_barra]; }
 
 void cargar_barra(App& a) {
     a.barra_de = nombre_personaje(a);
-    for (Atajo& b : a.barra) b = {};
+    for (auto& pagina : a.barra)
+        for (Atajo& b : pagina) b = {};
     a.casillero_elegido = -1;
-    std::string_view v = valor_de_personaje(a.cfg.barra, a.barra_de);
-    for (int i = 0; i < CASILLEROS_BARRA && !v.empty(); ++i) {
-        std::string_view t = v.substr(0, v.find(','));
-        v = t.size() < v.size() ? v.substr(t.size() + 1) : std::string_view{};
-        if (t.size() < 2) continue;
-        if (t.back() == '*') a.casillero_elegido = i;
-        const char* p = t.data() + 1;
-        const char* fin = t.data() + t.size();
-        Atajo& b = a.barra[i];
-        if (t[0] == 'h') {
-            b.tipo = TipoAtajo::HECHIZO;
-            std::from_chars(p, fin, b.id);
-        } else if (t[0] == 'i') {
-            b.tipo = TipoAtajo::ITEM;
-            auto r = std::from_chars(p, fin, b.gfx);
-            if (r.ptr < fin && *r.ptr == ':') std::from_chars(r.ptr + 1, fin, b.id);
+    a.pagina_barra = 0;
+    const std::string_view valor = valor_de_personaje(a.cfg.barra, a.barra_de);
+    for (int pg = 0; pg < PAGINAS_BARRA_MAX; ++pg) {
+        std::string_view v = parte_de_valor(valor, pg);  // sin "/" (formato anterior): solo la primera
+        for (int i = 0; i < CASILLEROS_BARRA && !v.empty(); ++i) {
+            std::string_view t = v.substr(0, v.find(','));
+            v = t.size() < v.size() ? v.substr(t.size() + 1) : std::string_view{};
+            if (t.size() < 2) continue;
+            if (t.back() == '*') a.casillero_elegido = pg * CASILLEROS_BARRA + i;
+            const char* p = t.data() + 1;
+            const char* fin = t.data() + t.size();
+            Atajo& b = a.barra[pg][i];
+            if (t[0] == 'h') {
+                b.tipo = TipoAtajo::HECHIZO;
+                std::from_chars(p, fin, b.id);
+            } else if (t[0] == 'i') {
+                b.tipo = TipoAtajo::ITEM;
+                auto r = std::from_chars(p, fin, b.gfx);
+                if (r.ptr < fin && *r.ptr == ':') std::from_chars(r.ptr + 1, fin, b.id);
+            }
         }
     }
 }
 
+// Hasta la última página con algo (las vacías del final no se escriben).
 void guardar_barra(App& a) {
+    int ultima = 0;
+    for (int pg = 0; pg < PAGINAS_BARRA_MAX; ++pg)
+        for (const Atajo& b : a.barra[pg])
+            if (b.tipo != TipoAtajo::VACIO) ultima = pg;
     std::string v;
-    for (int i = 0; i < CASILLEROS_BARRA; ++i) {
-        const Atajo& b = a.barra[i];
-        if (b.tipo == TipoAtajo::HECHIZO) v += 'h' + std::to_string(b.id);
-        else if (b.tipo == TipoAtajo::ITEM) v += 'i' + std::to_string(b.gfx) + ':' + std::to_string(b.id);
-        else v += '0';
-        if (i == a.casillero_elegido) v += '*';
-        if (i + 1 < CASILLEROS_BARRA) v += ',';
+    for (int pg = 0; pg <= ultima; ++pg) {
+        if (pg) v += '/';
+        for (int i = 0; i < CASILLEROS_BARRA; ++i) {
+            const Atajo& b = a.barra[pg][i];
+            if (b.tipo == TipoAtajo::HECHIZO) v += 'h' + std::to_string(b.id);
+            else if (b.tipo == TipoAtajo::ITEM) v += 'i' + std::to_string(b.gfx) + ':' + std::to_string(b.id);
+            else v += '0';
+            if (pg * CASILLEROS_BARRA + i == a.casillero_elegido) v += '*';
+            if (i + 1 < CASILLEROS_BARRA) v += ',';
+        }
     }
     poner_valor_de_personaje(a.cfg.barra, a.barra_de, v);
     guardar_config(a.cfg);
+}
+
+// El elegido, o nullptr (ninguno, o en una página que ya no está a la vista).
+Atajo* elegido(App& a) {
+    const int g = a.casillero_elegido;
+    if (g < 0 || g / CASILLEROS_BARRA >= paginas(a)) return nullptr;
+    return &a.barra[g / CASILLEROS_BARRA][g % CASILLEROS_BARRA];
 }
 
 // Slot del ítem del casillero en el inventario: por id o, si ya no está, otro con el mismo gfx
@@ -71,8 +100,7 @@ Slot item_de(App& a, Atajo& b) {
     return SIN_SLOT;
 }
 
-void usar_casillero(App& a, int i) {
-    Atajo& b = a.barra[i];
+void usar_atajo(App& a, Atajo& b) {
     if (b.tipo == TipoAtajo::HECHIZO) {
         pedir_hechizo(a, b.id, 0);
     } else if (b.tipo == TipoAtajo::ITEM) {
@@ -83,7 +111,8 @@ void usar_casillero(App& a, int i) {
 
 // Clic del medio sobre un casillero: lo elige (otra vez lo suelta).
 void elegir_casillero(App& a, int c) {
-    a.casillero_elegido = a.casillero_elegido == c || a.barra[c].tipo == TipoAtajo::VACIO ? -1 : c;
+    const int g = a.pagina_barra * CASILLEROS_BARRA + c;
+    a.casillero_elegido = a.casillero_elegido == g || visible(a)[c].tipo == TipoAtajo::VACIO ? -1 : g;
     guardar_barra(a);
 }
 
@@ -94,16 +123,17 @@ void elegir_casillero(App& a, int c) {
 constexpr u64 MS_REPETIR_ITEM = 500;
 
 void usar_elegido(App& a) {
-    if (a.casillero_elegido < 0 || sobre_barra(a) || sobre_alguna_ventana(a)) return;
+    Atajo* el = elegido(a);
+    if (!el || sobre_barra(a) || sobre_alguna_ventana(a)) return;
     const u64 ahora = a.entrada.ahora_ms;
-    const Atajo& b = a.barra[a.casillero_elegido];
+    Atajo& b = *el;
     if (b.tipo == TipoAtajo::HECHIZO) {
         if (a.hechizo_pendiente || ahora < a.hechizo_listo_ms) return;  // uno en camino, o esperando
         if (!a.hechizos[b.id].con_objetivo) pedir_hechizo(a, b.id, 0);
         else if (ObjId obj = objeto_bajo_puntero(a, true)) pedir_hechizo(a, b.id, obj);
     } else if (b.tipo == TipoAtajo::ITEM && ahora >= a.t_repetir_medio + MS_REPETIR_ITEM) {
         a.t_repetir_medio = ahora;
-        usar_casillero(a, a.casillero_elegido);
+        usar_atajo(a, b);
     }
 }
 
@@ -135,22 +165,32 @@ int casillero_bajo_puntero(const App& a) {
 
 bool sobre_barra(const App& a) {
     const EntradaFrame& e = a.entrada;
-    return e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ANCHO_BARRA + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4;
+    return e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4;
 }
 
 void poner_atajo(App& a, int casillero, Atajo atajo) {
     if (casillero < 0 || casillero >= CASILLEROS_BARRA) return;
-    a.barra[casillero] = atajo;
-    if (atajo.tipo == TipoAtajo::VACIO && a.casillero_elegido == casillero) a.casillero_elegido = -1;
+    visible(a)[casillero] = atajo;
+    if (atajo.tipo == TipoAtajo::VACIO && a.casillero_elegido == a.pagina_barra * CASILLEROS_BARRA + casillero)
+        a.casillero_elegido = -1;
     guardar_barra(a);
+}
+
+void cambiar_pagina_barra(App& a, int pagina) {
+    const int n = paginas(a);
+    a.pagina_barra = (pagina % n + n) % n;
 }
 
 void procesar_barra(App& a) {
     if (a.barra_de != nombre_personaje(a)) cargar_barra(a);
-    if (a.entrada.alt_numero) usar_casillero(a, a.entrada.alt_numero - 1);
+    // Con menos páginas (opciones), la visible pasa a la última que queda.
+    a.pagina_barra = std::min(a.pagina_barra, paginas(a) - 1);
+    // La rueda sobre la barra o el selector: hacia arriba, la página siguiente (como "^").
+    if (a.entrada.rueda && paginas(a) > 1 && sobre_barra(a)) cambiar_pagina_barra(a, a.pagina_barra + a.entrada.rueda);
+    if (a.entrada.alt_numero) usar_atajo(a, visible(a)[a.entrada.alt_numero - 1]);
     // 1–0 sin Alt: con el chat cerrado (chat con Enter) y sin otro diálogo de texto abierto.
     if (a.entrada.numero && a.cfg.chat_con_enter && !a.escribiendo_chat && !escribiendo_en_ventana(a) && !a.cantidad.abierto)
-        usar_casillero(a, a.entrada.numero - 1);
+        usar_atajo(a, visible(a)[a.entrada.numero - 1]);
     if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
     if (a.entrada.medio_presionado) usar_elegido(a);
 }
@@ -158,7 +198,8 @@ void procesar_barra(App& a) {
 void dibujar_barra(App& a, int y) {
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
-    a.barra_x = (a.gpu.ancho() - ANCHO_BARRA) / 2;
+    a.barra_x = (a.gpu.ancho() - ancho_total(a)) / 2;
+    Atajo* pagina = visible(a);
     a.barra_y = y;
     const u64 kf = clave_orden(CAPA_UI, 5), ki = clave_orden(CAPA_UI, 6), kt = clave_orden(CAPA_UI_TEXTO, 5);
     const int bajo = casillero_bajo_puntero(a);
@@ -166,10 +207,10 @@ void dibujar_barra(App& a, int y) {
     const bool trayendo = (a.arrastrando && e.presionado) || a.arrastrando_hechizo || a.arrastrando_atajo >= 0;
     for (int i = 0; i < CASILLEROS_BARRA; ++i) {
         const int x = a.barra_x + i * PASO;
-        const Atajo& b = a.barra[i];
+        const Atajo& b = pagina[i];
         u32 fondo = i == bajo ? (trayendo ? rgba(90, 75, 30, 230) : rgba(60, 50, 35, 230)) : rgba(20, 18, 15, 200);
         g.gpu().rectangulo(x, y, CELDA, CELDA, kf, fondo);
-        if (i == a.casillero_elegido) {
+        if (a.pagina_barra * CASILLEROS_BARRA + i == a.casillero_elegido) {
             const u32 oro = rgba(240, 200, 80);
             g.gpu().rectangulo(x, y, CELDA, 2, kf + 1, oro);
             g.gpu().rectangulo(x, y + CELDA - 2, CELDA, 2, kf + 1, oro);
@@ -212,9 +253,28 @@ void dibujar_barra(App& a, int y) {
         g.texto_sombra(n, static_cast<float>(x + 2), static_cast<float>(y + 1), kt + (2ull << 24), rgba(255, 230, 120));
     }
 
+    // Selector de página: "^" arriba (siguiente), el número y "v" abajo (anterior). Clic en la
+    // mitad de arriba o de abajo; no al soltar algo que se arrastraba.
+    if (paginas(a) > 1) {
+        const int sx = a.barra_x + ANCHO_BARRA + SEPARACION_SELECTOR;
+        const bool sobre_sel = ui::sobre(e, sx, y, ANCHO_SELECTOR, CELDA);
+        g.gpu().rectangulo(sx, y, ANCHO_SELECTOR, CELDA, kf, sobre_sel ? rgba(60, 50, 35, 230) : rgba(20, 18, 15, 200));
+        const u32 claro = rgba(230, 220, 190);
+        auto centrado = [&](std::string_view t, int ty, u32 color) {
+            g.texto(t, static_cast<float>(sx + (ANCHO_SELECTOR - ancho_texto(t.data(), t.size())) / 2), static_cast<float>(ty), kt, color);
+        };
+        char n[4];
+        std::snprintf(n, sizeof n, "%d", a.pagina_barra + 1);
+        centrado("^", y + 1, claro);
+        centrado(n, y + (CELDA - ALTO_GLIFO) / 2, rgba(255, 230, 120));
+        centrado("v", y + CELDA - ALTO_GLIFO - 1, claro);
+        if (e.clic && sobre_sel && a.arrastrando_atajo < 0 && !a.arrastrando_hechizo && !a.arrastrando)
+            cambiar_pagina_barra(a, a.pagina_barra + (e.my < y + CELDA / 2 ? 1 : -1));
+    }
+
     // Nombre bajo el puntero.
-    if (bajo >= 0 && !trayendo && a.barra[bajo].tipo != TipoAtajo::VACIO) {
-        Atajo& b = a.barra[bajo];
+    if (bajo >= 0 && !trayendo && pagina[bajo].tipo != TipoAtajo::VACIO) {
+        Atajo& b = pagina[bajo];
         char buf[256];
         size_t m = 0;
         if (b.tipo == TipoAtajo::HECHIZO) {
@@ -232,24 +292,25 @@ void dibujar_barra(App& a, int y) {
     }
 
     // Arrastrar desde un casillero: mover a otro, o vaciarlo soltando fuera. Sin arrastre, clic usa.
-    if (e.pulsado && bajo >= 0 && a.barra[bajo].tipo != TipoAtajo::VACIO) {
+    if (e.pulsado && bajo >= 0 && pagina[bajo].tipo != TipoAtajo::VACIO) {
         a.arrastrando_atajo = bajo;
         a.arrastre_x0 = e.mx;
         a.arrastre_y0 = e.my;
     }
     if (a.arrastrando_atajo >= 0 && e.presionado && movio(a)) {
-        const RegionAtlas& ic = icono_atajo(a, a.barra[a.arrastrando_atajo]);
+        const RegionAtlas& ic = icono_atajo(a, pagina[a.arrastrando_atajo]);
         g.gpu().dibujar(ic, e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic && a.arrastrando_atajo >= 0) {
         int desde = a.arrastrando_atajo;
         a.arrastrando_atajo = -1;
         if (!movio(a)) {
-            if (bajo == desde) usar_casillero(a, desde);
+            if (bajo == desde) usar_atajo(a, pagina[desde]);
         } else if (bajo >= 0) {
-            std::swap(a.barra[desde], a.barra[bajo]);
-            if (a.casillero_elegido == desde) a.casillero_elegido = bajo;
-            else if (a.casillero_elegido == bajo) a.casillero_elegido = desde;
+            std::swap(pagina[desde], pagina[bajo]);
+            const int base = a.pagina_barra * CASILLEROS_BARRA;
+            if (a.casillero_elegido == base + desde) a.casillero_elegido = base + bajo;
+            else if (a.casillero_elegido == base + bajo) a.casillero_elegido = base + desde;
             guardar_barra(a);
         } else if (!sobre_barra(a)) {
             poner_atajo(a, desde, {});

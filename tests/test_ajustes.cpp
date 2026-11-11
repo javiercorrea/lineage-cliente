@@ -48,3 +48,22 @@ TEST_CASE("escribir y leer settings.ini: ida y vuelta de los campos del editor")
     CHECK(d.logo == "logo.png");
     CHECK(d.servidores[d.servidor].usuario == "prueba");
 }
+
+TEST_CASE("parte_de_valor: páginas de la barra separadas por /") {
+    CHECK(parte_de_valor("h4,0,i80:12*", 0) == "h4,0,i80:12*");  // formato anterior: solo la primera
+    CHECK(parte_de_valor("h4,0,i80:12*", 1).empty());
+    CHECK(parte_de_valor("h4,0/0,h9/i1:2", 0) == "h4,0");
+    CHECK(parte_de_valor("h4,0/0,h9/i1:2", 1) == "0,h9");
+    CHECK(parte_de_valor("h4,0/0,h9/i1:2", 2) == "i1:2");
+    CHECK(parte_de_valor("h4,0/0,h9/i1:2", 3).empty());
+    CHECK(parte_de_valor("", 0).empty());
+}
+
+TEST_CASE("paginas_barra: 3 por defecto, se recorta a 1-9 y vuelve igual") {
+    CHECK(leer_config("").paginas_barra == 3);
+    CHECK(leer_config("paginas_barra=0\n").paginas_barra == 1);
+    CHECK(leer_config("paginas_barra=40\n").paginas_barra == PAGINAS_BARRA_MAX);
+    Config c = leer_config("");
+    c.paginas_barra = 5;
+    CHECK(leer_config(escribir_config(c)).paginas_barra == 5);
+}
