@@ -375,7 +375,20 @@ bool Gpu::subir(const ImagenRGBA& img, RegionAtlas& r) {
 }
 
 void Gpu::dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color, Mezcla mezcla) {
-    if (!r.valida() || inst_.size() >= MAX_INSTANCIAS) return;
+    if (!r.valida()) return;
+    const u64 capa_pedida = clave >> 56;
+    const u32 tope = capa_pedida >= CAPA_UI ? MAX_INSTANCIAS
+                     : capa_pedida >= CAPA_MUNDO ? MAX_INSTANCIAS - RESERVA_CAPAS
+                                                 : MAX_INSTANCIAS - 2 * RESERVA_CAPAS;
+    if (inst_.size() >= tope) {
+        // Un aviso cada ~10 s mientras siga pasando (no uno solo por proceso).
+        if (frame_ >= proximo_aviso_instancias_) {
+            LIN_LOG("Gpu: lista de dibujo llena (%zu instancias): se descarta la capa %llu", inst_.size(),
+                    static_cast<unsigned long long>(capa_pedida));
+            proximo_aviso_instancias_ = frame_ + 600;
+        }
+        return;
+    }
     // El contenido va desplazado por su origen; se recorta contra la cuadrícula de la ventana.
     x += origen_x_;
     y += origen_y_;
@@ -535,9 +548,26 @@ bool Gpu::crear_destino() {
     destino_ = SDL_CreateGPUTexture(dev_, &td);
     if (copia_) SDL_ReleaseGPUTexture(dev_, copia_);  // copia del mundo para la ola y la visión
     copia_ = SDL_CreateGPUTexture(dev_, &td);
+    if (!destino_ || !copia_) {
+        LIN_LOG("Textura de destino de %dx%d: %s", w, h, SDL_GetError());
+        destino_w_ = destino_h_ = 0;  // se reintenta el próximo frame
+        return false;
+    }
     destino_w_ = w;
     destino_h_ = h;
-    return destino_ != nullptr;
+    return true;
+}
+
+void Gpu::terminar_frame(u32 n) {
+    instancias_previas_ = n;
+    inst_.clear();
+    claves_.clear();
+    brillo_activo_ = false;
+    reemplazo_activo_ = false;
+    reemplazo_fase_ = -1;
+    reemplazo_fase_b_ = -1;
+    reemplazo_modo_ = 0;
+    ++frame_;
 }
 
 void Gpu::preparar_frame() {
@@ -552,14 +582,15 @@ void Gpu::preparar_frame() {
 void Gpu::presentar() {
     if (!preparado_) preparar_frame();
     preparado_ = false;
-    SDL_GPUCommandBuffer* cmd = SDL_AcquireGPUCommandBuffer(dev_);
-    if (!cmd) return;
+    // Sin destino o sin comando no se dibuja este frame; las subidas del atlas quedan para el siguiente.
+    SDL_GPUCommandBuffer* cmd = crear_destino() ? SDL_AcquireGPUCommandBuffer(dev_) : nullptr;
+    if (!cmd) return terminar_frame(0);
 
     // 1. Subidas: píxeles nuevos del atlas e instancias del frame.
     SDL_GPUCopyPass* copia = SDL_BeginGPUCopyPass(cmd);
-    if (!pendientes_.empty()) {
-        void* p = SDL_MapGPUTransferBuffer(dev_, subida_atlas_, true);
-        std::memcpy(p, staging_atlas_.data(), staging_atlas_.size());
+    void* p_atlas = pendientes_.empty() ? nullptr : SDL_MapGPUTransferBuffer(dev_, subida_atlas_, true);
+    if (p_atlas) {
+        std::memcpy(p_atlas, staging_atlas_.data(), staging_atlas_.size());
         SDL_UnmapGPUTransferBuffer(dev_, subida_atlas_);
         for (const SubidaPendiente& s : pendientes_) {
             SDL_GPUTextureTransferInfo src{};
@@ -580,9 +611,12 @@ void Gpu::presentar() {
         pendientes_.clear();
         staging_atlas_.clear();
     }
+    void* p_luz = brillo_activo_ ? SDL_MapGPUTransferBuffer(dev_, subida_luz_, true) : nullptr;
+    void* p_filas = p_luz ? SDL_MapGPUTransferBuffer(dev_, subida_filas_, true) : nullptr;
+    if (p_luz && !p_filas) SDL_UnmapGPUTransferBuffer(dev_, subida_luz_);
+    brillo_activo_ = p_filas != nullptr;  // sin subir el brillo, este frame va sin luz
     if (brillo_activo_) {
-        void* p = SDL_MapGPUTransferBuffer(dev_, subida_luz_, true);
-        std::memcpy(p, brillo_buf_.data(), brillo_buf_.size());
+        std::memcpy(p_luz, brillo_buf_.data(), brillo_buf_.size());
         SDL_UnmapGPUTransferBuffer(dev_, subida_luz_);
         SDL_GPUTextureTransferInfo src{};
         src.transfer_buffer = subida_luz_;
@@ -594,8 +628,7 @@ void Gpu::presentar() {
         dst.h = static_cast<Uint32>(brillo_h_);
         dst.d = 1;
         SDL_UploadToGPUTexture(copia, &src, &dst, true);
-        void* pf = SDL_MapGPUTransferBuffer(dev_, subida_filas_, true);
-        std::memcpy(pf, brillo_filas_.data(), brillo_filas_.size() * sizeof(u32));
+        std::memcpy(p_filas, brillo_filas_.data(), brillo_filas_.size() * sizeof(u32));
         SDL_UnmapGPUTransferBuffer(dev_, subida_filas_);
         SDL_GPUTextureTransferInfo fsrc{};
         fsrc.transfer_buffer = subida_filas_;
@@ -609,9 +642,15 @@ void Gpu::presentar() {
         SDL_UploadToGPUTexture(copia, &fsrc, &fdst, true);
     }
     u32 n = static_cast<u32>(inst_ordenadas_.size());
+    void* p_inst = n ? SDL_MapGPUTransferBuffer(dev_, subida_inst_, true) : nullptr;
+    // Sin subir las instancias (el buffer tiene las de otro frame) o sin subir los píxeles nuevos del
+    // atlas (sus regiones mostrarían los de antes): este frame no se dibuja.
+    if (!p_inst || (!pendientes_.empty() && !p_atlas)) {
+        if (p_inst) SDL_UnmapGPUTransferBuffer(dev_, subida_inst_);
+        n = 0;
+    }
     if (n) {
-        void* p = SDL_MapGPUTransferBuffer(dev_, subida_inst_, true);
-        std::memcpy(p, inst_ordenadas_.data(), n * sizeof(Instancia));
+        std::memcpy(p_inst, inst_ordenadas_.data(), n * sizeof(Instancia));
         SDL_UnmapGPUTransferBuffer(dev_, subida_inst_);
         SDL_GPUTransferBufferLocation src{subida_inst_, 0};
         SDL_GPUBufferRegion dst{instancias_gpu_, 0, n * static_cast<u32>(sizeof(Instancia))};
@@ -620,8 +659,7 @@ void Gpu::presentar() {
     SDL_EndGPUCopyPass(copia);
 
     // 2. Dibujo a la textura de destino (lógica × escala): una sola llamada instanciada. El
-    // shader sigue trabajando en coordenadas lógicas.
-    crear_destino();
+    // shader sigue trabajando en coordenadas lógicas (destino_ ya se creó al principio).
     SDL_GPUColorTargetInfo objetivo{};
     objetivo.texture = destino_;
     objetivo.clear_color = {0, 0, 0, 1};
@@ -630,7 +668,7 @@ void Gpu::presentar() {
     // Pase 1: lo que va por debajo de CAPA_EFECTOS. Con efectos sobre el mundo, solo eso; lo demás va
     // en el pase 4, encima. Sin efectos, un solo pase, como antes.
     const bool efectos = brillo_activo_ || reemplazo_activo_;
-    const u32 corte = efectos ? n_mundo_ : n;
+    const u32 corte = efectos ? std::min(n_mundo_, n) : n;
     llamadas_ = 0;
     auto dibujar = [&](SDL_GPURenderPass* p, u32 desde, u32 cuantas) {
         if (!cuantas) return;
@@ -694,6 +732,7 @@ void Gpu::presentar() {
         SDL_EndGPURenderPass(pase);
     }
     if (!ruta_captura_.empty()) cmd = guardar_captura(cmd);
+    if (!cmd) return terminar_frame(n);  // el comando que sigue a la captura no se pudo obtener
 
     // 3. Copia 1:1 a la ventana, centrada (la textura ya tiene el tamaño escalado).
     SDL_GPUTexture* swap = nullptr;
@@ -717,16 +756,7 @@ void Gpu::presentar() {
         SDL_BlitGPUTexture(cmd, &b);
     }
     SDL_SubmitGPUCommandBuffer(cmd);
-
-    instancias_previas_ = n;
-    inst_.clear();
-    claves_.clear();
-    brillo_activo_ = false;
-    reemplazo_activo_ = false;
-    reemplazo_fase_ = -1;
-    reemplazo_fase_b_ = -1;
-    reemplazo_modo_ = 0;
-    ++frame_;
+    terminar_frame(n);
 }
 
 SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
@@ -735,6 +765,11 @@ SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     const int w = grid_w_ * escala_, h = grid_h_ * escala_;
     tb.size = static_cast<Uint32>(w * h * 4);
     SDL_GPUTransferBuffer* bajada = SDL_CreateGPUTransferBuffer(dev_, &tb);
+    if (!bajada) {
+        LIN_LOG("Captura: sin buffer de %dx%d (%s)", w, h, SDL_GetError());
+        ruta_captura_.clear();
+        return cmd;  // el frame sigue en el mismo comando
+    }
     SDL_GPUCopyPass* copia = SDL_BeginGPUCopyPass(cmd);
     SDL_GPUTextureRegion src{};
     src.texture = destino_;
@@ -747,17 +782,24 @@ SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     SDL_EndGPUCopyPass(copia);
     // Se envía este comando y se espera a la GPU para poder leer los píxeles.
     SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    if (!f) {  // el envío falló: no hay píxeles que leer
+        LIN_LOG("Captura: no se pudo enviar el comando (%s)", SDL_GetError());
+        SDL_ReleaseGPUTransferBuffer(dev_, bajada);
+        ruta_captura_.clear();
+        return SDL_AcquireGPUCommandBuffer(dev_);
+    }
     SDL_WaitForGPUFences(dev_, true, &f, 1);
     SDL_ReleaseGPUFence(dev_, f);
     // La captura se guarda a la resolución lógica (un píxel de cada bloque de escala × escala).
-    const u32* px = static_cast<const u32*>(SDL_MapGPUTransferBuffer(dev_, bajada, false));
-    std::vector<u32> logica(static_cast<size_t>(grid_w_) * grid_h_);
-    for (int y = 0; y < grid_h_; ++y)
-        for (int x = 0; x < grid_w_; ++x) logica[static_cast<size_t>(y) * grid_w_ + x] = px[static_cast<size_t>(y * escala_) * w + x * escala_];
-    SDL_Surface* s = SDL_CreateSurfaceFrom(grid_w_, grid_h_, SDL_PIXELFORMAT_ABGR8888, logica.data(), grid_w_ * 4);
-    if (s && SDL_SaveBMP(s, ruta_captura_.c_str())) LIN_LOG("Captura guardada en %s", ruta_captura_.c_str());
-    SDL_DestroySurface(s);
-    SDL_UnmapGPUTransferBuffer(dev_, bajada);
+    if (const u32* px = static_cast<const u32*>(SDL_MapGPUTransferBuffer(dev_, bajada, false))) {
+        std::vector<u32> logica(static_cast<size_t>(grid_w_) * grid_h_);
+        for (int y = 0; y < grid_h_; ++y)
+            for (int x = 0; x < grid_w_; ++x) logica[static_cast<size_t>(y) * grid_w_ + x] = px[static_cast<size_t>(y * escala_) * w + x * escala_];
+        SDL_Surface* s = SDL_CreateSurfaceFrom(grid_w_, grid_h_, SDL_PIXELFORMAT_ABGR8888, logica.data(), grid_w_ * 4);
+        if (s && SDL_SaveBMP(s, ruta_captura_.c_str())) LIN_LOG("Captura guardada en %s", ruta_captura_.c_str());
+        SDL_DestroySurface(s);
+        SDL_UnmapGPUTransferBuffer(dev_, bajada);
+    }
     SDL_ReleaseGPUTransferBuffer(dev_, bajada);
     ruta_captura_.clear();
     return SDL_AcquireGPUCommandBuffer(dev_);  // el resto del frame va en un comando nuevo

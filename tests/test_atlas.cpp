@@ -18,6 +18,16 @@ TEST_CASE("Atlas: estantes dentro de una página") {
     CHECK_FALSE(a.reservar(64, 10, 1, r3));  // más ancha que la página (con el margen)
 }
 
+TEST_CASE("Atlas: cabe dice si una imagen entra alguna vez (con su margen)") {
+    EmpaquetadoAtlas a(2048, 2);
+    CHECK(a.cabe(2047, 2047));
+    CHECK_FALSE(a.cabe(2048, 10));  // del tamaño de la página: con el margen no entra nunca
+    CHECK_FALSE(a.cabe(10, 70000));  // más que u16: no se trunca
+    RegionAtlas r;
+    CHECK(a.reservar(2047, 2047, 1, r));
+    CHECK_FALSE(a.reservar(2048, 1, 1, r));
+}
+
 TEST_CASE("Atlas: con las páginas llenas se reemplaza la usada hace más tiempo") {
     EmpaquetadoAtlas a(32, 3);  // una imagen de 31×31 llena una página
     RegionAtlas r;

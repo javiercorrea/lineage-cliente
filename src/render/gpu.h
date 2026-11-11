@@ -47,7 +47,13 @@ inline u32 rgba(u8 r, u8 g, u8 b, u8 a = 255) { return r | (g << 8) | (b << 16) 
 
 constexpr int TAM_PAGINA = 2048;
 constexpr int PAGINAS_ATLAS = 8;           // 8 × 16 MB; LIN_ATLAS_PAGINAS y LIN_ATLAS_TAM achican el atlas para probar el reemplazo
-constexpr u32 MAX_INSTANCIAS = 1u << 16;
+// 6 MB de buffer. Una vista grande (5K con zoom ×1) ya pide ~55 000 solo de suelo, más la lluvia.
+constexpr u32 MAX_INSTANCIAS = 1u << 17;
+// Topes por capa, porque se descarta lo que llega con la lista llena y el suelo se manda primero: el
+// fondo y el suelo pueden ocupar hasta MAX − 2 × RESERVA, los objetos, personajes y efectos hasta
+// MAX − RESERVA, y la interfaz todo. Así en una vista enorme se pierde suelo del borde, no personajes
+// ni la interfaz.
+constexpr u32 RESERVA_CAPAS = 1u << 14;
 constexpr u32 TAM_SUBIDA_ATLAS = 32u << 20; // máximo de píxeles nuevos por frame
 
 class Gpu {
@@ -65,6 +71,8 @@ public:
 
     // Reserva lugar en el atlas y encola la subida. false si no hay lugar este frame.
     bool subir(const ImagenRGBA& img, RegionAtlas& salida);
+    // false si la imagen es más grande que una página del atlas: no entraría nunca.
+    bool cabe_en_atlas(const ImagenRGBA& img) const { return empaquetado_.cabe(img.ancho, img.alto); }
     // Página del atlas vaciada por el último subir, o -1: sus regiones ya no valen.
     int tomar_pagina_reemplazada() { return empaquetado_.tomar_reemplazada(); }
 
@@ -127,6 +135,8 @@ private:
     };
     bool crear_pipeline();
     bool crear_destino();
+    // Vacía la lista de dibujo y los efectos del frame (con o sin presentarlo).
+    void terminar_frame(u32 instancias_dibujadas);
     bool asegurar_luz(int bw, int bh);
     void ordenar();
     SDL_GPUCommandBuffer* guardar_captura(SDL_GPUCommandBuffer* cmd);
@@ -168,6 +178,7 @@ private:
     std::vector<SubidaPendiente> pendientes_;
     std::vector<u8> staging_atlas_;
     bool atlas_lleno_avisado_ = false;
+    u64 proximo_aviso_instancias_ = 0;  // frame desde el que se vuelve a avisar de la lista llena
 
     // Lista de dibujo del frame.
     std::vector<Instancia> inst_;

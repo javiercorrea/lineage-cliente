@@ -69,6 +69,7 @@ private:
     template <class F>
     const RegionAtlas& cargar(u64 k, F&& decodificar);
     const RegionAtlas& guardar(u64 k, bool ok);
+    void olvidar(u32 casillero);
     void olvidar_pagina(u16 pagina);
     const RegionAtlas* buscar(u64 k) const;
     // nullptr si no existe o si todavía no está en memoria (`pendiente`).
@@ -86,6 +87,8 @@ private:
     std::vector<u64> claves_;   // clave de cada región (para olvidarlas)
     std::vector<u32> libres_;   // regiones olvidadas, para reusar
     MapaHash indice_tiles_, indice_spr_;
+    MapaHash datos_emblema_{64};  // clan -> desplazamiento en emblemas_
+    std::vector<u8> emblemas_;    // los bytes RGB555 de S_Emblem de cada clan
     std::vector<JuegoTiles> juegos_;
     std::vector<ArchivoSpr> sprs_;
     Precarga precarga_;

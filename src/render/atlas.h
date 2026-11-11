@@ -26,6 +26,8 @@ public:
     // Lugar para una imagen de w×h (con 1 px de margen). false si no entra en ninguna página
     // (todas llenas y usadas en este frame, o la imagen es más grande que una página).
     bool reservar(u16 w, u16 h, u64 frame, RegionAtlas& r);
+    // ¿Entra alguna vez una imagen de w×h (con su margen) en una página vacía?
+    bool cabe(u32 w, u32 h) const { return w + 1 <= tam_ && h + 1 <= tam_; }
     // Algo de `pagina` se dibuja en `frame`.
     void usar(u16 pagina, u64 frame) { uso_[pagina] = frame; }
     // Página vaciada por el último reservar (-1 si ninguna). Se consulta después de cada reservar.

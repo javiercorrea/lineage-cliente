@@ -73,9 +73,16 @@ class Control:
                 self.resto += datos
             l, self.resto = self.resto.split(b"\n", 1)
             l = l.decode("cp949", errors="replace")
-            if l == "ok":
-                return lineas
-            if l.startswith("error"):
+            if l == "ok" or l.startswith("error"):
+                # El cliente responde un comando a la vez: si ya llegó algo más, un comando respondió de
+                # más y desde aquí cada uno recibiría la respuesta del anterior. Se descarta lo sobrante
+                # (la conexión vuelve a quedar en orden) y se avisa. Los dos "ok" de un comando salen en
+                # el mismo envío y llegan juntos; uno que llegara más tarde no se detecta.
+                if self.resto:
+                    sobra, self.resto = self.resto, b""
+                    raise ErrorControl("respuesta de más después de \"%s\": %r" % (linea, sobra[:80]))
+                if l == "ok":
+                    return lineas
                 raise ErrorControl("%s (%s)" % (l[6:] or "error", linea))
             lineas.append(l)
 

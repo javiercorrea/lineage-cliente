@@ -225,7 +225,8 @@ void dibujar_barra(App& a, int y) {
             m = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), buf, sizeof buf);
         }
         int w = ancho_texto(buf, m);
-        int tx = std::clamp(e.mx - w / 2, 4, a.gpu.ancho() - w - 4), ty = y - ALTO_GLIFO - 6;
+        // max/min y no clamp: con un nombre más ancho que la vista los límites quedarían invertidos.
+        int tx = std::max(4, std::min(e.mx - w / 2, a.gpu.ancho() - w - 4)), ty = y - ALTO_GLIFO - 6;
         g.gpu().rectangulo(tx - 4, ty - 3, w + 8, ALTO_GLIFO + 6, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 220));
         g.texto({buf, m}, static_cast<float>(tx), static_cast<float>(ty), clave_orden(CAPA_UI_TEXTO, 30), rgba(255, 255, 254));
     }
