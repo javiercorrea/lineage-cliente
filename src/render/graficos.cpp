@@ -51,14 +51,17 @@ const RegionAtlas& Graficos::guardar(u64 k, bool ok) {
     return regiones_[i];
 }
 
+// Libera el casillero i: su clave sale del índice y se vuelve a decodificar si se pide.
+void Graficos::olvidar(u32 i) {
+    indice_.quitar(claves_[i]);
+    regiones_[i] = {};
+    libres_.push_back(i);
+}
+
 // La página se reemplazó en el atlas: lo que estaba ahí se vuelve a decodificar si se pide.
 void Graficos::olvidar_pagina(u16 pagina) {
-    for (u32 i = 0; i < regiones_.size(); ++i) {
-        if (!regiones_[i].valida() || regiones_[i].pagina != pagina) continue;
-        indice_.quitar(claves_[i]);
-        regiones_[i] = {};
-        libres_.push_back(i);
-    }
+    for (u32 i = 0; i < regiones_.size(); ++i)
+        if (regiones_[i].valida() && regiones_[i].pagina == pagina) olvidar(i);
 }
 
 const RegionAtlas& Graficos::img(u32 n) {
@@ -91,9 +94,11 @@ constexpr int ANCHO_EMBLEMA = 16, ALTO_EMBLEMA = 12, BYTES_EMBLEMA = ANCHO_EMBLE
 // manda otra vez: la app lo pide una sola vez por clan).
 const RegionAtlas& Graficos::emblema(u32 clan) {
     static const RegionAtlas vacia;
+    const u64 k = clave(T_EMBLEMA, clan);
+    if (const RegionAtlas* r = buscar(k)) return *r;  // lo común: ya está en el atlas (una sola búsqueda)
     const u32* i = datos_emblema_.buscar(clan);
     if (!i) return vacia;
-    return cargar(clave(T_EMBLEMA, clan), [&] {
+    return cargar(k, [&] {
         const u8* d = emblemas_.data() + *i;
         tmp_.preparar(ANCHO_EMBLEMA, ALTO_EMBLEMA);
         for (int k = 0; k < ANCHO_EMBLEMA * ALTO_EMBLEMA; ++k) {  // el negro puro es el fondo transparente
@@ -114,13 +119,9 @@ void Graficos::poner_emblema(u32 clan, Bytes datos) {
     }
     std::memcpy(emblemas_.data() + ofs, datos.data(), BYTES_EMBLEMA);
     // Uno nuevo reemplaza al anterior: se sube con el próximo emblema(). El casillero viejo se libera
-    // (si no, olvidar_pagina, con la misma clave, podría borrar del índice al nuevo).
-    const u64 k = clave(T_EMBLEMA, clan);
-    if (const u32* r = indice_.buscar(k)) {
-        regiones_[*r] = {};
-        libres_.push_back(*r);
-        indice_.quitar(k);
-    }
+    // (si no, olvidar_pagina, con la misma clave, podría borrar del índice al nuevo). Su lugar en el
+    // atlas queda sin usar hasta que se reemplace la página: el empaquetado por estantes no libera huecos.
+    if (const u32* r = indice_.buscar(clave(T_EMBLEMA, clan))) olvidar(*r);
 }
 
 const RegionAtlas& Graficos::png(u32 n) {

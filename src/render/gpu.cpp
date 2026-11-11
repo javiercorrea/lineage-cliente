@@ -376,9 +376,17 @@ bool Gpu::subir(const ImagenRGBA& img, RegionAtlas& r) {
 
 void Gpu::dibujar_escalado(const RegionAtlas& r, float x, float y, float w, float h, u64 clave, u32 color, Mezcla mezcla) {
     if (!r.valida()) return;
-    if (inst_.size() >= ((clave >> 56) >= CAPA_UI ? MAX_INSTANCIAS : MAX_INSTANCIAS - RESERVA_UI)) {
-        if (!instancias_llenas_avisado_) LIN_LOG("Gpu: más de %zu instancias en un frame; se descartan", inst_.size());
-        instancias_llenas_avisado_ = true;
+    const u64 capa_pedida = clave >> 56;
+    const u32 tope = capa_pedida >= CAPA_UI ? MAX_INSTANCIAS
+                     : capa_pedida >= CAPA_MUNDO ? MAX_INSTANCIAS - RESERVA_CAPAS
+                                                 : MAX_INSTANCIAS - 2 * RESERVA_CAPAS;
+    if (inst_.size() >= tope) {
+        // Un aviso cada ~10 s mientras siga pasando (no uno solo por proceso).
+        if (frame_ >= proximo_aviso_instancias_) {
+            LIN_LOG("Gpu: lista de dibujo llena (%zu instancias): se descarta la capa %llu", inst_.size(),
+                    static_cast<unsigned long long>(capa_pedida));
+            proximo_aviso_instancias_ = frame_ + 600;
+        }
         return;
     }
     // El contenido va desplazado por su origen; se recorta contra la cuadrícula de la ventana.
@@ -635,7 +643,12 @@ void Gpu::presentar() {
     }
     u32 n = static_cast<u32>(inst_ordenadas_.size());
     void* p_inst = n ? SDL_MapGPUTransferBuffer(dev_, subida_inst_, true) : nullptr;
-    if (!p_inst) n = 0;  // sin subir las instancias, el buffer tiene las de otro frame: no se dibujan
+    // Sin subir las instancias (el buffer tiene las de otro frame) o sin subir los píxeles nuevos del
+    // atlas (sus regiones mostrarían los de antes): este frame no se dibuja.
+    if (!p_inst || (!pendientes_.empty() && !p_atlas)) {
+        if (p_inst) SDL_UnmapGPUTransferBuffer(dev_, subida_inst_);
+        n = 0;
+    }
     if (n) {
         std::memcpy(p_inst, inst_ordenadas_.data(), n * sizeof(Instancia));
         SDL_UnmapGPUTransferBuffer(dev_, subida_inst_);
@@ -769,6 +782,12 @@ SDL_GPUCommandBuffer* Gpu::guardar_captura(SDL_GPUCommandBuffer* cmd) {
     SDL_EndGPUCopyPass(copia);
     // Se envía este comando y se espera a la GPU para poder leer los píxeles.
     SDL_GPUFence* f = SDL_SubmitGPUCommandBufferAndAcquireFence(cmd);
+    if (!f) {  // el envío falló: no hay píxeles que leer
+        LIN_LOG("Captura: no se pudo enviar el comando (%s)", SDL_GetError());
+        SDL_ReleaseGPUTransferBuffer(dev_, bajada);
+        ruta_captura_.clear();
+        return SDL_AcquireGPUCommandBuffer(dev_);
+    }
     SDL_WaitForGPUFences(dev_, true, &f, 1);
     SDL_ReleaseGPUFence(dev_, f);
     // La captura se guarda a la resolución lógica (un píxel de cada bloque de escala × escala).

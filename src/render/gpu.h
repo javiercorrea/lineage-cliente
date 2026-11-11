@@ -49,9 +49,11 @@ constexpr int TAM_PAGINA = 2048;
 constexpr int PAGINAS_ATLAS = 8;           // 8 × 16 MB; LIN_ATLAS_PAGINAS y LIN_ATLAS_TAM achican el atlas para probar el reemplazo
 // 6 MB de buffer. Una vista grande (5K con zoom ×1) ya pide ~55 000 solo de suelo, más la lluvia.
 constexpr u32 MAX_INSTANCIAS = 1u << 17;
-// Lugares que el mundo (las capas por debajo de CAPA_UI) no puede ocupar: con la lista llena se pierde
-// suelo o clima, nunca la interfaz (que se dibuja al final del frame).
-constexpr u32 RESERVA_UI = 1u << 14;
+// Topes por capa, porque se descarta lo que llega con la lista llena y el suelo se manda primero: el
+// fondo y el suelo pueden ocupar hasta MAX − 2 × RESERVA, los objetos, personajes y efectos hasta
+// MAX − RESERVA, y la interfaz todo. Así en una vista enorme se pierde suelo del borde, no personajes
+// ni la interfaz.
+constexpr u32 RESERVA_CAPAS = 1u << 14;
 constexpr u32 TAM_SUBIDA_ATLAS = 32u << 20; // máximo de píxeles nuevos por frame
 
 class Gpu {
@@ -176,7 +178,7 @@ private:
     std::vector<SubidaPendiente> pendientes_;
     std::vector<u8> staging_atlas_;
     bool atlas_lleno_avisado_ = false;
-    bool instancias_llenas_avisado_ = false;
+    u64 proximo_aviso_instancias_ = 0;  // frame desde el que se vuelve a avisar de la lista llena
 
     // Lista de dibujo del frame.
     std::vector<Instancia> inst_;

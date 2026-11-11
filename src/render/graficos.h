@@ -69,6 +69,7 @@ private:
     template <class F>
     const RegionAtlas& cargar(u64 k, F&& decodificar);
     const RegionAtlas& guardar(u64 k, bool ok);
+    void olvidar(u32 casillero);
     void olvidar_pagina(u16 pagina);
     const RegionAtlas* buscar(u64 k) const;
     // nullptr si no existe o si todavía no está en memoria (`pendiente`).
