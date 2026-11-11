@@ -39,6 +39,13 @@ public:
         return true;
     }
 
+    bool vacio() const { return cabeza_.load(std::memory_order_acquire) == cola_.load(std::memory_order_acquire); }
+    // Descarta todo. Solo sin productor ni consumidor corriendo (antes de arrancar los hilos).
+    void vaciar() {
+        cabeza_.store(0, std::memory_order_relaxed);
+        cola_.store(0, std::memory_order_relaxed);
+    }
+
 private:
     void copiar_en(size_t pos, const u8* src, size_t n) {
         for (size_t i = 0; i < n; ++i) buf_[(pos + i) & mascara_] = src[i];

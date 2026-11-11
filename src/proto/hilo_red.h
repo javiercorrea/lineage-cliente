@@ -28,6 +28,8 @@ public:
     // Hilo principal.
     bool sacar(std::vector<u8>& cuerpo) { return entrada_.sacar(cuerpo); }
     void enviar(Bytes cuerpo);
+    // Dentro del juego el hilo escritor manda C_KeepAlive cada 20 s por su cuenta.
+    void en_juego(bool si) { en_juego_ = si; }
     EstadoRed estado() const { return estado_.load(); }
     const std::string& error() const { return error_; }
 
@@ -47,6 +49,7 @@ private:
     std::condition_variable cv_;
     std::atomic<EstadoRed> estado_{EstadoRed::INACTIVA};
     std::atomic<bool> parar_{false};
+    std::atomic<bool> en_juego_{false};
 };
 
 }  // namespace lin
