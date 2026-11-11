@@ -1,7 +1,8 @@
 # Plan: páginas de atajos, atajo elegido, curarse con la tecla, auto-buffs y auto-poción
 
 Cinco mejoras de jugabilidad pedidas sobre la barra de atajos y el combate. No son del cliente original:
-son comodidades nuevas, todas opcionales. Es solo el plan: todavía no hay nada implementado.
+son comodidades nuevas, todas opcionales. Auto-buff y auto-poción son macros del lado del cliente, y se
+aceptan como tales. Es solo el plan: todavía no hay nada implementado. Las decisiones están en la sección 7.
 
 **Fuentes.** El código del cliente (`src/app/barra_ui.cpp`, `hechizos_ui.cpp`, `inventario_ui.cpp`,
 `mundo/mundo.h`) y el servidor `l1j-jp` (`data/xml/Item/HealingPotion.xml`, `C_UseItem.java`,
@@ -41,10 +42,16 @@ el código o en el servidor, **[H]** hipótesis, **[?]** incógnita.
 ## 1. Páginas de atajos
 
 ```
-+--+--+--+--+--+--+--+--+--+--+  ^
-|  |  |  |  |  |  |  |  |  |  |  1
-+--+--+--+--+--+--+--+--+--+--+  v
+                 atajos (10 × 38 px)          página      auto-buffs (6 × 34 px)
++--+--+--+--+--+--+--+--+--+--+  ^   +-+-+-+-+-+-+ [A]
+|  |  |  |  |  |  |  |  |  |  |  1   | | | | | | |
++--+--+--+--+--+--+--+--+--+--+  v   +-+-+-+-+-+-+
 ```
+
+- **Ancho**: 10 × 38 − 2 = 378 px de atajos, 8 de separación, 18 del selector, 8 de separación y
+  6 × 34 − 2 = 202 de auto-buffs (más el interruptor `[A]`, que va encima del primer casillero de
+  auto-buffs para no sumar ancho): ~614 px, centrado. Entra en la vista mínima de 640 px y en el panel
+  original (640 de ancho).
 
 - **Datos**: `Atajo barra[PAGINAS_MAX][CASILLEROS_BARRA]` y `pagina_barra`. Cantidad de páginas en
   `settings.ini` (`paginas_barra=3`, de 1 a `PAGINAS_MAX` = 9). Con 1 página no se dibuja el selector.
@@ -71,19 +78,22 @@ Casi todo existe (sección 0). Cambia:
   objetivo").
 - **Marca**: borde dorado de 3 px (hoy 2) para que se distinga del resaltado del puntero.
 - **Con páginas**: el elegido es un (página, casillero). El botón del medio lo usa aunque su página no esté
-  a la vista; el selector muestra un punto junto al número si el elegido está en otra página. **[decisión]**
+  a la vista; el selector muestra un punto junto al número si el elegido está en otra página. Elegir otro
+  casillero (en cualquier página) reemplaza al anterior: hay uno solo.
 - Guardado: el `*` sigue igual, en la página donde está.
 
 ## 3. Mantener 1–0 sobre un hechizo de curación: sobre uno mismo
 
 - **Qué hechizos**: los que piden objetivo y no son de ataque (`con_objetivo && !de_ataque`: curaciones y
   buffs que se pueden dar a otro, como Lesser Heal, Heal, Greater Heal, Nature's Touch, Haste). Los de
-  ataque nunca. **[decisión: ¿solo curaciones o todos los no ofensivos?]**
+  ataque nunca. Un hechizo sin objetivo ya se lanza sobre uno mismo con un toque; un ítem no cambia.
 - **Cómo**: al apretar, igual que hoy (queda esperando el clic del objetivo). Si la tecla sigue apretada
   `MS_MANTENER` = 300 ms, se cancela la espera y se lanza sobre el propio personaje
   (`pedir_hechizo(id, jugador.id)`). Así un toque no se retrasa.
-- **Repetir**: mientras se mantenga, vuelve a lanzar en cuanto termina la espera del hechizo (como el botón
-  del medio). **[decisión: ¿una vez por pulsación o repetir?]**
+- **Repetir**: mientras se mantenga, vuelve a lanzar sobre uno mismo en cuanto termina la espera del
+  hechizo (`hechizo_listo_ms`) y alcanza el MP, como el botón del medio. Soltar la tecla corta la
+  repetición (lo ya pedido se lanza igual). Sin MP, no pide más: queda esperando hasta que alcance o se
+  suelte.
 - **Entrada**: hoy `EntradaFrame` solo ve la tecla al bajar (`numero`). Hace falta saber cuál número está
   apretado y desde cuándo: `SDL_GetKeyboardState` por frame, o guardar la bajada y la subida
   (`SDL_EVENT_KEY_UP`), ignorando las repeticiones de SDL.
@@ -94,10 +104,15 @@ Casi todo existe (sección 0). Cambia:
 
 ## 4. Auto-buffs
 
-- **Barra**: a la derecha del selector de páginas, `CASILLEROS_AUTO` = 4 casilleros con un borde de otro
-  color (verde) y un interruptor general (encendido/apagado, apagado por defecto). Se llena arrastrando
-  hechizos desde la ventana de magia; clic derecho vacía. Se guarda por personaje (`autobuffs=Nombre:1|42,43,0,0`:
-  encendido y los hechizos).
+- **Barra**: a la derecha del selector de páginas, `CASILLEROS_AUTO` = 6 casilleros de 34 px con un borde
+  de otro color (verde) y un interruptor general `[A]` (encendido/apagado, apagado por defecto; encendido
+  con fondo verde). Se llena arrastrando hechizos desde la ventana de magia o desde un casillero de atajos;
+  entre casilleros de auto-buff se arrastra para ordenar; clic derecho vacía. Debajo de cada casillero, lo
+  que le queda al efecto (como en los íconos de efectos activos). Se guarda por personaje
+  (`autobuffs=Nombre:1|42,43,0,0,0,0`: encendido y los hechizos), no en una página: es una sola fila.
+- **Orden**: si varios vencen a la vez, se lanzan de izquierda a derecha, de a uno (el siguiente al terminar
+  la espera del anterior).
+- **No se pausa** en zonas seguras ni en pueblos: mientras esté encendido, mantiene los buffs siempre.
 - **Qué se acepta**: solo buffs al propio personaje: `!de_ataque && duracion_s > 0` y que se puedan lanzar
   sobre uno mismo (sin objetivo, o con objetivo que admita al propio personaje). Al soltar uno que no lo es,
   un aviso en el chat y no se pone.
@@ -113,15 +128,20 @@ Casi todo existe (sección 0). Cambia:
   (incluye los `EA_HECHIZO` que registra el cliente).
 - **Si falla**: con los mensajes del servidor de MP insuficiente o hechizo fallido, ese casillero espera
   `ESPERA_FALLO` = 10 s antes de reintentar.
-- **Riesgo**: es automatización; algunos servidores la consideran macro. Apagado por defecto y avisado en
-  las opciones. **[?] reglas del servidor privado real**
+- **Macro del lado del cliente**: no manda nada que el jugador no pudiera mandar a mano (el mismo
+  C_UseSkill, con la misma espera entre hechizos), así que el servidor lo ve como uso normal. Apagado por
+  defecto.
 - **Pruebas**: función pura `elegir_autobuff(estado, casilleros, ahora) → id o 0`, con tests de cada
   condición. En vivo con agente7 y un buff corto.
 
 ## 5. Auto-poción
 
 - **Opciones** (ventana de opciones, por personaje): encendida/apagada (apagada por defecto) y umbral de HP
-  (`UMBRAL_POCION`, 60 % por defecto). **[decisión: ¿por personaje o global?]**
+  (`UMBRAL_POCION`, 60 % por defecto; de 10 % a 95 %, de a 5). Se guardan por personaje en `settings.ini`
+  (`autopocion=Nombre:1,60;Otro:0,70`), como los atajos: cada personaje con su encendido y su umbral, y
+  sin entrada, apagada con 60 %. La fila de opciones dice de quién es ("Auto potion (Agente7)").
+- **Indicador**: encendida, un ícono chico de poción junto a la barra de HP (rojo si no queda ninguna
+  poción de curación en el inventario).
 - **Cuándo**: en el frame en que el HP baja (`hp < hp_anterior`) y también mientras siga por debajo del
   umbral (si una poción no alcanzó), si `hp * 100 / hp_max < umbral`, el personaje está vivo y ya pasó la
   demora de la última poción (1000 ms; 500 si fue antigua).
@@ -136,6 +156,8 @@ Casi todo existe (sección 0). Cambia:
   versiones pueden compartirlo). **[H]** los mismos `$N` en jp363, tw380 y s3ep1; verificar con
   `desc-e.tbl` de cada instalación.
 - **Si no puede beber** (mensaje 698, Decay Potion): espera 5 s antes de volver a intentar.
+- **Macro del lado del cliente**, como los auto-buffs: el mismo C_UseItem que un doble clic, con la demora
+  de la poción.
 - **Pruebas**: función pura `elegir_pocion(inventario, hp, hp_max) → id o 0` con tests (orden de familias,
   color por lo que falta, falta de un color). En vivo con agente7: `.item 40019 10`, `.item 40022 10`,
   `.item 40010 10` y bajar el HP (un monstruo con `.spawn`).
@@ -146,19 +168,22 @@ Casi todo existe (sección 0). Cambia:
 |---|---|---|
 | F1 | Páginas, selector y rueda; formato con `/` | test del formato; en vivo: cambiar de página y usar un casillero |
 | F2 | Elegido: fallback a 0–9, borde de 3 px, elegido en otra página | en vivo: botón del medio con y sin objetivo |
-| F3 | Mantener 1–0 sobre uno mismo; `tecla-mantener` en el control | en vivo con Heal de agente7 |
-| F4 | Auto-buffs | tests de `elegir_autobuff`; en vivo con un buff corto |
-| F5 | Auto-poción | tests de `elegir_pocion`; en vivo con pociones de las tres familias |
+| F3 | Mantener 1–0 sobre uno mismo, con repetición; `tecla-mantener` en el control | en vivo con Heal de agente7: una pulsación larga lanza varias veces sobre sí |
+| F4 | Auto-buffs: 6 casilleros, interruptor, guardado por personaje | tests de `elegir_autobuff`; en vivo con un buff corto, también en un pueblo |
+| F5 | Auto-poción con opciones por personaje | tests de `elegir_pocion` y del guardado; en vivo con pociones de las tres familias y dos personajes con umbrales distintos |
 
 Cada fase en su PR. F1 primero (cambia la estructura de la barra que usan F2–F4); F4 y F5 son
 independientes entre sí.
 
-## 7. Decisiones pendientes
+## 7. Decisiones
 
-1. **Elegido con páginas** (punto 2): ¿el botón del medio usa el elegido aunque su página no esté a la vista
-   (propuesta), o solo si está a la vista?
-2. **Mantener sobre uno mismo** (punto 3): ¿todos los hechizos con objetivo no ofensivos (propuesta) o solo
-   los de curación? ¿Una vez por pulsación o repetir mientras se mantenga (propuesta: repetir)?
-3. **Auto-buffs** (punto 4): ¿4 casilleros? ¿Se pausan en zonas seguras (pueblos) para no gastar MP?
-4. **Auto-poción** (punto 5): umbral por defecto (60 %), ¿por personaje (propuesta) o global?
-5. **Servidor real**: ¿permite auto-buff y auto-poción?
+| # | Tema | Decisión |
+|---|---|---|
+| 1 | Elegido con páginas (punto 2) | El botón del medio lo usa aunque su página no esté a la vista; un punto junto al número lo indica. (Propuesta, sin objeción.) |
+| 2 | Mantener 1–0 (punto 3) | Todos los hechizos con objetivo no ofensivos; **repite mientras se mantiene**. |
+| 3 | Auto-buffs (punto 4) | **6 casilleros**; **no se pausan** en pueblos ni zonas seguras. |
+| 4 | Auto-poción (punto 5) | **Configurable por personaje** (encendido y umbral; 60 % por defecto). |
+| 5 | Servidor | Auto-buff y auto-poción son **macros del lado del cliente**: mandan lo mismo que el jugador a mano. |
+
+Quedan por verificar en la implementación (no son decisiones): los `$N` de las pociones en tw380 y s3ep1
+(sección 5) y los mensajes exactos del servidor para "sin MP" y "hechizo fallido" (sección 4).
