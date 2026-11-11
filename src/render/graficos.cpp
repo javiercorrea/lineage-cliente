@@ -25,6 +25,12 @@ const RegionAtlas& Graficos::cargar(u64 k, F&& decodificar) {
 
 const RegionAtlas& Graficos::guardar(u64 k, bool ok) {
     RegionAtlas r;
+    if (ok && !gpu_.cabe_en_atlas(tmp_)) {
+        // Más grande que una página: no entraría nunca. Se recuerda como fallo, si no se volvería a
+        // leer y decodificar en cada frame.
+        LIN_LOG("Imagen de %ux%u: no entra en el atlas", tmp_.ancho, tmp_.alto);
+        ok = false;
+    }
     if (ok && !gpu_.subir(tmp_, r)) {
         // Sin lugar este frame (buffer de subida lleno o atlas sin página libre): no se recuerda, se reintenta.
         return pendiente_;
@@ -77,22 +83,44 @@ const RegionAtlas& Graficos::icono(u32 n) {
     });
 }
 
+namespace {
+constexpr int ANCHO_EMBLEMA = 16, ALTO_EMBLEMA = 12, BYTES_EMBLEMA = ANCHO_EMBLEMA * ALTO_EMBLEMA * 2;
+}
+
+// Si su página del atlas se reemplazó, se vuelve a subir desde los datos guardados (el servidor no lo
+// manda otra vez: la app lo pide una sola vez por clan).
 const RegionAtlas& Graficos::emblema(u32 clan) {
     static const RegionAtlas vacia;
-    const RegionAtlas* r = buscar(clave(T_EMBLEMA, clan));
-    return r ? *r : vacia;
+    const u32* i = datos_emblema_.buscar(clan);
+    if (!i) return vacia;
+    return cargar(clave(T_EMBLEMA, clan), [&] {
+        const u8* d = emblemas_.data() + *i;
+        tmp_.preparar(ANCHO_EMBLEMA, ALTO_EMBLEMA);
+        for (int k = 0; k < ANCHO_EMBLEMA * ALTO_EMBLEMA; ++k) {  // el negro puro es el fondo transparente
+            const u16 c = static_cast<u16>(d[2 * k] | (d[2 * k + 1] << 8));
+            tmp_.px[k] = (c & 0x7FFF) == 0 ? 0 : rgb555(c);
+        }
+        return Carga::OK;
+    });
 }
 
 void Graficos::poner_emblema(u32 clan, Bytes datos) {
-    constexpr int W = 16, H = 12;
-    if (datos.size() < W * H * 2) return;
-    tmp_.preparar(W, H);
-    for (int i = 0; i < W * H; ++i) {  // el negro puro es el fondo transparente del emblema
-        const u16 c = static_cast<u16>(datos[2 * i] | (datos[2 * i + 1] << 8));
-        tmp_.px[i] = (c & 0x7FFF) == 0 ? 0 : rgb555(c);
+    if (datos.size() < BYTES_EMBLEMA) return;
+    const u32* i = datos_emblema_.buscar(clan);
+    const u32 ofs = i ? *i : static_cast<u32>(emblemas_.size());
+    if (!i) {
+        emblemas_.resize(emblemas_.size() + BYTES_EMBLEMA);
+        datos_emblema_.poner(clan, ofs);
     }
-    indice_.quitar(clave(T_EMBLEMA, clan));  // uno nuevo reemplaza al anterior
-    guardar(clave(T_EMBLEMA, clan), true);
+    std::memcpy(emblemas_.data() + ofs, datos.data(), BYTES_EMBLEMA);
+    // Uno nuevo reemplaza al anterior: se sube con el próximo emblema(). El casillero viejo se libera
+    // (si no, olvidar_pagina, con la misma clave, podría borrar del índice al nuevo).
+    const u64 k = clave(T_EMBLEMA, clan);
+    if (const u32* r = indice_.buscar(k)) {
+        regiones_[*r] = {};
+        libres_.push_back(*r);
+        indice_.quitar(k);
+    }
 }
 
 const RegionAtlas& Graficos::png(u32 n) {
@@ -107,8 +135,8 @@ const RegionAtlas& Graficos::png(u32 n) {
 const RegionAtlas& Graficos::png_archivo(const std::string& ruta) {
     return cargar(clave(T_ARCHIVO, std::hash<std::string>{}(ruta) >> 8), [&] {
         std::vector<u8> b;
-        bool ok = leer_archivo(ruta, b) && decodificar_png(b, tmp_, false) && tmp_.ancho <= TAM_PAGINA && tmp_.alto <= TAM_PAGINA;
-        if (!ok) std::fprintf(stderr, "No se pudo cargar la imagen %s (PNG de hasta %d×%d)\n", ruta.c_str(), TAM_PAGINA, TAM_PAGINA);
+        bool ok = leer_archivo(ruta, b) && decodificar_png(b, tmp_, false) && gpu_.cabe_en_atlas(tmp_);
+        if (!ok) std::fprintf(stderr, "No se pudo cargar la imagen %s (PNG de hasta %d×%d)\n", ruta.c_str(), TAM_PAGINA - 1, TAM_PAGINA - 1);
         return ok ? Carga::OK : Carga::FALLO;
     });
 }

@@ -86,6 +86,8 @@ private:
     std::vector<u64> claves_;   // clave de cada región (para olvidarlas)
     std::vector<u32> libres_;   // regiones olvidadas, para reusar
     MapaHash indice_tiles_, indice_spr_;
+    MapaHash datos_emblema_{64};  // clan -> desplazamiento en emblemas_
+    std::vector<u8> emblemas_;    // los bytes RGB555 de S_Emblem de cada clan
     std::vector<JuegoTiles> juegos_;
     std::vector<ArchivoSpr> sprs_;
     Precarga precarga_;

@@ -28,9 +28,9 @@ bool EmpaquetadoAtlas::en_pagina(u16 p, u16 w, u16 h, RegionAtlas& r) {
 }
 
 bool EmpaquetadoAtlas::reservar(u16 w, u16 h, u64 frame, RegionAtlas& r) {
+    if (!cabe(w, h)) return false;
     w = static_cast<u16>(w + 1);  // 1 px de margen
     h = static_cast<u16>(h + 1);
-    if (w > tam_ || h > tam_) return false;
     if (!en_pagina(actual_, w, h, r)) {
         if (abiertas_ < paginas_) {
             actual_ = static_cast<u16>(abiertas_++);

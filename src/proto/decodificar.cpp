@@ -105,7 +105,8 @@ bool mapa(Lector& l, Evento& e) {
         l.c();
         e.v[FA_N] = n;
         for (int i = 0; i < n; ++i) {
-            e.v[FA_MINUTOS + i] = MINUTOS_1997 + 1200 + static_cast<i32>(l.d()) * 182;
+            // En i64: un valor grande del servidor desbordaría un i32 (comportamiento indefinido).
+            e.v[FA_MINUTOS + i] = static_cast<i32>(MINUTOS_1997 + 1200 + static_cast<i64>(static_cast<i32>(l.d())) * 182);
             l.c();
         }
         return true;
@@ -342,7 +343,8 @@ bool html(Lector& l, Evento& e) {
     int n = -1;
     if (e.s[0] == "agsel" && l.quedan(3)) {
         const std::string_view casa = l.s();
-        for (char c : casa) e.v[HT_CASA] = e.v[HT_CASA] * 10 + (c - '0');
+        for (char c : casa)  // solo dígitos y sin pasarse de i32 (el texto viene del servidor)
+            if (c >= '0' && c <= '9' && e.v[HT_CASA] < 100000000) e.v[HT_CASA] = e.v[HT_CASA] * 10 + (c - '0');
         n = l.h();
     } else if (l.quedan(4) && l.h() != 0) {
         n = l.h();

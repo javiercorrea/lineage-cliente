@@ -600,7 +600,7 @@ void dibujar_efectos_activos(App& a, u64 ahora) {
             std::snprintf(t + m, sizeof t - m, "  %llu:%02llu", static_cast<unsigned long long>(resta / 60),
                           static_cast<unsigned long long>(resta % 60));
             int w = ancho_texto(t, std::strlen(t));
-            int tx = std::clamp(a.entrada.mx - w / 2, 4, a.gpu.ancho() - w - 4);
+            int tx = std::max(4, std::min(a.entrada.mx - w / 2, a.gpu.ancho() - w - 4));  // clamp podría invertirse
             g.gpu().rectangulo(tx - 4, Y + 47, w + 8, ALTO_GLIFO + 6, clave_orden(CAPA_UI, 30), rgba(0, 0, 0, 220));
             g.texto(t, static_cast<float>(tx), static_cast<float>(Y + 50), clave_orden(CAPA_UI_TEXTO, 30), rgba(170, 230, 255));
         }
