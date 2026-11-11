@@ -265,9 +265,14 @@ void dibujar_barra(App& a, int y) {
         };
         char n[4];
         std::snprintf(n, sizeof n, "%d", a.pagina_barra + 1);
-        centrado("^", y + 1, claro);
+        // Flechas: el mismo triángulo de 4 filas (7, 5, 3, 1 px), invertido para la de arriba
+        // (la fuente no tiene flechas, y "^" y "v" no se parecen entre sí).
+        for (int f = 0; f < 4; ++f) {
+            const int w = 7 - 2 * f, fx = sx + (ANCHO_SELECTOR - w) / 2;
+            g.gpu().rectangulo(fx, y + 6 - f, w, 1, kf + 1, claro);             // arriba: punta hacia arriba
+            g.gpu().rectangulo(fx, y + CELDA - 7 + f, w, 1, kf + 1, claro);     // abajo: punta hacia abajo
+        }
         centrado(n, y + (CELDA - ALTO_GLIFO) / 2, rgba(255, 230, 120));
-        centrado("v", y + CELDA - ALTO_GLIFO - 1, claro);
         if (e.clic && sobre_sel && a.arrastrando_atajo < 0 && !a.arrastrando_hechizo && !a.arrastrando)
             cambiar_pagina_barra(a, a.pagina_barra + (e.my < y + CELDA / 2 ? 1 : -1));
     }
