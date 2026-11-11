@@ -103,12 +103,15 @@ bool mapa(Lector& l, Evento& e) {
         l.c();
         l.c();
         l.c();
-        e.v[FA_N] = n;
+        int validas = 0;
         for (int i = 0; i < n; ++i) {
-            // En i64: un valor grande del servidor desbordaría un i32 (comportamiento indefinido).
-            e.v[FA_MINUTOS + i] = static_cast<i32>(MINUTOS_1997 + 1200 + static_cast<i64>(static_cast<i32>(l.d())) * 182);
+            // En i64; una fecha que no entra en i32 (un valor absurdo del servidor) se descarta en vez de
+            // truncarse a otra fecha cualquiera.
+            const i64 m = MINUTOS_1997 + 1200 + static_cast<i64>(static_cast<i32>(l.d())) * 182;
             l.c();
+            if (m >= INT32_MIN && m <= INT32_MAX) e.v[FA_MINUTOS + validas++] = static_cast<i32>(m);
         }
+        e.v[FA_N] = validas;
         return true;
     }
     e.tipo = Ev::MAPA;
@@ -343,8 +346,11 @@ bool html(Lector& l, Evento& e) {
     int n = -1;
     if (e.s[0] == "agsel" && l.quedan(3)) {
         const std::string_view casa = l.s();
-        for (char c : casa)  // solo dígitos y sin pasarse de i32 (el texto viene del servidor)
-            if (c >= '0' && c <= '9' && e.v[HT_CASA] < 100000000) e.v[HT_CASA] = e.v[HT_CASA] * 10 + (c - '0');
+        // Solo dígitos, hasta 9 (entra en i32). Si no, 0 = sin casa: un número parecido sería otra casa
+        // real y "map"/"apply" mandarían la equivocada.
+        const bool numero = !casa.empty() && casa.size() <= 9 &&
+                            std::all_of(casa.begin(), casa.end(), [](char c) { return c >= '0' && c <= '9'; });
+        for (char c : numero ? casa : std::string_view{}) e.v[HT_CASA] = e.v[HT_CASA] * 10 + (c - '0');
         n = l.h();
     } else if (l.quedan(4) && l.h() != 0) {
         n = l.h();

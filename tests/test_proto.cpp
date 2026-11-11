@@ -778,6 +778,26 @@ TEST_CASE("Castillos y casas: S_HouseList, S_HouseMap, S_War, S_CastleMaster, fo
     CHECK(ev[0].v[HT_CASA] == 262145);
     CHECK(ev[0].v[HT_DATOS] == 2);
     CHECK(ev[0].s[1] == "C\x01G");
+    // Una casa que no es un número (o demasiado larga) queda en 0: no se manda otra casa parecida.
+    for (const char* mala : {"12a3", "1234567890"}) {
+        ev.clear();
+        std::vector<u8> p = {119, 7, 0, 0, 0, 'a', 'g', 's', 'e', 'l', 0};
+        for (const char* c = mala; *c; ++c) p.push_back(static_cast<u8>(*c));
+        p.insert(p.end(), {0, 2, 0, 'C', 0, 'G', 0});
+        REQUIRE(decodificar(p, t, arena, ev));
+        CHECK(ev[0].v[HT_CASA] == 0);
+    }
+    // S_WarTime con un valor que no entra en i32 (×182): esa fecha se descarta, las otras quedan.
+    ev.clear();
+    std::vector<u8> fecha_mala = {150, 2, 0, 'J', 'S', 'T', 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0x7F, 0};
+    for (int b = 0; b < 4; ++b) fecha_mala.push_back(static_cast<u8>(86204u >> (8 * b)));
+    // c 0 de la segunda fecha y relleno: S_WarTime trae 30 bytes o más (si no, es S_MapID).
+    fecha_mala.insert(fecha_mala.end(), {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    REQUIRE(fecha_mala.size() - 1 >= 30);
+    REQUIRE(decodificar(fecha_mala, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::FECHA_ASEDIO);
+    CHECK(ev[0].v[FA_N] == 1);
+    CHECK(std::abs(ev[0].v[FA_MINUTOS] - 29892720) < 182);
     igual(cmd::accion_npc(t, 7, "map", "262145"), {37, 7, 0, 0, 0, 'm', 'a', 'p', 0, '2', '6', '2', '1', '4', '5', 0});
     igual(cmd::guerra(t, cmd::GUERRA_DECLARAR, "B"), {235, 0, 'B', 0});
     igual(cmd::tasa_castillo(t, 5, 20), {200, 5, 0, 0, 0, 20});
