@@ -559,6 +559,7 @@ bool Gpu::crear_destino() {
 }
 
 void Gpu::terminar_frame(u32 n) {
+    empaquetado_.fin_de_frame();  // si faltó lugar, deja una página libre para el frame siguiente
     instancias_previas_ = n;
     inst_.clear();
     claves_.clear();

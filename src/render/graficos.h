@@ -54,8 +54,12 @@ public:
     int texto_sombra(std::string_view t, float x, float y, u64 clave, u32 color = BLANCO);
 
     Gpu& gpu() { return gpu_; }
-    // Al comienzo de cada frame: lo que terminó de traer la precarga.
-    void nuevo_frame() { precarga_.actualizar(); }
+    // Al comienzo de cada frame: lo que terminó de traer la precarga, y olvidar la página del atlas que
+    // se vació al terminar el frame anterior (EmpaquetadoAtlas::fin_de_frame).
+    void nuevo_frame() {
+        precarga_.actualizar();
+        if (int p = gpu_.tomar_pagina_reemplazada(); p >= 0) olvidar_pagina(static_cast<u16>(p));
+    }
     u32 precargas_en_curso() const { return precarga_.en_curso(); }
     // Medición: tiempo de decodificación y gráficos nuevos desde la última llamada.
     double tomar_ms_decodificacion() { double v = ms_decodificacion_; ms_decodificacion_ = 0; return v; }
