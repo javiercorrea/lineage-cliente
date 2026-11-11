@@ -74,6 +74,10 @@ class Control:
             l, self.resto = self.resto.split(b"\n", 1)
             l = l.decode("cp949", errors="replace")
             if l == "ok":
+                # El cliente responde un comando a la vez: si ya llegó algo más, un comando respondió de
+                # más y desde aquí cada uno recibiría la respuesta del anterior.
+                if self.resto:
+                    raise ErrorControl("respuesta de más después del ok de \"%s\": %r" % (linea, self.resto[:80]))
                 return lineas
             if l.startswith("error"):
                 raise ErrorControl("%s (%s)" % (l[6:] or "error", linea))
