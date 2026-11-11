@@ -7,6 +7,10 @@
 //   actual (sus instancias ya están en la lista de dibujo) ni la página 0 (el blanco de los
 //   rectángulos, los glifos y la interfaz del inicio quedan ahí). Quien guarda regiones (Graficos)
 //   tiene que olvidar las de la página reemplazada: ver tomar_reemplazada().
+// - Si en un frame no hubo lugar porque todas las páginas se dibujaron en ese frame (pasa al
+//   teletransportarse con una vista grande: cada página conserva algo que sigue en pantalla, aunque
+//   casi todo sea de la zona anterior), al terminar el frame se vacía la menos dibujada en él. Sin
+//   esto nada nuevo entraba nunca: se decodificaba y descartaba lo mismo en cada frame.
 #pragma once
 #include <vector>
 #include "core/tipos.h"
@@ -29,8 +33,14 @@ public:
     // ¿Entra alguna vez una imagen de w×h (con su margen) en una página vacía?
     bool cabe(u32 w, u32 h) const { return w + 1 <= tam_ && h + 1 <= tam_; }
     // Algo de `pagina` se dibuja en `frame`.
-    void usar(u16 pagina, u64 frame) { uso_[pagina] = frame; }
-    // Página vaciada por el último reservar (-1 si ninguna). Se consulta después de cada reservar.
+    void usar(u16 pagina, u64 frame) {
+        uso_[pagina] = frame;
+        ++dibujos_[pagina];
+    }
+    // Al terminar cada frame (ya presentado): si faltó lugar, vacía la página menos dibujada (ver arriba).
+    void fin_de_frame();
+    // Página vaciada por el último reservar o fin_de_frame (-1 si ninguna). Se consulta después de cada
+    // reservar y al empezar cada frame.
     int tomar_reemplazada() {
         int p = reemplazada_;
         reemplazada_ = -1;
@@ -45,11 +55,14 @@ private:
         u16 y, h, x;
     };
     bool en_pagina(u16 p, u16 w, u16 h, RegionAtlas& r);
+    void vaciar(u16 pagina);  // la deja vacía para llenar y avisa con tomar_reemplazada
 
     u16 tam_, paginas_;
     std::vector<std::vector<Estante>> estantes_;
     std::vector<u16> y_libre_;
     std::vector<u64> uso_;
+    std::vector<u32> dibujos_;  // instancias de cada página en el frame actual
+    bool falta_lugar_ = false;  // un reservar falló en este frame: todas las páginas en uso
     u16 actual_ = 0;
     u32 abiertas_ = 1;
     int reemplazada_ = -1;

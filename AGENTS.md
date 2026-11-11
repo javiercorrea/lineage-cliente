@@ -64,10 +64,13 @@ LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 62 casos; sin LIN
 
   ```sh
   "$(brew --prefix mariadb)/bin/mariadb" --socket=servidor_local/datos/mysql.sock -uroot l1jdb_363 \
-    -e "UPDATE accounts SET access_level=200 WHERE login='micuenta'"
+    -e "UPDATE accounts SET access_level=200 WHERE name='micuenta';
+        UPDATE characters c JOIN accounts a ON a.id = c.account_id SET c.access_level=200 WHERE a.name='micuenta'"
   ```
 
-  El cambio vale en el próximo login.
+  Los comandos "." miran el `access_level` del personaje, no el de la cuenta: por eso van los dos. El
+  cambio vale en el próximo login. El socket de la base está en el checkout principal
+  (`servidor_local/datos/`), no en los worktrees.
 
 ## 3. Arquitectura en una página
 
