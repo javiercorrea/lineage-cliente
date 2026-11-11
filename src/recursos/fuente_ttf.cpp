@@ -19,12 +19,34 @@ constexpr float PX_EM = 11.0f;
 // cae en 0 o 255 de todos modos; el umbral solo recorta los bordes de los píxeles que no caen exactos.
 constexpr unsigned char UMBRAL_TRAZO = 128;
 
+// Avances precalculados de los puntos de código más comunes (la fuente es Latin-1): medir texto los pide
+// varias veces por carácter y por frame, y buscar el glifo en la fuente es una búsqueda binaria más.
+constexpr u32 CODEPUNTOS_TABLA = 0x800;
+
 struct Ttf {
     stbtt_fontinfo info{};
     float escala = 0;  // el em en píxeles
     int ascenso = 0;   // píxeles desde el tope de la celda hasta la línea base
     bool ok = false;
+    u8 ancho[CODEPUNTOS_TABLA] = {};
 };
+
+// Índice del glifo de `cp`; si la fuente no lo tiene, el del '?'.
+int indice_de(const Ttf& t, u32& cp) {
+    int idx = stbtt_FindGlyphIndex(&t.info, static_cast<int>(cp));
+    if (idx == 0 && cp != '?') {
+        cp = '?';
+        idx = stbtt_FindGlyphIndex(&t.info, '?');
+    }
+    return idx;
+}
+
+int calcular_ancho(const Ttf& t, u32 cp) {
+    const int idx = indice_de(t, cp);
+    int adv = 0, lsb = 0;
+    stbtt_GetGlyphHMetrics(&t.info, idx, &adv, &lsb);
+    return static_cast<int>(std::lround(adv * t.escala));
+}
 
 // Se carga una sola vez; el inicio de una variable local static es seguro entre hilos.
 const Ttf& ttf() {
@@ -37,20 +59,11 @@ const Ttf& ttf() {
             int asc = 0, desc = 0, gap = 0;
             stbtt_GetFontVMetrics(&r.info, &asc, &desc, &gap);
             r.ascenso = static_cast<int>(std::lround(asc * r.escala));
+            for (u32 cp = 0; cp < CODEPUNTOS_TABLA; ++cp) r.ancho[cp] = static_cast<u8>(std::clamp(calcular_ancho(r, cp), 0, 255));
         }
         return r;
     }();
     return t;
-}
-
-// Índice del glifo de `cp`; si la fuente no lo tiene, el del '?'.
-int indice_de(const Ttf& t, u32& cp) {
-    int idx = stbtt_FindGlyphIndex(&t.info, static_cast<int>(cp));
-    if (idx == 0 && cp != '?') {
-        cp = '?';
-        idx = stbtt_FindGlyphIndex(&t.info, '?');
-    }
-    return idx;
 }
 
 }  // namespace
@@ -58,10 +71,7 @@ int indice_de(const Ttf& t, u32& cp) {
 int ancho_ttf(u32 cp) {
     const Ttf& t = ttf();
     if (!t.ok) return ANCHO_GLIFO_ASCII;
-    const int idx = indice_de(t, cp);
-    int adv = 0, lsb = 0;
-    stbtt_GetGlyphHMetrics(&t.info, idx, &adv, &lsb);
-    return static_cast<int>(std::lround(adv * t.escala));
+    return cp < CODEPUNTOS_TABLA ? t.ancho[cp] : calcular_ancho(t, cp);
 }
 
 bool rasterizar_ttf(u32 cp, ImagenRGBA& salida) {
