@@ -2,7 +2,7 @@
 
 Cinco mejoras de jugabilidad pedidas sobre la barra de atajos y el combate. No son del cliente original:
 son comodidades nuevas, todas opcionales. Auto-buff y auto-poción son macros del lado del cliente, y se
-aceptan como tales. Es solo el plan: todavía no hay nada implementado. Las decisiones están en la sección 7.
+aceptan como tales. Es solo el plan: todavía no hay nada implementado. Las decisiones están en la sección 8.
 
 **Fuentes.** El código del cliente (`src/app/barra_ui.cpp`, `hechizos_ui.cpp`, `inventario_ui.cpp`,
 `mundo/mundo.h`) y el servidor `l1j-jp` (`data/xml/Item/HealingPotion.xml`, `C_UseItem.java`,
@@ -88,8 +88,10 @@ Casi todo existe (sección 0). Cambia:
   buffs que se pueden dar a otro, como Lesser Heal, Heal, Greater Heal, Nature's Touch, Haste). Los de
   ataque nunca. Un hechizo sin objetivo ya se lanza sobre uno mismo con un toque; un ítem no cambia.
 - **Cómo**: al apretar, igual que hoy (queda esperando el clic del objetivo). Si la tecla sigue apretada
-  `MS_MANTENER` = 300 ms, se cancela la espera y se lanza sobre el propio personaje
-  (`pedir_hechizo(id, jugador.id)`). Así un toque no se retrasa.
+  el tiempo de espera configurado (`cfg.ms_mantener_tecla`, 300 ms por defecto), se cancela la espera y se
+  lanza sobre el propio personaje (`pedir_hechizo(id, jugador.id)`). Así un toque no se retrasa.
+- **Configurable** en el juego y en el programa de configuración (sección 6): de 150 a 1000 ms. Es una
+  preferencia de la persona, no del personaje: global.
 - **Repetir**: mientras se mantenga, vuelve a lanzar sobre uno mismo en cuanto termina la espera del
   hechizo (`hechizo_listo_ms`) y alcanza el MP, como el botón del medio. Soltar la tecla corta la
   repetición (lo ya pedido se lanza igual). Sin MP, no pide más: queda esperando hasta que alcance o se
@@ -136,10 +138,10 @@ Casi todo existe (sección 0). Cambia:
 
 ## 5. Auto-poción
 
-- **Opciones** (ventana de opciones, por personaje): encendida/apagada (apagada por defecto) y umbral de HP
-  (`UMBRAL_POCION`, 60 % por defecto; de 10 % a 95 %, de a 5). Se guardan por personaje en `settings.ini`
-  (`autopocion=Nombre:1,60;Otro:0,70`), como los atajos: cada personaje con su encendido y su umbral, y
-  sin entrada, apagada con 60 %. La fila de opciones dice de quién es ("Auto potion (Agente7)").
+- **Opciones** por personaje: encendida/apagada (apagada por defecto) y umbral de HP (60 % por defecto; de
+  10 % a 95 %, de a 5). Se guardan en `settings.ini` (`autopocion=Nombre:1,60;Otro:0,70`), como los
+  atajos: cada personaje con su encendido y su umbral, y sin entrada, apagada con 60 %. Se cambian en el
+  juego y en el programa de configuración (sección 6).
 - **Indicador**: encendida, un ícono chico de poción junto a la barra de HP (rojo si no queda ninguna
   poción de curación en el inventario).
 - **Cuándo**: en el frame en que el HP baja (`hp < hp_anterior`) y también mientras siga por debajo del
@@ -162,20 +164,53 @@ Casi todo existe (sección 0). Cambia:
   color por lo que falta, falta de un color). En vivo con agente7: `.item 40019 10`, `.item 40022 10`,
   `.item 40010 10` y bajar el HP (un monstruo con `.spawn`).
 
-## 6. Fases
+## 6. Configuración: en el juego y en el programa de configuración
+
+Las mismas opciones en los dos lugares, sobre las mismas claves de `settings.ini` (`rutas.{h,cpp}`:
+`Config`, `leer_config`, `escribir_config`), con los mismos límites.
+
+| Opción | Clave | Alcance | Valores |
+|---|---|---|---|
+| Espera para lanzar sobre uno mismo (punto 3) | `ms_mantener_tecla=300` | global | 150–1000 ms |
+| Páginas de atajos (punto 1) | `paginas_barra=3` | global | 1–9 |
+| Auto-poción encendida (punto 5) | `autopocion=Nombre:1,60` | por personaje | sí / no |
+| Umbral de la auto-poción (punto 5) | (la misma clave) | por personaje | 10–95 %, de a 5 |
+
+**En el juego** (ventana de opciones, `ventanas.cpp`), una fila por opción, como las demás:
+
+- "Hold to self-cast": 150 → 200 → 300 → 400 → 500 → 700 → 1000 ms → 150 (clic avanza, clic derecho
+  retrocede).
+- "Hotbar pages": 1 → 2 → ... → 9 → 1. Al bajar la cantidad, las páginas que sobran no se borran
+  (vuelven al subirla); la visible pasa a la última que queda.
+- "Auto potion (Agente7)": On / Off, del personaje con el que se juega.
+- "Auto potion at HP": 60 %; clic +5, clic derecho −5, entre 10 y 95.
+- Los cambios se guardan al momento (`guardar_config`, como hoy).
+
+**En el programa de configuración** (`tools/settings.cpp`):
+
+- Pestaña Interfaz: "Espera para lanzar sobre uno mismo" (desplegable con los mismos valores) y "Páginas
+  de atajos" (1–9).
+- Pestaña Personajes: por cada personaje, "Auto-poción" sí/no y "Umbral" (desplegable 10–95 %), junto a
+  lo que ya muestra (atajos y barra). `personajes_con_datos` también tiene que listar a los que solo
+  tienen `autopocion=` o `autobuffs=`, y borrar un personaje borra también esas claves.
+- Textos en el catálogo (`i18n/textos.h`) en los 5 idiomas, como el resto del programa.
+- Valores fuera de rango en un `settings.ini` escrito a mano: se recortan al leer (`leer_config`), y el
+  test de `rutas` lo cubre.
+
+## 7. Fases
 
 | Fase | Entrega | Verificación |
 |---|---|---|
-| F1 | Páginas, selector y rueda; formato con `/` | test del formato; en vivo: cambiar de página y usar un casillero |
+| F1 | Páginas, selector y rueda; formato con `/`; cantidad de páginas en opciones y editor | test del formato; en vivo: cambiar de página y usar un casillero |
 | F2 | Elegido: fallback a 0–9, borde de 3 px, elegido en otra página | en vivo: botón del medio con y sin objetivo |
-| F3 | Mantener 1–0 sobre uno mismo, con repetición; `tecla-mantener` en el control | en vivo con Heal de agente7: una pulsación larga lanza varias veces sobre sí |
+| F3 | Mantener 1–0 sobre uno mismo, con repetición; espera configurable (opciones y editor); `tecla-mantener` en el control | en vivo con Heal de agente7: una pulsación larga lanza varias veces sobre sí |
 | F4 | Auto-buffs: 6 casilleros, interruptor, guardado por personaje | tests de `elegir_autobuff`; en vivo con un buff corto, también en un pueblo |
-| F5 | Auto-poción con opciones por personaje | tests de `elegir_pocion` y del guardado; en vivo con pociones de las tres familias y dos personajes con umbrales distintos |
+| F5 | Auto-poción con opciones por personaje, en el juego y en el editor (pestaña Personajes) | tests de `elegir_pocion` y del guardado; en vivo con pociones de las tres familias y dos personajes con umbrales distintos |
 
 Cada fase en su PR. F1 primero (cambia la estructura de la barra que usan F2–F4); F4 y F5 son
 independientes entre sí.
 
-## 7. Decisiones
+## 8. Decisiones
 
 | # | Tema | Decisión |
 |---|---|---|
@@ -184,6 +219,7 @@ independientes entre sí.
 | 3 | Auto-buffs (punto 4) | **6 casilleros**; **no se pausan** en pueblos ni zonas seguras. |
 | 4 | Auto-poción (punto 5) | **Configurable por personaje** (encendido y umbral; 60 % por defecto). |
 | 5 | Servidor | Auto-buff y auto-poción son **macros del lado del cliente**: mandan lo mismo que el jugador a mano. |
+| 6 | Dónde se configura | Auto-poción (encendido y umbral) y la espera de mantener 1–0 se cambian **en el juego y en el programa de configuración** (sección 6). La espera es global; la auto-poción, por personaje. |
 
 Quedan por verificar en la implementación (no son decisiones): los `$N` de las pociones en tw380 y s3ep1
 (sección 5) y los mensajes exactos del servidor para "sin MP" y "hechizo fallido" (sección 4).
