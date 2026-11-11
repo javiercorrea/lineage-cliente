@@ -292,7 +292,6 @@ struct App {
     int extra[6] = {};  // puntos agregados a fue, des, con, sab, car, int
 
     // Juego
-    u64 t_mantener_vivo = 0;
     bool ayuda_teclas = false;     // F1
     u64 t_intento_portal = 0;      // último paso hacia una celda bloqueada (pantalla_juego.cpp: intento_portal)
     u32 celda_intento_portal = 0;

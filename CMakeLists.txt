@@ -171,6 +171,7 @@ if(LIN_TESTS)
         tests/test_fuente.cpp
         tests/test_textos.cpp
         tests/test_ajustes.cpp
+        tests/test_socket.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)
     add_test(NAME lin_tests COMMAND lin_tests)

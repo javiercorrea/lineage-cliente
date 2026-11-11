@@ -11,7 +11,6 @@ namespace lin {
 
 namespace {
 
-constexpr u64 MS_MANTENER_VIVO = 20000;
 // Ataque: el anti-acelerador del servidor también controla el intervalo entre C_Attack (con la
 // duración de la animación de ataque del sprite). Como al caminar, se usa un 5 % más
 // (intervalo_propio, con haste y brave).
@@ -1409,10 +1408,6 @@ void frame_juego(App& a) {
     // (1/escala de píxel lógico), así la cámara se mueve suave y todo el mundo se desplaza junto.
     double ox = vi.cx - 24 - mundo_px(cam_x, cam_y);
     double oy = vi.cy - 12 - mundo_py(cam_x, cam_y);
-    if (ahora - a.t_mantener_vivo > MS_MANTENER_VIVO) {
-        enviar(a, cmd::mantener_vivo(a.op));
-        a.t_mantener_vivo = ahora;
-    }
 
     actualizar_segmentos(a.mundo, static_cast<int>(cam_x), static_cast<int>(cam_y), radio_segmentos(vi));
     dibujar_suelo(a, cam_x, cam_y, ox, oy);

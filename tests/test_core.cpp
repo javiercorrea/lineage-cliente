@@ -70,6 +70,21 @@ TEST_CASE("AnilloBytes: mensajes de longitud variable con vuelta del anillo") {
     CHECK_FALSE(a.empujar({grande, 70}));  // no entra
 }
 
+TEST_CASE("AnilloBytes: vaciar descarta lo pendiente (reconexión)") {
+    AnilloBytes a(64);
+    std::vector<u8> salida;
+    const u8 m[3] = {1, 2, 3};
+    CHECK(a.vacio());
+    REQUIRE(a.empujar({m, 3}));
+    CHECK_FALSE(a.vacio());
+    a.vaciar();
+    CHECK(a.vacio());
+    CHECK_FALSE(a.sacar(salida));
+    REQUIRE(a.empujar({m, 2}));
+    REQUIRE(a.sacar(salida));
+    CHECK(salida.size() == 2);
+}
+
 TEST_CASE("Arena: alineación, copia y reset") {
     Arena a(256);
     u8* p1 = static_cast<u8*>(a.reservar(3, 1));

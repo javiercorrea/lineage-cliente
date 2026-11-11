@@ -6,6 +6,7 @@
 // imágenes de interfaz, los íconos y los glifos se leen en el momento (son pocos y van en las
 // pantallas fijas).
 #pragma once
+#include <deque>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -78,7 +79,9 @@ private:
     const Recursos& rec_;
     const FuenteBitmap& fuente_;
     MapaHash indice_{4096};
-    std::vector<RegionAtlas> regiones_;
+    // deque: crecer no mueve las regiones, así siguen valiendo las referencias que ya se devolvieron
+    // (un texto dibujado después de pedir un ícono puede agregar glifos en el mismo frame).
+    std::deque<RegionAtlas> regiones_;
     RegionAtlas pendiente_;  // región vacía que se devuelve mientras algo está pendiente (no se guarda)
     std::vector<u64> claves_;   // clave de cada región (para olvidarlas)
     std::vector<u32> libres_;   // regiones olvidadas, para reusar

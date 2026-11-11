@@ -138,6 +138,7 @@ bool poner(Lector& l, Evento& e) {
     e.v[OB_MASCOTA] = dueno.empty() ? 0 : 1;
     if (!dueno.empty()) {  // como el original: "Andromeda's" sobre el nombre
         char* p = l.arena->reservar_arreglo<char>(dueno.size() + 2);
+        if (!p) return false;  // arena del frame llena
         std::memcpy(p, dueno.data(), dueno.size());
         std::memcpy(p + dueno.size(), "'s", 2);
         e.s[1] = {p, dueno.size() + 2};
