@@ -385,7 +385,6 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
             if (fin == p[1].c_str() || *fin || s < 0 || s > 86399) return error("la hora va de 0 a 86399, o off");
             a.hora_forzada = static_cast<i32>(s);
         }
-        responder(c, "ok");
     } else if (cmd == "perf") {
         a.perf = p.size() < 2 || p[1] == "on";
     } else if (cmd == "depuracion") {
