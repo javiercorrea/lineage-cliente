@@ -7,9 +7,10 @@ using namespace lin;
 
 namespace {
 // Agrega un ítem con ese nombre (como lo manda el servidor) y cantidad.
-void agregar(Inventario& inv, ObjId id, std::string_view nombre, u32 cantidad = 10) {
+void agregar(Inventario& inv, ObjId id, std::string_view nombre, u32 cantidad = 10, u16 gfx = 0) {
     const Slot s = inv.items.insertar(id);
     inv.items.col<I_CANTIDAD>()[s] = cantidad;
+    inv.items.col<I_GFX>()[s] = gfx;
     inv.items.col<I_NOMBRE>()[s] = {static_cast<u32>(inv.textos.size()), static_cast<u16>(nombre.size())};
     inv.textos.insert(inv.textos.end(), nombre.begin(), nombre.end());
 }
@@ -69,4 +70,21 @@ TEST_CASE("elegir_pocion: sin pociones de curación, ninguna") {
     agregar(inv, 1, "$1251", 0);  // sin cantidad
     agregar(inv, 2, "Arrow (100)");
     CHECK(elegir_pocion(inv, 10, 100).id == 0);
+}
+
+TEST_CASE("elegir_pocion: sin $N en el nombre (3.80C), por el ícono") {
+    Inventario inv;
+    agregar(inv, 1, "\xc2\xa1 (10)", 10, 80);   // normal roja, nombre en chino
+    agregar(inv, 2, "\xc2\xa2 (3)", 3, 536);    // condensada transparente
+    CHECK(elegir_pocion(inv, 10, 100).id == 2);
+    CHECK(elegir_pocion(inv, 95, 100).id == 2);  // la condensada antes que la normal, aunque falte poco
+    Inventario mithril;
+    agregar(mithril, 5, "\xc2\xa3", 1, 1161);    // solución de mithril negro: mismo ícono que la antigua roja
+    CHECK(elegir_pocion(mithril, 10, 100).id == 0);
+    agregar(mithril, 6, "\xc2\xa4 (10)", 10, 1161);  // antigua roja apilada
+    CHECK(elegir_pocion(mithril, 10, 100).id == 6);
+    Inventario con_n;
+    agregar(con_n, 7, "Arrow (100)", 100, 80);  // otro nombre sin $N con un ícono de poción: también cuenta
+    agregar(con_n, 8, "$1000", 1, 536);         // con $N que no es poción: no se mira el ícono
+    CHECK(elegir_pocion(con_n, 10, 100).id == 7);
 }
