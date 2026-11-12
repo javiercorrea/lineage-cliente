@@ -43,6 +43,8 @@ struct Config {
     std::string barra;
     // Auto-buffs por personaje: "Nombre:1|43,42,0,0,0,0" (encendido y los hechizos de los 6 casilleros).
     std::string autobuffs;
+    // Auto-buffs y auto-poción del todo: apagados, ni se dibujan ni hacen nada (ni sus opciones).
+    bool usar_autobuffs = true, usar_autopocion = true;
     // Auto-poción por personaje: "Nombre:1,60" (encendida y umbral de HP en %). Ver autopocion_de.
     std::string autopocion;
     int paginas_barra = 3;  // páginas a la vista (1 a PAGINAS_BARRA_MAX); las de más se conservan

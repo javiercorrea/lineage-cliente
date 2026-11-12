@@ -102,3 +102,14 @@ TEST_CASE("autopocion: por personaje, apagada con 60 % sin entrada, umbral recor
     CHECK(autopocion_de(leer_config(escribir_config(d)), "Ana").umbral == 45);
     CHECK(personajes_con_datos(d).size() == 1);
 }
+
+TEST_CASE("usar_autobuffs y usar_autopocion: encendidos por defecto y de ida y vuelta") {
+    Config c = leer_config("");
+    CHECK(c.usar_autobuffs);
+    CHECK(c.usar_autopocion);
+    c.usar_autobuffs = false;
+    const Config d = leer_config(escribir_config(c));
+    CHECK_FALSE(d.usar_autobuffs);
+    CHECK(d.usar_autopocion);
+    CHECK_FALSE(leer_config("usar_autopocion=0\n").usar_autopocion);
+}

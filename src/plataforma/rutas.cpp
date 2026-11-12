@@ -69,6 +69,8 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "barra") c.barra = valor;
     else if (clave == "autobuffs") c.autobuffs = valor;
     else if (clave == "autopocion") c.autopocion = valor;
+    else if (clave == "usar_autobuffs") c.usar_autobuffs = valor != "0";
+    else if (clave == "usar_autopocion") c.usar_autopocion = valor != "0";
     else if (clave == "ms_mantener_tecla")
         c.ms_mantener_tecla = std::clamp(std::atoi(std::string(valor).c_str()), MS_MANTENER_MIN, MS_MANTENER_MAX);
     else if (clave == "paginas_barra") c.paginas_barra = std::clamp(std::atoi(std::string(valor).c_str()), 1, PAGINAS_BARRA_MAX);
@@ -235,6 +237,8 @@ std::string escribir_config(const Config& c) {
     linea("barra", c.barra);
     linea("autobuffs", c.autobuffs);
     linea("autopocion", c.autopocion);
+    linea("usar_autobuffs", c.usar_autobuffs ? "1" : "0");
+    linea("usar_autopocion", c.usar_autopocion ? "1" : "0");
     linea("paginas_barra", std::to_string(c.paginas_barra));
     linea("ms_mantener_tecla", std::to_string(c.ms_mantener_tecla));
     linea("ventanas", c.ventanas);

@@ -276,6 +276,8 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
     si_no(p, fila(p, 8), tr(Tx::AJ_PANTALLA_COMPLETA), c.pantalla_completa);
     campo(p, fila(p, 9), tr(Tx::AJ_PAGINAS_BARRA), f.paginas, 1);
     campo(p, fila(p, 10), tr(Tx::AJ_MS_MANTENER), f.ms_mantener, 4);
+    si_no(p, fila(p, 11), tr(Tx::AJ_USAR_AUTOBUFFS), c.usar_autobuffs);
+    si_no(p, fila(p, 12), tr(Tx::AJ_USAR_AUTOPOCION), c.usar_autopocion);
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {

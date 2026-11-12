@@ -342,7 +342,7 @@ void dibujar_opciones(App& a) {
         cambio = true;
     }
     // Auto-poción del personaje con el que se juega (la carga procesar_autopocion).
-    if (!a.autopocion.de.empty()) {
+    if (a.cfg.usar_autopocion && !a.autopocion.de.empty()) {
         char n[64];
         std::snprintf(n, sizeof n, "Auto potion (%s)", a.autopocion.de.c_str());
         if (fila(n, a.autopocion.op.encendida ? "On" : "Off")) {

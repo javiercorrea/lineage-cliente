@@ -187,6 +187,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
 | `autobuffs` | Auto-buffs per character: on/off and the six spells (`Name:1\|43,42,0,0,0,0`) |
 | `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
+| `usar_autobuffs`, `usar_autopocion` | `0` hides and turns off auto-buffs or auto potion completely (both `1` by default) |
 | `autopocion` | Auto potion per character: on/off and HP threshold in % (`Name:1,60`; off with 60 % by default) |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,

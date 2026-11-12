@@ -245,11 +245,14 @@ void procesar_barra(App& a) {
 void dibujar_barra(App& a, int y) {
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
-    // Atajos, selector, auto-buffs y el botón de auto-poción, centrados (en una vista más angosta que
-    // todo, pegados a la izquierda).
-    a.barra_x = std::max(2, (a.gpu.ancho() - ancho_total(a) - SEPARACION_AUTO - ANCHO_AUTO - SEPARACION_AUTO - CELDA_AUTO) / 2);
+    // Atajos, selector, auto-buffs y el botón de auto-poción (los que se usan), centrados; en una vista
+    // más angosta que todo, pegados a la izquierda.
+    const int ancho = ancho_total(a) + (a.cfg.usar_autobuffs ? SEPARACION_AUTO + ANCHO_AUTO : 0) +
+                      (a.cfg.usar_autopocion ? SEPARACION_AUTO + CELDA_AUTO : 0);
+    a.barra_x = std::max(2, (a.gpu.ancho() - ancho) / 2);
     a.autobuffs.x = a.barra_x + ancho_total(a) + SEPARACION_AUTO;
-    a.autobuffs.y = y + (CELDA - CELDA_AUTO);
+    a.autobuffs.y = a.autopocion.y = y + (CELDA - CELDA_AUTO);
+    a.autopocion.x = a.cfg.usar_autobuffs ? a.autobuffs.x + ANCHO_AUTO + SEPARACION_AUTO : a.autobuffs.x;
     Atajo* pagina = visible(a);
     a.barra_y = y;
     const u64 kf = clave_orden(CAPA_UI, 5), ki = clave_orden(CAPA_UI, 6), kt = clave_orden(CAPA_UI_TEXTO, 5);

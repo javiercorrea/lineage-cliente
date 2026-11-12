@@ -205,6 +205,10 @@ X(AJ_QUITAR_AUTOBUFFS, "Quitar auto-buffs", "Remove auto-buffs", "Remover auto-b
 X(AJ_AUTOBUFFS_QUITADOS, "%s: auto-buffs quitados (al pulsar Guardar)", "%s: auto-buffs removed (press Save)",
   "%s: auto-buffs removidos (ao pulsar Salvar)", "%s: Auto-Buffs entfernt (Speichern drücken)",
   "%s : auto-buffs retirés (appuyer sur Enregistrer)")
+X(AJ_USAR_AUTOBUFFS, "Auto-buffs (casilleros junto a la barra)", "Auto-buffs (slots next to the bar)",
+  "Auto-buffs (espaços junto à barra)", "Auto-Buffs (Felder neben der Leiste)", "Auto-buffs (cases près de la barre)")
+X(AJ_USAR_AUTOPOCION, "Auto-poción (botón e indicador)", "Auto potion (button and indicator)",
+  "Auto-poção (botão e indicador)", "Auto-Trank (Knopf und Anzeige)", "Auto-potion (bouton et indicateur)")
 X(AJ_AUTOPOCION, "Auto-poción", "Auto potion", "Auto-poção", "Auto-Trank", "Auto-potion")
 X(AJ_UMBRAL_POCION, "Auto-poción con HP bajo", "Auto potion below HP", "Auto-poção com HP abaixo de",
   "Auto-Trank unter HP", "Auto-potion sous PV")

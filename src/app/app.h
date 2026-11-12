@@ -365,6 +365,7 @@ struct App {
         OpcionPocion op;
         u64 proxima_ms = 0, bebida_ms = 0;
         bool apretado_boton = false;  // el botón se apretó sobre el de la barra
+        int x = 0, y = -1000;         // el botón de la barra en el último frame (lo pone dibujar_barra)
     } autopocion;
     // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
     struct TeclaMantenida {

@@ -15,7 +15,6 @@ constexpr u64 ESPERA_NO_BEBE_MS = 5000;  // mensaje 698 (Decay Potion): no se pu
 constexpr int PASOS_BOTON[] = {30, 60, 80, 90};  // el botón de la barra: Off -> 30 -> ... -> 90 -> Off
 constexpr u16 GFX_POCION = 536;              // ícono del botón sin pociones (Condensed Greater Healing)
 
-int x_boton(const App& a) { return a.autobuffs.x + ANCHO_AUTO + SEPARACION_AUTO; }
 
 // Off -> 30 -> 60 -> 80 -> 90 -> Off. Un umbral puesto en las opciones (45, 95...) pasa al
 // siguiente paso mayor, o a Off si no hay.
@@ -54,6 +53,7 @@ void guardar_autopocion(App& a) {
 void procesar_autopocion(App& a) {
     App::AutoPocion& p = a.autopocion;
     if (p.de != nombre_personaje(a)) cargar(a);
+    if (!a.cfg.usar_autopocion) return;
     const EstadoJugador& j = a.mundo.jugador;
     const u64 ahora = a.entrada.ahora_ms;
     if (!p.op.encendida || j.muerto || j.hp <= 0 || j.hp_max <= 0 || ahora < p.proxima_ms) return;
@@ -73,7 +73,7 @@ void eventos_autopocion(App& a, const Evento& e) {
 
 int dibujar_indicador_pocion(App& a, float x, float y, u64 clave) {
     const App::AutoPocion& p = a.autopocion;
-    if (!p.op.encendida) return 0;
+    if (!a.cfg.usar_autopocion || !p.op.encendida) return 0;
     const EstadoJugador& j = a.mundo.jugador;
     const bool hay = elegir_pocion(a.mundo.inventario, 0, j.hp_max > 0 ? j.hp_max : 1).id != 0;
     char t[24];
@@ -82,14 +82,15 @@ int dibujar_indicador_pocion(App& a, float x, float y, u64 clave) {
 }
 
 bool sobre_boton_pocion(const App& a) {
-    return ui::sobre(a.entrada, x_boton(a), a.autobuffs.y, CELDA_AUTO, CELDA_AUTO);
+    return a.cfg.usar_autopocion && ui::sobre(a.entrada, a.autopocion.x, a.autopocion.y, CELDA_AUTO, CELDA_AUTO);
 }
 
 void dibujar_boton_pocion(App& a) {
+    if (!a.cfg.usar_autopocion) return;
     App::AutoPocion& p = a.autopocion;
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
-    const int x = x_boton(a), y = a.autobuffs.y, C = CELDA_AUTO;
+    const int x = p.x, y = p.y, C = CELDA_AUTO;
     const bool sobre = sobre_boton_pocion(a);
     const u64 kf = clave_orden(CAPA_UI, 5), ki = clave_orden(CAPA_UI, 6), kt = clave_orden(CAPA_UI_TEXTO, 5);
     // Ícono: la poción que tomaría con mucho HP perdido; sin ninguna, una fija y el texto en rojo.
