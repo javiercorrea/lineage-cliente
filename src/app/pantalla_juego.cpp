@@ -723,7 +723,7 @@ void mover_jugador(App& a, u64 ahora) {
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
                        sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_tablon(a) || sobre_correo(a) || sobre_casas(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
-                       a.arrastrando_atajo >= 0;
+                       a.arrastrando_atajo >= 0 || a.autobuffs.arrastrando >= 0;
     // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
     // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
     // lo ataca). Apretado sobre el suelo se camina hacia el puntero, y si el puntero pasa sobre
@@ -1394,6 +1394,7 @@ void frame_juego(App& a) {
     procesar_hechizos(a, ahora);
     procesar_mascotas(a);
     procesar_barra(a);
+    procesar_autobuffs(a);
     procesar_npc(a, ahora);
     elegir_cursor(a);
     mover_jugador(a, ahora);
@@ -1427,6 +1428,7 @@ void frame_juego(App& a) {
         dibujar_panel(a);
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
+    dibujar_autobuffs(a);
     dibujar_mascotas(a);
     dibujar_grupo(a);
     // Tienda, tablón y correo encima de las ventanas (nivel 30); el diálogo de cantidad, encima de todo.

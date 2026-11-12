@@ -79,6 +79,7 @@ struct Control {
     std::vector<Conexion> conexiones;
     std::deque<PasoMouse> mouse;
     std::deque<std::string> textos;  // un SDL_EVENT_TEXT_INPUT por frame
+    bool izquierdo = false;          // el botón izquierdo inyectado quedó apretado en el paso anterior
     int mantenido = 0;               // tecla-mantener: el número (1..10) que se ve apretado
     u64 mantenido_hasta = 0;
     std::string texto_actual;        // el que SDL está por leer (tiene que seguir vivo)
@@ -735,7 +736,7 @@ void control_entrada(App& a) {
     EntradaFrame& e = a.entrada;
     if (g.ctrl) e.ctrl = true;
     if (g.shift) e.shift = true;
-    if (g.mantenido && e.ahora_ms < g.mantenido_hasta) e.numero_mantenido = g.mantenido;
+    if (g.mantenido && e.ahora_ms < g.mantenido_hasta) e.numeros_mantenidos |= static_cast<u16>(1u << (g.mantenido - 1));
     else g.mantenido = 0;
     if (g.mouse.empty()) return;
     const PasoMouse m = g.mouse.front();
@@ -743,8 +744,8 @@ void control_entrada(App& a) {
     e.mx = m.x;
     e.my = m.y;
     if (m.boton == 0) {
-        e.pulsado = m.apretar;
-        e.presionado = m.apretar;
+        e.pulsado = m.apretar && !g.izquierdo;  // apretado en este paso, no mantenido desde el anterior
+        e.presionado = g.izquierdo = m.apretar;
         e.clic = m.soltar;
     } else if (m.boton == 1) {
         e.derecho_presionado = m.apretar;

@@ -31,7 +31,7 @@ struct EntradaFrame {
     int alt_numero = 0;           // Alt+1..Alt+9, Alt+0 este frame (1..10; 0 = ninguna): barra de atajos
     bool tecla_a = false;         // A sin modificadores este frame (ataque sostenido, si no se escribe en el chat)
     int numero = 0;               // 1..9, 0 sin modificadores este frame (1..10): barra, si no se escribe en el chat
-    int numero_mantenido = 0;     // 1..9, 0 apretada ahora (1..10; 0 = ninguna), con o sin modificadores
+    u16 numeros_mantenidos = 0;   // bit n-1: el número n (1..10, el 0 es 10) apretado ahora, con o sin modificadores
     int rueda = 0;                // rueda del mouse este frame (+ hacia arriba)
     int zoom = 0;                 // Ctrl/Cmd + (+1) o - (-1) este frame; 2 = Ctrl/Cmd 0 (automático)
     char texto[64] = {};          // texto escrito este frame (UTF-8; solo se acepta ASCII)

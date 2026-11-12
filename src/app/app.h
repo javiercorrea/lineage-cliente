@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include "audio/audio.h"
+#include "mundo/autobuffs.h"
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
 #include "plataforma/rutas.h"
@@ -40,6 +41,20 @@ struct Atajo {
     u16 gfx = 0;  // ítems: gfx de inventario
 };
 constexpr int CASILLEROS_BARRA = 10;
+// Auto-buffs (autobuffs_ui.cpp): a la derecha del selector de páginas de la barra.
+constexpr int CELDA_AUTO = 34, ANCHO_AUTO = CASILLEROS_AUTO * (CELDA_AUTO + 2) - 2, SEPARACION_AUTO = 8;
+struct AutoBuffs {
+    bool encendido = false;
+    CasilleroAuto c[CASILLEROS_AUTO];
+    std::string de;        // personaje cuyos auto-buffs están cargados
+    int arrastrando = -1;  // casillero que se arrastra
+    int pidiendo = -1;     // casillero cuyo hechizo se pidió y todavía no salió
+    u64 pedido_ms = 0;
+    int ultimo = -1;       // el último que salió (a él se le atribuye un "falló")
+    int x = 0, y = -1000;  // posición del último frame (la pone dibujar_barra)
+    u64 desde_ms = 0;      // no lanza antes (al entrar: que lleguen los íconos de lo que sigue activo)
+    bool apretado_interruptor = false;  // el botón se apretó sobre "Auto"
+};
 
 // Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
 // del ítem (venta, retiro, depósito).
@@ -342,6 +357,7 @@ struct App {
     u16 icono_fuerza = 0, icono_destreza = 0;  // el de la poción que dio el efecto activo
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool medio_sin_objetivo = false;  // esta pulsación del medio ya dejó un hechizo esperando el clic
+    AutoBuffs autobuffs;
     // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
     struct TeclaMantenida {
         int numero = 0;      // 1..10; 0 = ninguna
@@ -581,6 +597,8 @@ void control_cerrar();
 // Casillero bajo el puntero, -1 si no hay.
 int casillero_bajo_puntero(const App& a);
 bool sobre_barra(const App& a);  // también el selector de página
+// Un arrastre que empezó en arrastre_x0/y0 ya se movió lo suficiente para no ser un clic.
+bool arrastre_movido(const App& a);
 // Página visible de la barra (con vuelta: de la última a la primera).
 void cambiar_pagina_barra(App& a, int pagina);
 void poner_atajo(App& a, int casillero, Atajo atajo);
@@ -588,6 +606,14 @@ void poner_atajo(App& a, int casillero, Atajo atajo);
 void procesar_barra(App& a);
 // `y`: fila de arriba de la barra.
 void dibujar_barra(App& a, int y);
+
+// Auto-buffs (autobuffs_ui.cpp).
+int autobuff_bajo_puntero(const App& a);  // -1 si no hay
+bool sobre_autobuffs(const App& a);       // casilleros e interruptor
+void poner_autobuff(App& a, int casillero, u32 hechizo);  // con aviso en el chat si no es un buff propio
+void procesar_autobuffs(App& a);          // después de procesar_barra: lanza el que toque
+void eventos_autobuffs(App& a, const Evento& e);
+void dibujar_autobuffs(App& a);           // después de dibujar_barra
 
 // Polymorph (forma_ui.cpp).
 bool cargar_formas(App& a);

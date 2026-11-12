@@ -326,6 +326,12 @@ void pestana_personajes(Pantalla& p, Formulario& f) {
             std::snprintf(buf, sizeof buf, tr(Tx::AJ_BARRA_QUITADA), nombre.c_str());
             estado(p, buf, false);
         }
+        texto(p, fila(p, 4), valor_de_personaje(c.autobuffs, nombre).empty() ? tr(Tx::AJ_AUTOBUFFS_NO) : tr(Tx::AJ_AUTOBUFFS_SI));
+        if (boton(p, X_CAMPO + 170, fila(p, 4), 160, tr(Tx::AJ_QUITAR_AUTOBUFFS))) {
+            quitar_valor_de_personaje(c.autobuffs, nombre);
+            std::snprintf(buf, sizeof buf, tr(Tx::AJ_AUTOBUFFS_QUITADOS), nombre.c_str());
+            estado(p, buf, false);
+        }
     }
     texto(p, fila(p, 5), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
     if (boton(p, X_CAMPO, fila(p, 6), 220, tr(Tx::AJ_RESTABLECER))) {
