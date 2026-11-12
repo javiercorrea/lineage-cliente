@@ -81,6 +81,7 @@ int y_interruptor(const App& a) { return a.autobuffs.y - ALTO_GLIFO - 5; }
 }  // namespace
 
 int autobuff_bajo_puntero(const App& a) {
+    if (!a.cfg.usar_autobuffs) return -1;
     const EntradaFrame& e = a.entrada;
     const int dx = e.mx - a.autobuffs.x, dy = e.my - a.autobuffs.y;
     if (dx < 0 || dy < 0 || dx >= ANCHO_AUTO || dy >= CELDA || dx % PASO >= CELDA) return -1;
@@ -88,6 +89,7 @@ int autobuff_bajo_puntero(const App& a) {
 }
 
 bool sobre_autobuffs(const App& a) {
+    if (!a.cfg.usar_autobuffs) return false;
     const EntradaFrame& e = a.entrada;
     const int x = a.autobuffs.x, y = y_interruptor(a);
     return e.mx >= x - 4 && e.mx < x + ANCHO_AUTO + 4 && e.my >= y && e.my < a.autobuffs.y + CELDA + 4;
@@ -106,6 +108,7 @@ void poner_autobuff(App& a, int casillero, u32 id) {
 }
 
 void procesar_autobuffs(App& a) {
+    if (!a.cfg.usar_autobuffs) return;
     AutoBuffs& ab = a.autobuffs;
     if (ab.de != nombre_personaje(a)) cargar(a);
     const u64 ahora = a.entrada.ahora_ms;
@@ -152,6 +155,7 @@ void eventos_autobuffs(App& a, const Evento& e) {
 }
 
 void dibujar_autobuffs(App& a) {
+    if (!a.cfg.usar_autobuffs) return;
     AutoBuffs& ab = a.autobuffs;
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;

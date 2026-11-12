@@ -241,8 +241,9 @@ void inventario(App& a, Conexion& c) {
     char nombre[256], l[320];
     for (Slot s = 0; s < t.tamano(); ++s) {
         const size_t n = expandir_desc(a.desc, nombre_item(inv, s), nombre, sizeof nombre);
-        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" cantidad=%u gfx=%u%s", t.ids()[s], static_cast<int>(n), nombre,
-                      t.col<I_CANTIDAD>()[s], static_cast<unsigned>(t.col<I_GFX>()[s]), item_equipado(nombre_item(inv, s)) ? " equipado" : "");
+        std::snprintf(l, sizeof l, "id=%u nombre=\"%.*s\" cantidad=%u gfx=%u uso=%u%s", t.ids()[s], static_cast<int>(n), nombre,
+                      t.col<I_CANTIDAD>()[s], static_cast<unsigned>(t.col<I_GFX>()[s]), static_cast<unsigned>(t.col<I_USO>()[s]),
+                      item_equipado(nombre_item(inv, s)) ? " equipado" : "");
         responder(c, l);
     }
 }
