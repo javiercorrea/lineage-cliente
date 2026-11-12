@@ -1433,6 +1433,7 @@ void frame_juego(App& a) {
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
     dibujar_autobuffs(a);
+    dibujar_boton_pocion(a);
     dibujar_mascotas(a);
     dibujar_grupo(a);
     // Tienda, tablón y correo encima de las ventanas (nivel 30); el diálogo de cantidad, encima de todo.

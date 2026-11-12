@@ -211,7 +211,7 @@ static bool sobre_atajos(const App& a) {
     return e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4;
 }
 
-bool sobre_barra(const App& a) { return sobre_atajos(a) || sobre_autobuffs(a); }
+bool sobre_barra(const App& a) { return sobre_atajos(a) || sobre_autobuffs(a) || sobre_boton_pocion(a); }
 
 void poner_atajo(App& a, int casillero, Atajo atajo) {
     if (casillero < 0 || casillero >= CASILLEROS_BARRA) return;
@@ -245,7 +245,9 @@ void procesar_barra(App& a) {
 void dibujar_barra(App& a, int y) {
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
-    a.barra_x = (a.gpu.ancho() - ancho_total(a) - SEPARACION_AUTO - ANCHO_AUTO) / 2;
+    // Atajos, selector, auto-buffs y el botón de auto-poción, centrados (en una vista más angosta que
+    // todo, pegados a la izquierda).
+    a.barra_x = std::max(2, (a.gpu.ancho() - ancho_total(a) - SEPARACION_AUTO - ANCHO_AUTO - SEPARACION_AUTO - CELDA_AUTO) / 2);
     a.autobuffs.x = a.barra_x + ancho_total(a) + SEPARACION_AUTO;
     a.autobuffs.y = y + (CELDA - CELDA_AUTO);
     Atajo* pagina = visible(a);

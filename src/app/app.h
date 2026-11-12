@@ -364,6 +364,7 @@ struct App {
         std::string de;
         OpcionPocion op;
         u64 proxima_ms = 0, bebida_ms = 0;
+        bool apretado_boton = false;  // el botón se apretó sobre el de la barra
     } autopocion;
     // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
     struct TeclaMantenida {
@@ -628,6 +629,9 @@ void eventos_autopocion(App& a, const Evento& e);
 void guardar_autopocion(App& a);          // a.autopocion.op en settings.ini (lo usan las opciones)
 // Encendida, "Pot<60%" en (x, y) (rojo sin pociones de curación); devuelve el ancho (0 apagada).
 int dibujar_indicador_pocion(App& a, float x, float y, u64 clave);
+// Botón a la derecha de los auto-buffs: clic gira Off -> 30 -> 60 -> 80 -> 90 -> Off.
+bool sobre_boton_pocion(const App& a);
+void dibujar_boton_pocion(App& a);  // después de dibujar_autobuffs
 
 // Polymorph (forma_ui.cpp).
 bool cargar_formas(App& a);

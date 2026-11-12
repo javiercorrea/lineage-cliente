@@ -288,6 +288,7 @@ title is shown as text.
   is below the threshold (60 % by default) it drinks a healing potion as soon as the previous one's delay is over:
   condensed first, then ancient, then normal, and within each the colour that fits what is missing (clear for a
   big loss, orange for a medium one, red for a small one). "Pot<60%" next to HP shows it is on (red: no potions).
+  The potion button right of the auto-buffs changes it quickly: Off -> 30 -> 60 -> 80 -> 90 % -> Off.
 
 ### Magic
 
