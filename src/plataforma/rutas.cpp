@@ -67,6 +67,8 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "idioma") c.idioma = valor;
     else if (clave == "atajos") c.atajos = valor;
     else if (clave == "barra") c.barra = valor;
+    else if (clave == "ms_mantener_tecla")
+        c.ms_mantener_tecla = std::clamp(std::atoi(std::string(valor).c_str()), MS_MANTENER_MIN, MS_MANTENER_MAX);
     else if (clave == "paginas_barra") c.paginas_barra = std::clamp(std::atoi(std::string(valor).c_str()), 1, PAGINAS_BARRA_MAX);
     else if (clave == "ventanas") c.ventanas = valor;
     else if (clave == "opacidad_ventanas") c.opacidad_ventanas = std::atoi(std::string(valor).c_str());
@@ -212,6 +214,7 @@ std::string escribir_config(const Config& c) {
     linea("atajos", c.atajos);
     linea("barra", c.barra);
     linea("paginas_barra", std::to_string(c.paginas_barra));
+    linea("ms_mantener_tecla", std::to_string(c.ms_mantener_tecla));
     linea("ventanas", c.ventanas);
     linea("opacidad_ventanas", std::to_string(c.opacidad_ventanas));
     linea("volumen_musica", std::to_string(c.volumen_musica));

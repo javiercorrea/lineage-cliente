@@ -184,6 +184,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `logo` | PNG for the simple login screen, see below |
 | `atajos`, `barra` | F5–F12 spells and shortcut bar, per character (bar pages separated by `/`) |
 | `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
+| `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
 | `ventanas` | Saved window positions |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
@@ -273,7 +274,9 @@ title is shown as text.
   (bar and F5–F12) show the wait until the next spell: a shrinking shade and the seconds left. Saved per character.
   The bar has pages (3 by default; "Hotbar pages" in Options): the page selector on its right (up arrow, number, down arrow), or the mouse
   wheel over the bar, changes the visible one, and keys, clicks and drags act on it. The selected slot keeps
-  working from any page.
+  working from any page. Holding 1–0 on a targeted spell that is not an attack (heals, buffs) casts it on
+  yourself after a moment (300 ms; "Hold 1-0 to self-cast" in Options) and repeats while held; a tap still waits
+  for the target click.
 
 ### Magic
 
@@ -362,6 +365,7 @@ commands. The `release` build doesn't include it: a CMake step (`cmake/sin_contr
 | `captura <path.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Screenshots and debugging |
 | `forzar-hora <seconds 0-86399>\|off` | Fix the time of day for light and ambient sound, for tests |
 | `rueda <x> <y> <steps>`, `barra-pagina [n]` | Mouse wheel; visible shortcut bar page (without `n`, reports it) |
+| `tecla-mantener <1-0> <ms>` | Hold a number key (also `alt+1`...) that long, for the hold-to-self-cast |
 
 `herramientas/lin_ctl.py` uses it from the terminal (`lin_ctl.py <socket> estado`, or interactively) or as a module
 for writing tests.

@@ -17,6 +17,7 @@ struct Servidor {
 };
 
 constexpr int PAGINAS_BARRA_MAX = 9;  // páginas de la barra de atajos
+constexpr int MS_MANTENER_MIN = 150, MS_MANTENER_MAX = 1000;
 
 struct Config {
     std::string carpeta_juego;     // donde están Sprite*.pak, Tile.pak, map/, font/...
@@ -41,6 +42,9 @@ struct Config {
     // (h = hechizo, i = ítem gfx:id, 0 = vacío, * tras el elegido); las páginas, separadas por "/".
     std::string barra;
     int paginas_barra = 3;  // páginas a la vista (1 a PAGINAS_BARRA_MAX); las de más se conservan
+    // Mantener 1–0 sobre un hechizo con objetivo que no es de ataque: pasado este tiempo, se lanza
+    // sobre uno mismo (y se repite mientras se mantenga). De MS_MANTENER_MIN a MS_MANTENER_MAX.
+    int ms_mantener_tecla = 300;
     // Ventanas del juego: posición de las que se movieron ("inventario:900,36;estado:...") y
     // opacidad del fondo (0–255).
     std::string ventanas;

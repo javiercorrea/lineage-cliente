@@ -67,3 +67,12 @@ TEST_CASE("paginas_barra: 3 por defecto, se recorta a 1-9 y vuelve igual") {
     c.paginas_barra = 5;
     CHECK(leer_config(escribir_config(c)).paginas_barra == 5);
 }
+
+TEST_CASE("ms_mantener_tecla: 300 por defecto, se recorta a 150-1000 y vuelve igual") {
+    CHECK(leer_config("").ms_mantener_tecla == 300);
+    CHECK(leer_config("ms_mantener_tecla=10\n").ms_mantener_tecla == MS_MANTENER_MIN);
+    CHECK(leer_config("ms_mantener_tecla=5000\n").ms_mantener_tecla == MS_MANTENER_MAX);
+    Config c = leer_config("");
+    c.ms_mantener_tecla = 700;
+    CHECK(leer_config(escribir_config(c)).ms_mantener_tecla == 700);
+}

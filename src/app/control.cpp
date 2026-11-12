@@ -79,6 +79,8 @@ struct Control {
     std::vector<Conexion> conexiones;
     std::deque<PasoMouse> mouse;
     std::deque<std::string> textos;  // un SDL_EVENT_TEXT_INPUT por frame
+    int mantenido = 0;               // tecla-mantener: el número (1..10) que se ve apretado
+    u64 mantenido_hasta = 0;
     std::string texto_actual;        // el que SDL está por leer (tiene que seguir vivo)
     bool ctrl = false;               // "ctrl on": Ctrl mantenido (forzar ataque)
     bool shift = false;              // "shift on": Shift mantenido (Shift+clic gira)
@@ -294,6 +296,7 @@ const char* AYUDA[] = {
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
     "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio   cancelar-intercambio",
     "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>   raton <x> <y> down|up",
+    "tecla-mantener <1-0, con alt+ si se quiere> <ms>   (apretada ese tiempo: la barra la ve mantenida)",
     "rueda <x> <y> <pasos>   barra-pagina [n]   (página visible de la barra de atajos; sin n, la dice)",
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off   shift on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
@@ -523,6 +526,11 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         ev.button.y = static_cast<float>(std::atoi(p[2].c_str()));
         ev.button.windowID = SDL_GetWindowID(a.ventana);
         SDL_PushEvent(&ev);
+    } else if (cmd == "tecla-mantener") {
+        if (p.size() < 3 || p[1].empty() || p[1].back() < '0' || p[1].back() > '9' || !tecla(p[1]))
+            return error("uso: tecla-mantener <1-0, con alt+ si se quiere> <ms>");
+        g.mantenido = p[1].back() == '0' ? 10 : p[1].back() - '0';
+        g.mantenido_hasta = ahora + std::strtoull(p[2].c_str(), nullptr, 10);
     } else if (cmd == "rueda") {
         if (p.size() < 4) return error("uso: rueda <x> <y> <pasos>");
         g.mouse.push_back({std::atoi(p[1].c_str()), std::atoi(p[2].c_str()), 3, false, false, std::atoi(p[3].c_str())});
@@ -727,6 +735,8 @@ void control_entrada(App& a) {
     EntradaFrame& e = a.entrada;
     if (g.ctrl) e.ctrl = true;
     if (g.shift) e.shift = true;
+    if (g.mantenido && e.ahora_ms < g.mantenido_hasta) e.numero_mantenido = g.mantenido;
+    else g.mantenido = 0;
     if (g.mouse.empty()) return;
     const PasoMouse m = g.mouse.front();
     g.mouse.pop_front();

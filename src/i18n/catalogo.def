@@ -144,6 +144,10 @@ X(AJ_PAGINAS_BARRA, "Páginas de la barra de atajos (1-9)", "Hotbar pages (1-9)"
   "Seiten der Schnellleiste (1-9)", "Pages de la barre de raccourcis (1-9)")
 X(AJ_ERR_PAGINAS, "Páginas de la barra: entre 1 y 9", "Hotbar pages: between 1 and 9", "Páginas da barra: entre 1 e 9",
   "Seiten der Leiste: zwischen 1 und 9", "Pages de la barre : entre 1 et 9")
+X(AJ_MS_MANTENER, "Mantener 1-0 para lanzar sobre uno mismo (ms)", "Hold 1-0 to self-cast (ms)",
+  "Manter 1-0 para lançar em si mesmo (ms)", "1-0 halten: auf sich selbst wirken (ms)", "Maintenir 1-0 pour se cibler (ms)")
+X(AJ_ERR_MS_MANTENER, "Mantener 1-0: entre 150 y 1000 ms", "Hold 1-0: between 150 and 1000 ms",
+  "Manter 1-0: entre 150 e 1000 ms", "1-0 halten: zwischen 150 und 1000 ms", "Maintenir 1-0 : entre 150 et 1000 ms")
 X(AJ_FPS, "Mostrar FPS (Mayús+F3)", "Show FPS (Shift+F3)", "Mostrar FPS (Shift+F3)", "FPS anzeigen (Umschalt+F3)", "Afficher les FPS (Maj+F3)")
 X(AJ_PANTALLA_COMPLETA, "Pantalla completa (al abrir)", "Full screen (on start)", "Tela cheia (ao abrir)", "Vollbild (beim Start)", "Plein écran (au lancement)")
 X(AJ_UI_SIMPLE, "Interfaz simple (F2)", "Simple interface (F2)", "Interface simples (F2)",

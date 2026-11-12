@@ -139,6 +139,46 @@ void usar_elegido(App& a) {
     }
 }
 
+// Hechizo que, con la tecla mantenida, se lanza sobre uno mismo: pide objetivo y no es de ataque
+// (curaciones, buffs que se pueden dar a otro).
+bool sobre_si_al_mantener(const App& a, const Atajo& b) {
+    return b.tipo == TipoAtajo::HECHIZO && a.hechizos[b.id].con_objetivo && !a.hechizos[b.id].de_ataque;
+}
+
+// Tecla 1–0 (o Alt+número) apretada este frame. Mientras siga apretada, las repeticiones del
+// sistema no vuelven a pedir el objetivo de un hechizo que se lanza sobre uno mismo al mantener.
+void usar_numero(App& a, int n) {
+    Atajo& b = visible(a)[n - 1];
+    App::TeclaMantenida& m = a.tecla_mantenida;
+    if (!sobre_si_al_mantener(a, b)) {
+        usar_atajo(a, b);
+        return;
+    }
+    if (m.numero == n) return;  // repetición
+    m = {n, b.id, a.entrada.ahora_ms, false};
+    usar_atajo(a, b);  // como un toque: queda esperando el clic del objetivo
+}
+
+// Pasado cfg.ms_mantener_tecla con la tecla apretada: se cancela la espera del objetivo y se lanza
+// sobre uno mismo, y se repite en cuanto termina la espera del hechizo y alcanza el MP. Soltar
+// corta la repetición (lo ya pedido se lanza igual).
+void mantener_numero(App& a) {
+    App::TeclaMantenida& m = a.tecla_mantenida;
+    if (!m.numero) return;
+    if (a.entrada.numero_mantenido != m.numero) {
+        m = {};
+        return;
+    }
+    const u64 ahora = a.entrada.ahora_ms;
+    if (!m.sobre_si) {
+        if (ahora < m.desde_ms + static_cast<u64>(a.cfg.ms_mantener_tecla)) return;
+        m.sobre_si = true;
+        if (a.hechizo_apuntando == m.hechizo) a.hechizo_apuntando = 0;
+    }
+    if (a.hechizo_pendiente || ahora < a.hechizo_listo_ms || a.mundo.jugador.mp < a.hechizos[m.hechizo].mp) return;
+    pedir_hechizo(a, m.hechizo, a.mundo.jugador.id);
+}
+
 // Ícono del casillero (región vacía si no tiene).
 const RegionAtlas& icono_atajo(App& a, const Atajo& b) {
     static const RegionAtlas vacia;
@@ -189,10 +229,11 @@ void procesar_barra(App& a) {
     a.pagina_barra = std::min(a.pagina_barra, paginas(a) - 1);
     // La rueda sobre la barra o el selector: hacia arriba, la página siguiente (como "^").
     if (a.entrada.rueda && paginas(a) > 1 && sobre_barra(a)) cambiar_pagina_barra(a, a.pagina_barra + a.entrada.rueda);
-    if (a.entrada.alt_numero) usar_atajo(a, visible(a)[a.entrada.alt_numero - 1]);
+    if (a.entrada.alt_numero) usar_numero(a, a.entrada.alt_numero);
     // 1–0 sin Alt: con el chat cerrado (chat con Enter) y sin otro diálogo de texto abierto.
     if (a.entrada.numero && a.cfg.chat_con_enter && !a.escribiendo_chat && !escribiendo_en_ventana(a) && !a.cantidad.abierto)
-        usar_atajo(a, visible(a)[a.entrada.numero - 1]);
+        usar_numero(a, a.entrada.numero);
+    mantener_numero(a);
     if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
     if (a.entrada.medio_presionado) usar_elegido(a);
     else a.medio_sin_objetivo = false;
