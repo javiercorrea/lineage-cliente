@@ -32,7 +32,12 @@ los px, lógicos (640×480 en el original).
   equivale a sumarlo al fondo. Lo oscuro dentro de una figura queda opaco (`quitar_fondo_negro`).
   Las imágenes propias (el logo del login) no pasan por esto: traen su alfa.
 - **Gráficos aditivos:** el atributo 104, bit 8, de la tabla de sprites marca 1921 gfx (efectos de
-  hechizos) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+  hechizos y objetos del mundo, como la llama de los braseros, gfx 1171) que se dibujan sumando luz (`Mezcla::ADITIVA`); su fondo oscuro no tapa.
+- **Campo `h` de los tiles de un `.spr`:** no marca transparencia (toma valores como 8, 18 o 34 en
+  cualquier sprite, personajes incluidos); usar sus bits para mezclar borra a los personajes.
+- **Códigos de texto** (`sub_432590` de `S3EP1U.bin`): `\fX` color, con X de `0` a `d` y la tabla RGB555
+  en `0x500430` (`\f1` azul, `\f2` verde, `\f3` rojo, `\f>` blanco); `\bX`, `\iN`, `\k`, `\j`, `\c` y `\\`
+  no se muestran. Los emblemas usan el negro puro como fondo transparente.
 - **Íconos:** `N.tbt`; el de cada hechizo sale de `spellicon.idx` (en `Sprite.pak`).
 
 ### Tiles (`.til`) y sombras
@@ -60,7 +65,8 @@ los px, lógicos (640×480 en el original).
   tronco y una pared larga con su propio tramo (§3).
 - **Portales:** el mapa del cliente marca casi todas las celdas de entrada a mazmorras como
   bloqueadas y ningún bit las distingue (se probó 0x08). El `.s32` tiene al final una lista de
-  portales que todavía no se lee (ver "Portales" en §5).
+  portales con nombre, celda y mapa destino (formato en `recursos/mapa.h`); coincide con la tabla
+  `dungeons` del servidor en la mayoría (ver "Portales" en ENTREGABLES.md).
 - **Mapa 2005** (el valle escondido de esta versión) es una copia del 69: los sonidos y la música lo
   tratan como 69.
 
@@ -84,6 +90,15 @@ los px, lógicos (640×480 en el original).
   hacía que el cuerpo recorriera casi 2 celdas y volviera atrás.
 - **Ancla:** la esquina superior izquierda de la celda; los pies quedan en el centro del rombo
   (calibrado con el explorador).
+- **Gfx sin fila en la tabla (TODO, parche provisional):** `datos/sprite_table.txt` llega al gfx 8682 y la
+  tabla real del cliente va cifrada en `list.spz`, dentro de `Text.pak` (firma `S1354`; `list.spr` son 9
+  bytes en cero). `lin.bin` la lee, pero tiene un protector tipo Themida y no se puede analizar sin
+  ejecutarlo. **Hay que conseguir la tabla real con sus gfx y tiempos** y borrar los parches:
+  - `TablaSprites::copiar_filas_faltantes`: darkelf, death y spearm 75 y 80 copian la fila del nivel 70;
+    sus tiempos y su aspecto pueden no ser los correctos.
+  - `elegir_accion`: las formas sin "quieto" (darkelf) usan el quieto de otra arma.
+  - Siguen sin dibujarse los polymorphs `re *` (8781–8868), y los `young *` y `awake *` tienen archivos
+    pero no fila, por lo que no se animan.
 - **Gfx que no existen en esta instalación:** 30 de los monstruos de la base (islas nuevas, Depraved
   Soul) y algunos NPCs (el almacén de Talking Island, gfx 10669) no están ni en la tabla ni en los
   `.pak`. Se dibujan como un bloque magenta del tamaño de un cuerpo (ver §6).
@@ -179,6 +194,21 @@ desconecta. Todos los tiempos propios salen de la duración de la animación del
 - **Opacidad de ventanas:** la elegida en Opciones contra el mapa; una ventana que tapa a otra va
   opaca (si no, se lee el texto de la de abajo).
 
+### Luz, noche y agua
+
+El detalle, con las direcciones del binario, está en [PLAN_LUZ_AGUA.md](analisis/PLAN_LUZ_AGUA.md). Lo que no es obvio:
+
+- **La oscuridad oscurece el mundo ya dibujado:** se multiplica lo que va por debajo de `CAPA_EFECTOS`, así que nombres, barras e interfaz quedan intactos.
+- **Las máscaras de `source.lmp` van a media resolución:** una entrada es una celda de 2×2 píxeles. El radio 5 (72×36) alcanza ±72×±36 px. Las luces se combinan con máximo, no con suma.
+- **La estación sale de la hora de juego:** `S_GameTime` se trata como una fecha; el reloj de la máquina no interviene.
+- **`S_GameTime` llega con el keep-alive** (cada 20 s): hasta entonces la hora es 0, medianoche.
+- **`S_Weather` son dos estados:** `0x0N` nieve y `0x1N` lluvia. El `00` que manda L1J después de la lluvia no la apaga.
+- **`1416.img`, el agua, tiene 14 filas transparentes arriba:** toman el color de la primera con datos.
+- **Un NPC con luz cambia mucho la lectura de una captura:** para medir la noche, comparar el mismo lugar con `efecto_luz` en 0 y en 1, lejos de ellos.
+- **Se aparta del binario a propósito:** la amplitud de la ola es 6 px, no 3,75, porque casi no se notaba.
+- **Con este servidor, un objeto recibido casi nunca queda lejos de la vista:** manda objetos a 9 celdas en cada eje (432 px del centro), no a 12, y la vista no baja de 800×600 lógicos. Por eso una luz fuera de pantalla no se pudo provocar en una prueba; el margen propio de las luces importa con un servidor de mayor alcance.
+- **En `debug`, medir `brillo_lut` por celda engaña:** costaba 12 ms sin optimizar y 1 ms optimizado. Medir siempre también en `Release` con `-DLIN_CONTROL=ON`, en un directorio propio (el preset `release` no admite el control).
+
 ---
 
 ## 4. Rendimiento y memoria
@@ -232,6 +262,50 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   como `C_NPCAction` con ese id.
 - **Teleport con marcador:** el pergamino (usos 6 y 29) manda en `C_UseItem` el mapa y el id del
   marcador (0 = al azar); el hechizo Teleport, igual en `C_UseSkill`.
+- **Atributos de un ítem** (`L1ItemInstance.getStatusBytes`): van al final de `S_AddItem`,
+  `S_InvList` y `S_ItemStatus` como c largo + bytes, y solo si está identificado (si no, largo 0).
+  Son pares etiqueta + valor de tamaño fijo según la etiqueta (2 encantamiento, 5 acierto, 7 clases
+  en bits, 8–13 FUE…CAR, 14 HP en h, 15 MR en h…). Las etiquetas 1 (daño), 19 (AC), 21 (comida),
+  22 (luz) y 23 llevan detrás, sin etiqueta propia, el material (c) y el peso (d). Un 15 seguido de
+  33 y un tipo es una resistencia a un estado, no MR. Una etiqueta desconocida corta la lectura,
+  porque no se sabe cuánto ocupa.
+- **Hechizos sobre un ítem:** Enchant Weapon, Blessed Armor y Shadow Fang leen en `C_UseSkill` el
+  id del ítem en el lugar del objetivo; Bless Weapon y Holy Weapon usan el arma equipada. Ninguno
+  manda ícono: solo el mensaje 161. Enchant Mighty/Dexterity mandan `S_Strup`/`S_Dexup` (h
+  segundos, la estadística, en FUE el peso, c tipo).
+- **Pociones de FUE/DES:** `S_Strup`/`S_Dexup` llevan en el campo "tipo" el aumento de la poción
+  (6), y 5 o 2 para las magias de mago y de elfo: el cliente no sabe qué poción fue más que por el
+  ítem recién usado.
+- **Opcode 33:** `S_PetCtrlMenu` (primer byte 0x0c) y `S_CharReset` (1, 2 o 3); al entrar llegan otros
+  paquetes con ese número y otro primer byte (0x04, 0x42, 0x43, 0x2a) que se ignoran.
+- **Reiniciar atributos:** el servidor no valida los atributos iniciales de `C_CharReset` 1 (los asigna
+  tal cual): el cliente aplica las reglas de la creación.
+- **Nivel en `S_CharPack`:** `S_NPCPack` manda el nivel del monstruo en el segundo byte después del
+  HP (`S_OtherCharPacks` manda 0); de ahí sale el color del nombre según la diferencia con el jugador.
+- **Nombre rosa:** `S_PinkName` solo se manda si los dos son legales (lawful ≥ 0), ninguno ya rosa,
+  y ambos en zona normal (no en pueblos) y fuera de una guerra.
+- **Hechizos de área alrededor del lanzador** (Tornado, Fire Storm, Blizzard, Freezing Blizzard):
+  sin objetivo (no tienen `range=` en `spells`); `S_RangeSkill` tipo 0. El sprite es uno solo: el
+  original lo repite (4 tornados; la ventisca en toda la pantalla), según la clase de `spells`
+  (`SpellTornado`, `SpellBlizzard`) y su `areaEffect`.
+- **Gráficos de la interfaz:** las `N.img` de `Sprite.pak` son 1444; no hay índice con nombres, así
+  que se buscan mirando hojas de miniaturas. Correo: papel 656 (y 577 con rótulos impresos), leída
+  657, cerrar 658, Read 660, Write 662, Delete 664, flechas 666 y 672–675, Cancel 578, Close 580,
+  Send 582 (otros colores de papel y botones más adelante); basurero 1003; botones del panel en
+  pares normal/resaltado (392–405, 1011–1018). No hay un ícono de "correo nuevo". Ventana de estado
+  del original: equipo 981 (silueta y recuadros), atributos 982, marco 983 y adornos 984; las de
+  inventario (933–935, 978–980) siguen el mismo esquema de tres capas.
+- **Íconos de los buffs:** el servidor manda ícono solo para algunos (`S_SkillIconShield`,
+  `S_SkillBrave`, `S_SkillHaste`, el aura de `S_PacketBox`, `S_Strup`/`S_Dexup`, `S_SkillIconGFX`).
+  Para el resto, el original lleva el tiempo con la duración de `spells`; el cliente pone el ícono al
+  ver el gráfico de su hechizo sobre sí mismo. `spellicon.idx` cubre solo 168 magias y deja en 0
+  varias de caballero, elfo y otras clases.
+- **Usar un ítem sobre otro:** con los usos 7 (identificar), 14, 26 y 27 (encantar) `C_UseItem` lleva
+  el id del objetivo después del del pergamino. `S_IdentifyDesc` es un `S_ServerMessage` (mensajes
+  134–138) con un h (la descripción del ítem) adelante.
+- **Estructuras de los castillos:** portones y torres tienen tipo 11 en la tabla de sprites (las
+  puertas, 8). Portones: 28/29 y daño 32–36, destruido 37; torre: grietas 32–34 y destruida 35, sin
+  acción quieta. La corona del asedio (1482, tipo 10) solo tiene la acción 3.
 - **Campos que el servidor no usa** pero hay que mandar: x, y de `C_GiveItem` y de `C_Door`, el tipo
   de `C_SelectTarget`.
 
@@ -239,10 +313,20 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 - **Un GM no muere** (al llegar a 0 vuelve a HP máximo) **ni gasta MP**. El GM se decide por el
   `access_level` del **personaje**, que hereda el de la cuenta al crearse: los personajes creados en
   una cuenta GM son inmortales.
+- **classic363: un personaje transformado no recibía su muerte.** `Death.run()` restauraba la forma
+  y se volvía a programar cada 100 ms, sin llegar nunca al `S_DoActionGFX` de muerte: el servidor lo
+  daba por muerto (los monstruos lo dejan) y el cliente lo seguía viendo vivo, con más de dos mil
+  `S_ChangeShape` en cuatro minutos. Corregido en `servidor_classic363/muerte_polymorph.patch`.
 - **Marcadores:** ningún mapa de la base tiene `markable` = 1 (ni siquiera un GM puede marcar), y
   `C_LoginToServer.bookmarks()`, que manda los guardados al entrar, existe pero nunca se llama.
 - **Espera de hechizos y línea de vista:** ver §2; los dos descartan en silencio.
 - **Zonas seguras:** atacar a otro jugador en un pueblo se acepta pero no hace daño.
+- **Morir se anima con retraso:** `death()` manda la acción de morir (8) un momento después de dejar
+  la vida en 0. Si en ese intervalo alguien lo resucita (solo pasa con `.death` y `.ress` de GM
+  seguidos), `S_Resurrection` llega antes que la acción de morir.
+- **Borrar un ítem** (`C_DeleteInventoryItem`): con cantidad 0 el servidor borra toda la pila, pero
+  lee la cantidad del ítem antes de revisar que exista, así que un id inexistente con cantidad 0 le
+  tira una excepción. El cliente siempre manda una cantidad > 0 de un ítem que tiene.
 - **Domesticar:** dar el ítem de domesticación (Monster Eye Meat, 40057, en la mayoría) a un animal
   con menos de un tercio de su vida y con carisma libre ≥ 6.
 - **Portales:** `C_MoveChar` revisa `DungeonTable` en la celda de destino antes que nada y toma las
@@ -253,7 +337,46 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   (pendiente).
 - **Teleport:** `S_Teleport` espera la respuesta `C_Teleport` antes de mover; tras un teleport el
   original espera `S_Paralysis` 7 para soltar el bloqueo.
+- **Casas:** el tablón de subastas (`L1AuctionBoard`) tiene el gfx 1544 de los tablones de los
+  pueblos y responde `C_Board` con `S_HouseList`. `HouseTable.updateHouse` (y `CastleTable`) guardan
+  fechas con `DateFormat` del idioma por defecto: con el JVM en inglés MariaDB las rechaza y no se
+  guarda la casa; `arrancar.sh` usa formato japonés.
+- **Asedio:** `castles.war_time` y la vida de torres y portones se leen solo al arrancar. Un
+  personaje que entra dentro del área de un castillo en guerra aparece afuera (salvo los del clan
+  dueño). La corona aparece al caer la torre; se toma "atacándola" (`C_Attack`) a una celda, siendo
+  príncipe líder y sin transformar. Un castillo sin dueño no necesita declaración de guerra.
+- **`S_WarTime`:** la fecha va en unidades de 182 minutos desde 1997-01-01 17:00 (hora del
+  servidor) menos 1200 minutos; comparte el opcode 150 con `S_MapID`. "Declare next siege time"
+  del chambelán (acción "asktime") no lo atiende el servidor: el cliente manda `C_ChangeWarTime`, que
+  solo devuelve la fecha.
+- **Permisos de GM:** los comandos "." miran `characters.access_level`, no el de la cuenta.
+- **`C_Attr`** (respuesta a `S_MessageYN`): h tipo, d número, h tipo, h sí/no. El servidor elige la
+  pregunta por el segundo tipo, pero las de guerra (217 aceptar, 221 rendición, 222 fin) comparan
+  con el primero: con 0 ahí, aceptar una guerra no hacía nada.
+- **Guerras sin castillo:** declararla y rendirse le preguntan al líder del otro clan (217 y 221);
+  contra el dueño de un castillo, en el horario del asedio, no.
+- **Cambiar de equipo** dos veces seguidas: el servidor ignora el segundo cambio si llega enseguida
+  (alrededor de un segundo).
 - **Lo que el servidor envía y el cliente no implementa:** [analisis/OPCODES_PENDIENTES.md](analisis/OPCODES_PENDIENTES.md).
+
+### Otros servidores locales (L1J-EN 363 y L1JGO-Whale 3.80C)
+
+Visto al probar la barra de atajos, los auto-buffs y la auto-poción en los dos:
+
+- **Nombres de ítem:** L1J-EN manda el `$N` (los mismos números que L1J-JP para las pociones de
+  curación). Whale los manda en chino, sin `$N`. Por eso la auto-poción reconoce las pociones también por
+  el ícono (`mundo/autopocion.cpp`). El 1161 de la antigua roja es también el de la solución de mithril
+  negro (ítem de misión, no se apila): solo cuenta con más de una unidad.
+- **Tipo de uso (`I_USO`):** las pociones de curación vienen con 59 en L1J-JP y L1J-EN. En Whale vienen
+  con 51, el mismo que cualquier ítem común: no sirve para reconocerlas.
+- **Comandos GM distintos:**
+  - L1J-EN: `.create <id> <cantidad> <encantamiento> <identificado>` (los cuatro; `.item` muestra de qué
+    monstruos cae). `.level` llena el HP y manda al mapa 0. GM es `access_level=1` en `accounts` y
+    `accesslevel=1` en `characters` (apuntan a `access_levels`).
+  - Whale: `.item <id> [cantidad]`, `.allskill`, `.hp <n>` (HP actual). GM es `access_level=200` en las dos
+    tablas (PostgreSQL).
+- **Whale no guarda lo que da `.allskill`:** al volver a entrar, `S_AddSkill` trae solo las magias
+  iniciales. Hay que repetirlo en cada sesión de prueba.
 
 ---
 
@@ -274,9 +397,12 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   jugadores; **"/pk"** (del cliente: el servidor no tiene ese comando) hace que el clic sobre un
   jugador lo ataque sin Ctrl.
 - **Cursores:** mano; espada sobre monstruos (o con Ctrl, o jugadores en modo PK); labios sobre NPCs;
-  círculo al elegir objetivo.
+  moneda sobre vendedores; círculo al elegir objetivo.
+- **Dueño de una mascota:** `S_PetPack` y `S_SummonPack` lo traen en el segundo texto tras el clan (vacío en
+  personajes y NPCs). Se muestra como "Dueño's", y sin Ctrl un clic no ataca a la mascota ajena.
 - **Monstruos sin sprite:** un gfx sin acciones en la tabla cuenta como monstruo (bloque magenta
-  atacable), salvo que el nombre sea "Oficio^Nombre" (NPC de pueblo: se le habla).
+  atacable), salvo que el nombre sea "Oficio^Nombre" (NPC de pueblo: se le habla) o sea un jugador (nombre
+  propio y nivel 0), también si está transformado en un gfx de monstruo.
 - **Dar ítems:** soltar un ítem del inventario sobre un NPC o mascota se lo da (de una pila pregunta
   cuántos); sobre el suelo, cae; sobre una ventana, no pasa nada (antes caía al suelo).
 - **Ventanas:** la que se abre o se toca pasa adelante; solo la de más arriba recibe el mouse (a las
@@ -290,6 +416,12 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 - Un dispositivo de SDL3 y varios streams que SDL mezcla: música MP3 (dr_mp3, porque SDL3 no decodifica
   MP3), 16 streams de efectos (el más viejo se corta; el mismo efecto dentro de 60 ms no se repite) y
   un bucle de ambiente.
+- **La música y el ambiente se alimentan desde el hilo de audio** (callbacks de los streams), no
+  desde el frame. Antes se mantenía medio segundo en cola desde el bucle principal, y en macOS el
+  bucle se detiene más de 1 s al cambiar de aplicación (medido: 1091 ms al volver la ventana al
+  frente): el sonido daba un salto. Con una pausa forzada de 1,5 s, el código anterior vaciaba el
+  stream y el nuevo no. Los cambios de tema bloquean el stream (`SDL_LockAudioStream`) porque el
+  callback usa el mismo decodificador.
 - **Música por zona** (`music.def`): vale la primera zona que contiene la posición, en el orden del
   archivo (los pueblos van antes que el mapa que los rodea); "Login" y "Death" son temas fijos.
 - **Ambiente** (`envsound.def`): un bucle por zona y momento del día, más sonidos sueltos de cada
@@ -303,19 +435,23 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
 
 ## 7. Probar
 
-- **Solo el servidor local**, con `--mudo` y `LIN_CONFIG` propio (reglas en [AGENTS.md](../AGENTS.md)).
-- **Automatización:** la tabla de opciones está en el [README](../README.md). Para lo que necesita
-  mouse o teclado: `--arrastrar` (repetible), `--mantener`, `--mantener-sobre=Nombre,N` (el punto
-  queda fijo donde estaba el objeto: el caso de la cámara que se mueve), `--medio`, `--ctrl`,
-  `--pulsar` (teclas como eventos de SDL, también en el login), `--cantidad`, `--dar`, `--destino`.
-- **Las ventanas se acomodan solas** (lugar libre): antes de un clic simulado, sacar una captura para
-  ver dónde quedaron.
-- **Trazas:** `LIN_TRAZA=1` (paquetes con sus primeros bytes), `LIN_HTML=1` (páginas), `--perf`.
+- **Solo el servidor local**, con `mudo on` y `LIN_CONFIG` propio (reglas en [AGENTS.md](../AGENTS.md)).
+- **Control en vivo** (el cliente no tiene parámetros): comandos por un socket, tabla en el
+  [README](../README.md) y `herramientas/lin_ctl.py`.
+  - Se espera lo que importa (`esperar pantalla=`, `paquete=`, `html=`, `ventana=`, `chat=`) en
+    lugar de contar frames: a 60 o 120 fps los frames no son tiempo, y un clic antes de tiempo
+    arruinaba las pruebas viejas.
+  - `objetos` da la posición en pantalla de cada objeto y `clic-objeto` hace clic ahí, en el
+    mismo frame: sirve aunque la cámara se mueva.
+- **Las ventanas se acomodan solas** (lugar libre): antes de un clic simulado, consultar `ventanas`
+  o sacar una captura para ver dónde quedaron.
+- **Trazas:** `traza on` (paquetes con sus primeros bytes), `traza-html on` (páginas), `perf on`,
+  `paquetes` (los últimos recibidos).
 - **Comandos de GM útiles:** `.move x y mapa`, `.item id n`, `.spawn npc n alcance`, `.summon npc`,
   `.level n`, `.ress` (cura), `.addskill`, `.buff me id seg`, `.weather n`.
 - **Lecciones:**
-  - un objeto que camina no está donde estaba en la captura anterior: ubicarlo en la misma corrida
-    (`--mantener-sobre`, `--dar`, `--atacar`);
+  - un objeto que camina no está donde estaba en la captura anterior: ubicarlo en el momento
+    (`objetos`, `clic-objeto`, `dar`, `atacar`);
   - las invocaciones y monstruos de pruebas anteriores siguen ahí (cambian a quién elige "el más
     cercano");
   - los personajes de la cuenta `prueba2` son GM (no mueren, no gastan MP), y Hermione y Mago son

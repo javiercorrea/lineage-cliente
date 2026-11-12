@@ -1,0 +1,47 @@
+# Empaquetado y releases.
+# - Un tag v* (git tag v0.1.0 && git push origin v0.1.0): compila, corre los tests, arma el .dmg de macOS
+#   y publica la release en GitHub con el .dmg adjunto y notas generadas.
+# - A mano (Actions > Release > Run workflow): lo mismo sin publicar; el .dmg queda como artefacto.
+# Por ahora solo macOS: el shader es Metal (ver "Missing for Windows and Linux" en el README).
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest  # Apple Silicon; las versiones fijas dejan de existir (macos-14 ya no está)
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Herramientas
+        run: brew install ninja
+
+      - name: Tests
+        run: |
+          cmake --preset debug
+          cmake --build --preset debug --target lin_tests
+          build/debug/lin_tests  # sin LINEAGE_DIR se saltan los que necesitan los recursos del juego
+
+      - name: Empaquetar
+        id: paquete
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          [[ "$GITHUB_REF_TYPE" == tag ]] || VERSION="0.0.0-${GITHUB_SHA::7}"
+          echo "dmg=$(herramientas/empaquetar_macos.sh "$VERSION" | tail -1)" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lineage-macos
+          path: ${{ steps.paquete.outputs.dmg }}
+
+      - name: Publicar la release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "${{ steps.paquete.outputs.dmg }}" --title "$GITHUB_REF_NAME" --generate-notes

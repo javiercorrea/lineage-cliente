@@ -48,6 +48,26 @@ constexpr const char* ESPADA[16] = {
     ".........KYKKBK.", "........KYK..KBK", ".........K....KB", "..............KK",
 };
 
+// Moneda con $: tienda de un jugador (sobre el vendedor; el clic camina hasta él y pide su lista).
+constexpr const char* MONEDA[16] = {
+    "................",
+    ".......KK.......",
+    "....KKKYYKKK....",
+    "...KYYYYYYYYK...",
+    "...KYyKKKKKyK...",
+    "...KYyK.........",
+    "....KYYYYK......",
+    ".....KYYYYKK....",
+    "......KKKYyK....",
+    ".........KyYK...",
+    "...KKKKKKyYK....",
+    "...KYYYYYYYYK...",
+    "....KKKKKKKKK...",
+    "................",
+    "................",
+    "................",
+};
+
 // Labios (hablar con un NPC; punto activo: el centro de la boca).
 constexpr const char* LABIOS[16] = {
     "................", "................", "................", "................",
@@ -102,6 +122,7 @@ void crear_cursores(App& a) {
     a.cursores[static_cast<int>(Cursor::ESPADA)] = crear(de_arte, ESPADA, 0, 0);
     a.cursores[static_cast<int>(Cursor::OBJETIVO)] = crear(de_objetivo, nullptr, 7, 7);
     a.cursores[static_cast<int>(Cursor::LABIOS)] = crear(de_arte, LABIOS, 7, 8);
+    a.cursores[static_cast<int>(Cursor::MONEDA)] = crear(de_arte, MONEDA, 7, 7);
 }
 
 void aplicar_cursor(App& a) {

@@ -1,12 +1,15 @@
 #include <atomic>
+#include <cstdio>
 #include <cstdlib>
 #include "app/app.h"
+#include "i18n/textos.h"
 #include "core/asignaciones.h"
 
 namespace lin {
 
-// LIN_TRAZA=1 registra cada paquete enviado y recibido (depuración del protocolo).
-static const bool TRAZA = std::getenv("LIN_TRAZA") != nullptr;
+// Depuración (comandos "traza" y "traza-html" del control en vivo): cada paquete enviado y
+// recibido, y cada página HTML con sus datos.
+bool g_traza = false, g_traza_html = false;
 
 namespace {
 
@@ -21,13 +24,6 @@ void SDLCALL al_elegir_carpeta(void*, const char* const* lista, int) {
     } else {
         g_dialogo = 2;
     }
-}
-
-Pantalla pantalla_de(const std::string& s) {
-    if (s == "login") return Pantalla::LOGIN;
-    if (s == "personajes") return Pantalla::PERSONAJES;
-    if (s == "crear") return Pantalla::CREAR;
-    return Pantalla::JUEGO;
 }
 
 bool cargar_recursos(App& a) {
@@ -45,11 +41,12 @@ bool cargar_recursos(App& a) {
     if (!a.sprites.cargar_archivo(ruta) && !a.sprites.cargar_archivo("datos/sprite_table.txt"))
         LIN_LOG("Aviso: no se encontró datos/sprite_table.txt (los personajes no se animarán)");
     a.mundo.sprites = &a.sprites;
-    if (!cargar_formas(a)) LIN_LOG("Aviso: no se encontró polymorph.tbl (sugerencias de polymorph)");
+    if (!cargar_formas(a)) LIN_LOG("Aviso: no se encontró datos/formas.txt ni polymorph.tbl (sugerencias de polymorph)");
     if (!a.hechizos.cargar(a.rec)) LIN_LOG("Aviso: no se encontró spelldesc-e.tbl (nombres de los hechizos)");
     a.g = std::make_unique<Graficos>(a.gpu, a.rec, a.fuente);
     cargar_sonidos(a);
     cargar_modelos(a);
+    preparar_luz(a);
     return true;
 }
 
@@ -66,29 +63,13 @@ void leer_entrada(App& a) {
     e.zoom = 0;
     e.ntexto = 0;
     e.ahora_ms = SDL_GetTicks();
-    // Prueba automática (--pulsar): una tecla cada 10 frames desde el frame 300 del juego (o del
-    // login, para probarlo sin --auto), como
-    // eventos de SDL (tecla y, si se escribe, texto): pasan por el mismo camino que el teclado.
-    Automatizacion& au = a.aut;
-    if (au.pulsadas < au.pulsar.size() && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::LOGIN) &&
-        a.frames_en_pantalla >= 300 &&
-        (a.frames_en_pantalla - 300) % 10 == 0) {
-        const char c = au.pulsar[au.pulsadas++];
-        SDL_Event k{};
-        k.type = SDL_EVENT_KEY_DOWN;
-        k.key.key = c == '#' ? SDLK_RETURN : c == '~' ? SDLK_ESCAPE : static_cast<SDL_Keycode>(c);
-        SDL_PushEvent(&k);
-        if (c != '#' && c != '~') {
-            static char texto[2];
-            texto[0] = c;
-            SDL_Event t{};
-            t.type = SDL_EVENT_TEXT_INPUT;
-            t.text.text = texto;
-            SDL_PushEvent(&t);
-        }
-    }
     SDL_Event ev;
     while (SDL_PollEvent(&ev)) {
+        // La barra de la ventana (arrastre, botones y bordes) es de la ventana: el juego no ve esos eventos.
+        if ((ev.type == SDL_EVENT_MOUSE_BUTTON_DOWN || ev.type == SDL_EVENT_MOUSE_BUTTON_UP ||
+             ev.type == SDL_EVENT_MOUSE_MOTION) &&
+            ui::barra_evento(a.gpu, a.ventana, a.ventana_sin_borde, ev, alto_barra(a) > 0))
+            continue;
         switch (ev.type) {
         case SDL_EVENT_QUIT: a.salir = true; break;
         case SDL_EVENT_MOUSE_MOTION: a.gpu.a_logico(ev.motion.x, ev.motion.y, e.mx, e.my); break;
@@ -111,7 +92,14 @@ void leer_entrada(App& a) {
             break;
         case SDL_EVENT_KEY_DOWN:
             switch (ev.key.key) {
-            case SDLK_RETURN: case SDLK_KP_ENTER: e.enter = true; break;
+            case SDLK_RETURN: case SDLK_KP_ENTER:
+                if (ev.key.mod & SDL_KMOD_ALT) {  // Alt+Enter: pantalla completa o ventana (sin repetir al mantenerla)
+                    if (!ev.key.repeat) {
+                        alternar_pantalla_completa(a);
+                        guardar_config(a.cfg);
+                    }
+                } else e.enter = true;
+                break;
             case SDLK_TAB: e.tab = true; break;
             case SDLK_ESCAPE: e.escape = true; break;
             case SDLK_BACKSPACE: e.retroceso = true; break;
@@ -149,14 +137,24 @@ void leer_entrada(App& a) {
                     e.numero = 1 + static_cast<int>(ev.key.key - SDLK_1);
                 texto_antes = e.ntexto;
                 break;
-            case SDLK_F1: a.ayuda_teclas = !a.ayuda_teclas; break;
-            case SDLK_F3: a.depuracion = !a.depuracion; break;
+            case SDLK_F1:
+                if (!ev.key.repeat) a.ayuda_teclas = !a.ayuda_teclas;
+                break;
+            case SDLK_F3:  // con Shift, el contador de fps
+                if (ev.key.repeat) break;  // mantenida, alternaría y escribiría settings.ini en cada repetición
+                if (ev.key.mod & SDL_KMOD_SHIFT) {
+                    a.cfg.mostrar_fps = !a.cfg.mostrar_fps;
+                    guardar_config(a.cfg);
+                } else a.depuracion = !a.depuracion;
+                break;
             case SDLK_F2:  // UI simple (texto) o panel original; con Shift, modelos 3D o sprites
+                if (ev.key.repeat) break;
                 if (ev.key.mod & SDL_KMOD_SHIFT) a.cfg.modelos_3d = !a.cfg.modelos_3d;
                 else a.cfg.ui_simple = !a.cfg.ui_simple;
                 guardar_config(a.cfg);
                 break;
             case SDLK_F4:
+                if (ev.key.repeat) break;
                 // Cámara a saltos (como el original) o suave; con Shift, personajes oscurecidos en
                 // la sombra o no.
                 if (ev.key.mod & SDL_KMOD_SHIFT) a.cfg.sombra_personajes = !a.cfg.sombra_personajes;
@@ -192,54 +190,15 @@ void leer_entrada(App& a) {
     e.arriba = teclas[SDL_SCANCODE_UP];
     e.abajo = teclas[SDL_SCANCODE_DOWN];
     e.izquierda = teclas[SDL_SCANCODE_LEFT];
+    // El número apretado ahora (por su tecla, no su posición: igual que `numero`).
+    e.numeros_mantenidos = 0;
+    for (int i = 0; i < 10; ++i) {
+        const SDL_Scancode s = SDL_GetScancodeFromKey(i < 9 ? SDLK_1 + static_cast<SDL_Keycode>(i) : SDLK_0, nullptr);
+        if (s != SDL_SCANCODE_UNKNOWN && teclas[s]) e.numeros_mantenidos |= static_cast<u16>(1u << i);
+    }
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
-    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0 || a.aut.ctrl;
+    e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
     e.shift = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;
-    // Prueba automática (--arrastrar, repetible): el n-ésimo aprieta en (x1, y1) en el frame
-    // 300 + 180·n del juego, se mueve en 30 frames hasta (x2, y2) y suelta.
-    const u64 desde = a.frames_en_pantalla >= 300 ? a.frames_en_pantalla - 300 : ~0ull;
-    if (a.pantalla == Pantalla::JUEGO && desde / 180 < a.aut.arrastres.size() && desde % 180 <= 31) {
-        const int* ar = a.aut.arrastres[desde / 180].data();
-        int k = static_cast<int>(desde % 180);
-        e.mx = ar[0] + (ar[2] - ar[0]) * std::min(k, 30) / 30;
-        e.my = ar[1] + (ar[3] - ar[1]) * std::min(k, 30) / 30;
-        e.pulsado = k == 0;
-        e.presionado = k < 31;
-        e.clic = k == 31;
-    }
-    // Prueba automática (--mantener=x,y,N): mantener el botón izquierdo en (x, y) desde el frame
-    // 300 durante N frames.
-    if (!a.aut.mantener_sobre.empty() && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla == 300) {
-        // El punto de pantalla (fijo desde ahí) del más cercano con ese nombre.
-        const std::string& v = a.aut.mantener_sobre;
-        const size_t coma = v.rfind(',');
-        const std::string_view nombre = std::string_view(v).substr(0, coma);
-        for (const App::ObjetoEnPantalla& r : a.en_pantalla) {
-            const Slot so = a.mundo.objetos.buscar(r.id);
-            if (so == SIN_SLOT || a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[so])).find(nombre) == std::string_view::npos) continue;
-            a.aut.mantener[0] = static_cast<int>((r.x0 + r.x1) / 2);
-            a.aut.mantener[1] = static_cast<int>((r.y0 + r.y1) / 2);
-            a.aut.mantener[2] = coma == std::string::npos ? 120 : std::atoi(v.c_str() + coma + 1);
-            break;
-        }
-    }
-    const int* ma = a.aut.mantener;
-    if (ma[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + ma[2]) {
-        e.mx = ma[0];
-        e.my = ma[1];
-        e.pulsado = a.frames_en_pantalla == 300;
-        e.presionado = a.frames_en_pantalla < 300u + ma[2];
-        e.clic = a.frames_en_pantalla == 300u + ma[2];
-    }
-    // Prueba automática (--medio=x,y,N): mantener el botón del medio en (x, y) desde el frame 300
-    // durante N frames.
-    const int* me = a.aut.medio;
-    if (me[0] >= 0 && a.pantalla == Pantalla::JUEGO && a.frames_en_pantalla >= 300 && a.frames_en_pantalla <= 300u + me[2]) {
-        e.mx = me[0];
-        e.my = me[1];
-        e.medio_presionado = a.frames_en_pantalla < 300u + me[2];
-        e.clic_medio = a.frames_en_pantalla == 300u + me[2];
-    }
 }
 
 // Red: transiciones de estado y paquetes -> eventos -> pantallas y mundo.
@@ -263,7 +222,10 @@ void procesar_red(App& a) {
     }
     a.eventos.clear();
     while (a.red.sacar(a.paquete)) {
-        if (TRAZA) {
+#if LIN_CONTROL
+        control_paquete(a.op.srv(a.paquete[0]));
+#endif
+        if (g_traza) {
             char hex[3 * 16 + 1] = {};
             for (size_t i = 1; i < a.paquete.size() && i <= 16; ++i) std::snprintf(hex + 3 * (i - 1), 4, "%02x ", a.paquete[i]);
             LIN_LOG("[%llu] <- %3u %-16s %s", static_cast<unsigned long long>(SDL_GetTicks()), a.paquete[0],
@@ -277,12 +239,34 @@ void procesar_red(App& a) {
         eventos_forma(a, e);
         eventos_npc(a, e);
         eventos_social(a, e);
+        eventos_tienda(a, e);
+        eventos_tablon(a, e);
+        eventos_correo(a, e);
+        eventos_casas(a, e);
+        eventos_castillos(a, e);
+        if (e.tipo == Ev::SONIDO) a.audio.efecto(static_cast<u32>(e.v[0]), 1.0f, a.entrada.ahora_ms);  // S_Sound
         eventos_cantidad(a, e);
+        eventos_reinicio(a, e);
         eventos_mascotas(a, e);
         eventos_marcadores(a, e);
+        eventos_hechizos(a, e);
+        eventos_autobuffs(a, e);
+        eventos_autopocion(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
+        // "Miss" sobre el personaje: un ataque que lo tiene de objetivo y no acierta (el daño recibido
+        // se detecta por la caída de HP tras aplicar los eventos, abajo).
+        if (a.cfg.texto_dano && e.tipo == Ev::ATAQUE && static_cast<ObjId>(e.v[AT_OBJETIVO]) == a.mundo.jugador.id &&
+            !e.v[AT_GOLPE])
+            empujar_texto_combate(a, "Miss", 230, 230, 230);
     }
     aplicar_eventos(a.mundo, a.eventos, a.entrada.ahora_ms);
+    a.red.en_juego(a.mundo.en_juego && a.pantalla == Pantalla::JUEGO);  // el keepalive lo manda el hilo de red
+    if (a.cfg.texto_dano && a.mundo.jugador.hp_max > 0 && a.mundo.jugador.hp < a.hp_anterior) {
+        char t[12];
+        std::snprintf(t, sizeof t, "-%d", a.hp_anterior - a.mundo.jugador.hp);
+        empujar_texto_combate(a, t, 255, 80, 60);
+    }
+    a.hp_anterior = a.mundo.jugador.hp;
     aplicar_chat(a.chat, a.mensajes, a.desc, a.eventos, a.entrada.ahora_ms);
 }
 
@@ -305,7 +289,7 @@ void frame_elegir_carpeta(App& a) {
 
 void enviar(App& a, Escritor e) {
     Bytes b = e.cuerpo();
-    if (TRAZA) {
+    if (g_traza) {
         char hex[3 * 16 + 1] = {};
         for (size_t i = 0; i < b.size() && i < 16; ++i) std::snprintf(hex + 3 * i, 4, "%02x ", b[i]);
         LIN_LOG("[%llu] -> %3u %s", static_cast<unsigned long long>(SDL_GetTicks()), b[0], hex);
@@ -319,92 +303,47 @@ void cambiar_pantalla(App& a, Pantalla p) {
     a.foco = 0;
 }
 
-bool iniciar_app(App& a, int argc, char** argv) {
-    a.cfg = cargar_config(argc, argv);
-    int vw = 1280, vh = 960;  // tamaño inicial de la ventana en puntos (en Retina, el doble de píxeles)
-    for (int i = 1; i < argc; ++i) {
-        std::string s = argv[i];
-        auto valor = [&](const char* p) { return s.substr(std::strlen(p)); };
-        if (s == "--auto") a.aut.activa = true;
-        else if (s.rfind("--personaje=", 0) == 0) a.aut.personaje = valor("--personaje=");
-        else if (s == "--crear") a.aut.crear = true;
-        else if (s.rfind("--clase=", 0) == 0) a.aut.clase = std::atoi(valor("--clase=").c_str());
-        else if (s.rfind("--captura=", 0) == 0) a.aut.captura = valor("--captura=");
-        else if (s.rfind("--captura-pantalla=", 0) == 0) a.aut.pantalla_captura = pantalla_de(valor("--captura-pantalla="));
-        else if (s.rfind("--captura-espera=", 0) == 0) a.aut.espera_frames = std::atoi(valor("--captura-espera=").c_str());
-        else if (s == "--salir") a.aut.salir_tras_captura = true;
-        else if (s == "--depuracion") a.depuracion = true;
-        else if (s == "--perf") a.perf = true;
-        else if (s == "--mudo") a.aut.mudo = true;
-        else if (s.rfind("--pasos=", 0) == 0) a.aut.pasos = std::atoi(valor("--pasos=").c_str());
-        else if (s.rfind("--decir=", 0) == 0) a.aut.decir.push_back(valor("--decir="));
-        else if (s == "--estado") a.aut.estado = true;
-        else if (s.rfind("--ruta=", 0) == 0) a.aut.ruta = valor("--ruta=");
-        else if (s.rfind("--atacar=", 0) == 0) a.aut.atacar = valor("--atacar=");
-        else if (s == "--reiniciar") a.aut.reiniciar = true;
-        else if (s.rfind("--usar=", 0) == 0) a.aut.items.push_back({false, valor("--usar="), ""});
-        else if (s.rfind("--soltar=", 0) == 0) a.aut.items.push_back({true, valor("--soltar="), ""});
-        else if (s.rfind("--dar=", 0) == 0) {
-            std::string v = valor("--dar=");
-            const size_t arroba = v.find('@');
-            a.aut.items.push_back({false, v.substr(0, arroba), arroba == std::string::npos ? "" : v.substr(arroba + 1)});
-        }
-        else if (s == "--recoger") a.aut.recoger = true;
-        else if (s == "--inventario") a.ventana_inventario = true;
-        else if (s.rfind("--lanzar=", 0) == 0) a.aut.lanzar.push_back(valor("--lanzar="));
-        else if (s == "--hechizos") a.aut.hechizos = true;
-        else if (s.rfind("--forma=", 0) == 0) a.aut.forma = valor("--forma=");
-        else if (s.rfind("--hablar=", 0) == 0) a.aut.hablar = valor("--hablar=");
-        else if (s.rfind("--npc-accion=", 0) == 0) a.aut.npc_acciones.push_back(valor("--npc-accion="));
-        else if (s.rfind("--tienda=", 0) == 0) a.aut.tienda.push_back(valor("--tienda="));
-        else if (s.rfind("--arrastrar=", 0) == 0)
-        {
-            std::array<int, 4> ar{};
-            std::sscanf(s.c_str() + 12, "%d,%d,%d,%d", &ar[0], &ar[1], &ar[2], &ar[3]);
-            a.aut.arrastres.push_back(ar);
-        }
-        else if (s.rfind("--pulsar=", 0) == 0) a.aut.pulsar = valor("--pulsar=");
-        else if (s.rfind("--cantidad=", 0) == 0) a.aut.cantidad = std::atoi(s.c_str() + 11);
-        else if (s.rfind("--destino=", 0) == 0) a.aut.destino = valor("--destino=");
-        else if (s == "--ctrl") a.aut.ctrl = true;
-        else if (s.rfind("--mantener-sobre=", 0) == 0) a.aut.mantener_sobre = valor("--mantener-sobre=");
-        else if (s.rfind("--mantener=", 0) == 0)
-            std::sscanf(s.c_str() + 11, "%d,%d,%d", &a.aut.mantener[0], &a.aut.mantener[1], &a.aut.mantener[2]);
-        else if (s.rfind("--medio=", 0) == 0)
-            std::sscanf(s.c_str() + 8, "%d,%d,%d", &a.aut.medio[0], &a.aut.medio[1], &a.aut.medio[2]);
-        else if (s == "--opciones") a.ventana_opciones = true;
-        else if (s == "--teclas") a.ayuda_teclas = true;
-        else if (s == "--salida") a.ventana_salida = true;
-        else if (s == "--aceptar") a.aut.aceptar = true;
-        else if (s.rfind("--girar=", 0) == 0) a.aut.girar = std::atoi(valor("--girar=").c_str());
-        else if (s.rfind("--ofrecer=", 0) == 0) a.aut.ofrecer = valor("--ofrecer=");
-        else if (s == "--social") a.ventana_social = true;
-        else if (s.rfind("--subir=", 0) == 0) a.aut.subir = valor("--subir=");
-        else if (s.rfind("--captura-proyectil=", 0) == 0) a.aut.captura_proyectil = valor("--captura-proyectil=");
-        else if (s.rfind("--alt=", 0) == 0) a.aut.alt.push_back(std::atoi(valor("--alt=").c_str()));
-        else if (s.rfind("--ventana=", 0) == 0) std::sscanf(s.c_str() + 10, "%dx%d", &vw, &vh);
-    }
-    a.usuario = a.cfg.usuario;
-    a.clave = a.cfg.clave;
-    if (!tabla_opcodes(a.cfg.protocolo, a.op)) {
-        LIN_LOG("Versión de protocolo desconocida: %s", a.cfg.protocolo.c_str());
-        return false;
-    }
+bool iniciar_app(App& a) {
+    a.cfg = cargar_config();
+    a.usuario = servidor_elegido(a.cfg).usuario;
+    Idioma idioma;  // settings.ini "idioma="; vacío o desconocido = el del sistema
+    fijar_idioma(idioma_de_codigo(a.cfg.idioma, idioma) ? idioma : idioma_del_sistema());
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         LIN_LOG("SDL_Init: %s", SDL_GetError());
         return false;
     }
-    a.ventana = SDL_CreateWindow("Lineage", vw, vh, SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    // Tamaño en puntos (en Retina, el doble de píxeles): el de la última vez (settings.ini).
+    // Sin borde del sistema: la barra la dibuja el juego (ventana_ui.cpp).
+    a.ventana = SDL_CreateWindow("Lineage", a.cfg.ventana_ancho, a.cfg.ventana_alto,
+                                 SDL_WINDOW_RESIZABLE | SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!a.ventana || !a.gpu.iniciar(a.ventana, 640, 480)) return false;
+    ui::poner_icono(a.ventana, "lineage.png");
+    if (a.cfg.pantalla_completa) SDL_SetWindowFullscreen(a.ventana, true);
+    a.ventana_sin_borde.redimensionable = true;
     SDL_StartTextInput(a.ventana);
     crear_cursores(a);
     if (carpeta_juego_valida(a.cfg.carpeta_juego) && cargar_recursos(a)) {
         cambiar_pantalla(a, Pantalla::LOGIN);
+        // LIN_RENDER=id,x,y,salida.bmp: entrar directo a dibujar el mapa (sin red/login) y capturarlo.
+        if (const char* r = std::getenv("LIN_RENDER"); r && *r) {
+            int id = 0, x = 0, y = 0;
+            char sal[256] = {0};
+            if (std::sscanf(r, "%d,%d,%d,%255s", &id, &x, &y, sal) == 4) {
+                a.render = {true, static_cast<MapId>(id), x, y, sal};
+                a.mundo.mapa = static_cast<MapId>(id);
+                cambiar_pantalla(a, Pantalla::JUEGO);
+            } else {
+                LIN_LOG("LIN_RENDER mal formado (esperaba id,x,y,salida.bmp): %s", r);
+            }
+        }
     } else {
         // Primer arranque: el usuario elige la carpeta del juego con el diálogo nativo.
         cambiar_pantalla(a, Pantalla::ELEGIR_CARPETA);
         SDL_ShowOpenFolderDialog(al_elegir_carpeta, nullptr, a.ventana, nullptr, false);
     }
+#if LIN_CONTROL
+    control_iniciar(a);
+#endif
     return true;
 }
 
@@ -418,10 +357,10 @@ static void cerrar_medicion(App& a) {
     a.asign_frame_max = a.max_asign;
     a.asign_total = a.acum_asign;
     if (a.perf)
-        LIN_LOG("perf: %.0f fps  cpu %.2f ms (max %.2f)  decod %.2f ms (%u)  asign %llu (max/frame %llu)  inst %u  pag %u (reemplazos %u)  precarga %u  efectos %u  musica %d",
+        LIN_LOG("perf: %.0f fps  cpu %.2f ms (max %.2f)  decod %.2f ms (%u)  asign %llu (max/frame %llu)  inst %u  pag %u (reemplazos %u)  precarga %u  efectos %u (wav %u)  musica %d",
                 a.fps, a.ms_cpu, a.ms_cpu_max, a.ms_decod, a.decodificados, static_cast<unsigned long long>(a.asign_total),
                 static_cast<unsigned long long>(a.asign_frame_max), a.gpu.instancias_ultimo_frame(), a.gpu.paginas_usadas(), a.gpu.reemplazos_atlas(),
-                a.g ? a.g->precargas_en_curso() : 0u, a.audio.efectos_tocados(), a.audio.musica_actual());
+                a.g ? a.g->precargas_en_curso() : 0u, a.audio.efectos_tocados(), a.audio.wavs_cargados(), a.audio.musica_actual());
     a.acum_cpu = a.max_cpu = 0;
     a.acum_asign = a.max_asign = 0;
     a.frames_fps = 0;
@@ -435,10 +374,18 @@ void bucle_app(App& a) {
         a.cursor = Cursor::MANO;
         if (a.g) a.g->nuevo_frame();
         // Dentro del juego la vista se amplía con la ventana (y el zoom); el resto, 640×480.
-        a.gpu.ajustar_vista(a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO, a.cfg.zoom);
+        a.gpu.ajustar_vista(a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO, a.cfg.zoom, alto_barra(a));
+#if LIN_CONTROL
+        control_frame(a);  // comandos del socket: antes de leer la entrada (las teclas van como eventos de SDL)
+#endif
         leer_entrada(a);
+#if LIN_CONTROL
+        control_entrada(a);  // el mouse inyectado
+#endif
         procesar_red(a);
-        switch (a.pantalla) {
+        if (a.render.activo) {
+            dibujar_captura(a);
+        } else switch (a.pantalla) {
         case Pantalla::ELEGIR_CARPETA: frame_elegir_carpeta(a); break;
         case Pantalla::LOGIN: frame_login(a); break;
         case Pantalla::PERSONAJES: frame_personajes(a); break;
@@ -448,11 +395,7 @@ void bucle_app(App& a) {
         }
         actualizar_sonido(a, a.entrada.ahora_ms);
         ++a.frames_en_pantalla;
-        if (!a.aut.captura.empty() && a.pantalla == a.aut.pantalla_captura &&
-            a.frames_en_pantalla == static_cast<u64>(a.aut.espera_frames)) {
-            a.gpu.pedir_captura(a.aut.captura);
-            if (a.aut.salir_tras_captura) a.salir = true;
-        }
+        dibujar_barra_ventana(a);
         // CPU y allocations: todo menos presentar, que espera el vsync y llama al driver (el de
         // Metal hace sus propias allocations al subir y presentar; no dependen del cliente).
         a.gpu.preparar_frame();
@@ -472,6 +415,14 @@ void bucle_app(App& a) {
 }
 
 void cerrar_app(App& a) {
+    // El tamaño de la ventana queda para la próxima vez.
+    // A pantalla completa, el tamaño es el del monitor: no se guarda.
+    if (a.ventana && !(SDL_GetWindowFlags(a.ventana) & SDL_WINDOW_FULLSCREEN) &&
+        SDL_GetWindowSize(a.ventana, &a.cfg.ventana_ancho, &a.cfg.ventana_alto))
+        guardar_config(a.cfg);
+#if LIN_CONTROL
+    control_cerrar();
+#endif
     // Como el cliente original, avisar la salida: sin C_QuitGame el servidor no guarda la posición.
     if (a.mundo.en_juego && a.red.estado() == EstadoRed::CONECTADA) {
         enviar(a, Escritor(a.op, Cli::QUITGAME));

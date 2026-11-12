@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <cstdio>
 #include <cstdlib>
+#include <filesystem>
 #include "mundo/mundo.h"
 
 namespace lin {
@@ -59,6 +61,7 @@ double factor_intervalo(const EstadoJugador& j, Intervalo t) {
     if (j.brave == 3) f *= 0.87;
     if (t == Intervalo::CAMINAR && j.brave == 4) f *= 0.75;
     if (t == Intervalo::ATACAR && j.brave == 6) f *= 0.75 * 0.87;
+    if (j.tercera) f *= 0.87;
     return f;
 }
 
@@ -82,10 +85,10 @@ void vencer_efectos(EstadoJugador& j, u64 ahora) {
     }
 }
 
-// Pone (o quita, con 0 segundos) un efecto activo del propio personaje.
-static void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora) {
-    // Haste y brave son uno de cada clase, sea cual sea el tipo; los demás, uno por tipo.
-    bool unico = clase == EA_HASTE || clase == EA_BRAVE;
+void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora) {
+    // Haste, brave, fuerza y destreza son uno de cada clase, sea cual sea el tipo (la poción de
+    // fuerza termina con otro tipo que el que empezó); los demás, uno por tipo.
+    bool unico = clase == EA_HASTE || clase == EA_BRAVE || clase == EA_FUERZA || clase == EA_DESTREZA;
     u32 i = 0;
     while (i < j.n_efectos && !(j.efectos[i].clase == clase && (unico || j.efectos[i].tipo == tipo))) ++i;
     if (segundos <= 0) {
@@ -139,6 +142,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
                 if (conservar) o.col<O_GFX>()[o.insertar(yo)] = gfx;
             }
             m.mapa = static_cast<MapId>(e.v[0]);
+            m.submarino = e.v[1] != 0;
             break;
         case Ev::PONER_OBJETO: {
             Slot s = o.insertar(e.id);
@@ -160,11 +164,35 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_ACCION>()[s] = e.v[OB_ESTADO] == ESTADO_MUERTO ? ACC_MORIR : 0xFF;
             o.col<O_TACCION>()[s] = 0;
             if (e.id == m.jugador.id) m.jugador.muerto = e.v[OB_ESTADO] == ESTADO_MUERTO;
-            o.col<O_LUZ>()[s] = static_cast<u8>(e.v[OB_LUZ]);
+            // Tres gfx traen siempre luz 14, mande lo que mande el servidor (4ccf04 del original).
+            const i32 gfx_luz = e.v[OB_GFX];
+            o.col<O_LUZ>()[s] = gfx_luz == 0x17ae || gfx_luz == 0x17b7 || gfx_luz == 0x17ba ? u8{14} : static_cast<u8>(e.v[OB_LUZ]);
             o.col<O_HP>()[s] = static_cast<u8>(e.v[OB_HP]);
             o.col<O_FLAGS>()[s] = static_cast<u8>(e.v[OB_FLAGS]);
             o.col<O_NOMBRE>()[s] = guardar_texto(m, e.s[0]);
             o.col<O_TITULO>()[s] = guardar_texto(m, e.s[1]);
+            o.col<O_NIVEL>()[s] = static_cast<u8>(e.v[OB_NIVEL]);
+            o.col<O_MASCOTA>()[s] = static_cast<u8>(e.v[OB_MASCOTA]);
+            break;
+        }
+        case Ev::LICOR: {
+            if (e.id != m.jugador.id) break;
+            EstadoJugador& j = m.jugador;
+            if (e.v[0] == 8 || e.v[0] == 0) j.tercera = e.v[0] == 8;
+            if (e.v[0] == 1 || e.v[0] == 0) j.borracho = e.v[0] == 1;
+            // El servidor no manda el tiempo del tercer acelerador: son 600 s (L1BuffUtil).
+            if (e.v[0] == 8) poner_efecto_activo(j, EA_TERCERA, 0, 600, ahora);
+            if (e.v[0] == 0) poner_efecto_activo(j, EA_TERCERA, 0, 0, ahora);
+            break;
+        }
+        case Ev::ANILLO: {
+            const u8 bit = static_cast<u8>(1u << (e.v[0] & 7));
+            m.jugador.anillos = static_cast<u8>(e.v[1] ? m.jugador.anillos | bit : m.jugador.anillos & ~bit);
+            break;
+        }
+        case Ev::NOMBRE_ROSA: {
+            Slot s = o.buscar(e.id);
+            if (s != SIN_SLOT) o.col<O_ROSA>()[s] = e.v[0] > 0 ? ahora + static_cast<u64>(e.v[0]) * 1000 : 0;
             break;
         }
         case Ev::MOVER_OBJETO: {
@@ -216,8 +244,9 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             if (e.id == m.jugador.id && o.col<O_ACCION>()[s] == e.v[0] && ahora - o.col<O_TACCION>()[s] < 500) break;
             o.col<O_ACCION>()[s] = static_cast<u8>(e.v[0]);
             o.col<O_TACCION>()[s] = ahora;
-            // Una puerta queda abierta o cerrada: el estado guarda la última (ver elegir_accion).
-            if ((e.v[0] == ACC_ABRIR || e.v[0] == ACC_CERRAR) && m.sprites && m.sprites->tipo(o.col<O_GFX>()[s]) == TIPO_PUERTA) {
+            // Una puerta queda abierta o cerrada (un portón o una torre, dañados): el estado guarda la
+            // última (ver elegir_accion).
+            if (m.sprites && accion_fija(m.sprites->tipo(o.col<O_GFX>()[s]), static_cast<u8>(e.v[0]))) {
                 o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
                 o.col<O_ACCION>()[s] = 0xFF;
             }
@@ -264,8 +293,14 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             // Si acertó, el objetivo muestra el daño cuando lo alcanza el golpe.
             Slot so = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO]));
             if (e.v[AT_GOLPE] && so != SIN_SLOT && o.col<O_ESTADO>()[so] != ESTADO_MUERTO) {
-                o.col<O_ACCION>()[so] = ACC_DANADO;
-                o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
+                // Si el flinch ya se está mostrando (p. ej. predicho por la compensación de ataque, con
+                // su t de impacto todavía en el futuro), no reiniciarlo con el eco del servidor.
+                const u64 t = o.col<O_TACCION>()[so];
+                const bool ya = o.col<O_ACCION>()[so] == ACC_DANADO && (t >= ahora || ahora - t < 300);
+                if (!ya) {
+                    o.col<O_ACCION>()[so] = ACC_DANADO;
+                    o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
+                }
             }
             break;
         }
@@ -283,7 +318,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             ef.x0 = ef.x1 = e.v[EF_X];
             ef.y0 = ef.y1 = e.v[EF_Y];
             ef.inicio = ahora;
-            if (ef.gfx > 0) agregar_efecto(m, ef);
+            if (ef.gfx > 0 && !e.v[EF_AREA]) agregar_efecto(m, ef);  // los de área los reparte la app
             break;
         }
         case Ev::VELOCIDAD: {
@@ -299,7 +334,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             break;
         }
         case Ev::ICONO_EFECTO: {
-            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO};
+            static constexpr u8 CLASES[] = {EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_EVA};
             poner_efecto_activo(m.jugador, CLASES[e.v[IE_CLASE]], static_cast<u8>(e.v[IE_TIPO]), e.v[IE_SEG], ahora);
             break;
         }
@@ -310,11 +345,30 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
         }
         case Ev::LUZ: {
             Slot s = o.buscar(e.id);
-            if (s != SIN_SLOT) o.col<O_LUZ>()[s] = static_cast<u8>(e.v[0]);
+            if (s == SIN_SLOT) break;
+            // sub_4681f0 del original: el propio tiene mínimo 5 y su 20 es el hechizo LIGHT (radio 14);
+            // el 20 de los demás vale 5.
+            int luz = e.v[0];
+            if (e.id == m.jugador.id) {
+                m.jugador.luz_hechizo = luz == 20;
+                luz = luz == 20 ? 14 : std::max(luz, 5);
+            } else if (luz == 20) {
+                luz = 5;
+            }
+            o.col<O_LUZ>()[s] = static_cast<u8>(luz);
             break;
         }
         case Ev::HORA_JUEGO: m.hora = e.v[0]; break;
-        case Ev::CLIMA: m.clima = static_cast<u8>(e.v[0]); break;
+        case Ev::CLIMA: {
+            // S_Weather (489c82 del original): 0xTN, tipo e intensidad. Cada tipo guarda lo suyo: el
+            // servidor manda 0x13 y después 0x00, que apaga la nieve y deja la lluvia. Una intensidad
+            // mayor que 3 vale 0. El tipo 0x20 no lo manda L1J y no se sabe qué es.
+            const int tipo = e.v[0] & 0xF0, n = e.v[0] & 0x0F;
+            const u8 intensidad = static_cast<u8>(n <= 3 ? n : 0);
+            if (tipo == 0x00) m.nieve = intensidad;
+            else if (tipo == 0x10) m.lluvia = intensidad;
+            break;
+        }
         case Ev::HP: m.jugador.hp = e.v[0]; m.jugador.hp_max = e.v[1]; break;
         case Ev::MP: m.jugador.mp = e.v[0]; m.jugador.mp_max = e.v[1]; break;
         case Ev::EXPERIENCIA: m.jugador.nivel = e.v[0]; m.jugador.exp = e.v[1]; break;
@@ -360,6 +414,22 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             else m.puertas_cerradas.quitar(k);
             break;
         }
+        case Ev::INVISIBLE: {
+            Slot s = o.buscar(e.id);
+            if (s == SIN_SLOT) break;
+            u8& f = o.col<O_FLAGS>()[s];
+            f = static_cast<u8>(e.v[0] ? f | FLAG_INVISIBLE : f & ~FLAG_INVISIBLE);
+            break;
+        }
+        case Ev::RESUCITAR: {
+            Slot s = o.buscar(e.id);
+            if (s != SIN_SLOT && o.col<O_ESTADO>()[s] == ESTADO_MUERTO) {
+                o.col<O_ESTADO>()[s] = 0;  // el S_CharVisualUpdate que sigue pone el arma
+                o.col<O_ACCION>()[s] = 0xFF;
+            }
+            if (e.id == m.jugador.id) m.jugador.muerto = false;
+            break;
+        }
         case Ev::VENENO: {
             Slot s = o.buscar(e.id);
             if (s == SIN_SLOT) break;
@@ -398,12 +468,26 @@ void guardar_segmento(Mundo& m, u64 k, SegmentoMapa&& s) {
 
 }  // namespace
 
+// LIN_MAPAS: carpeta de mapas generados (ver generador_mapas/). Si el segmento existe ahí como .mg,
+// se usa en vez de la instalación, sin ensuciarla. Solo desarrollo; si no, el .s32 de la instalación.
+static std::string ruta_segmento(const Recursos& rec, MapId mapa, int x, int y) {
+    if (const char* base = std::getenv("LIN_MAPAS"); base && *base) {
+        char seg[48];
+        std::snprintf(seg, sizeof seg, "/%u/%04x%04x.mg", static_cast<unsigned>(mapa),
+                      (x >> 6) + 0x7E00, (y >> 6) + 0x7E00);
+        std::string ruta = base;
+        ruta += seg;
+        if (std::filesystem::exists(ruta)) return ruta;
+    }
+    return rec.carpeta() + nombre_segmento(mapa, x, y);
+}
+
 const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y) {
     if (x < 0 || y < 0) return nullptr;
     const u64 k = clave_segmento(m.mapa, x, y);
     if (const u32* i = m.indice_segmentos.buscar(k)) return *i >= SEG_CARGANDO ? nullptr : &m.segmentos[*i];
     if (!m.cargador) m.cargador = std::make_unique<CargadorSegmentos>();
-    m.cargador->pedir(rec.carpeta() + nombre_segmento(m.mapa, x, y), k, x & ~63, y & ~63);
+    m.cargador->pedir(ruta_segmento(rec, m.mapa, x, y), k, x & ~63, y & ~63);
     m.indice_segmentos.poner(k, SEG_CARGANDO);
     return nullptr;
 }
@@ -443,8 +527,8 @@ const SegmentoMapa* segmento(Mundo& m, const Recursos& rec, int x, int y) {
         return *i == SEG_NO_EXISTE ? nullptr : &m.segmentos[*i];
     std::vector<u8> datos;
     SegmentoMapa s;
-    bool ok = leer_archivo(rec.carpeta() + nombre_segmento(m.mapa, x, y), datos) &&
-              decodificar_s32(datos, x & ~63, y & ~63, s);
+    const std::string ruta = ruta_segmento(rec, m.mapa, x, y);
+    bool ok = leer_archivo(ruta, datos) && decodificar_segmento(ruta, datos, x & ~63, y & ~63, s);
     // MULTIPLATAFORMA (Linux): la carpeta "map" puede venir como "Map"; ver carpeta_juego_valida.
     if (!ok) {
         m.indice_segmentos.poner(k, SEG_NO_EXISTE);
@@ -461,6 +545,14 @@ bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y) {
     int lx = x - s->base_x, ly = y - s->base_y;
     // Bit 0 del atributo = media celda bloqueada (verificado contra los mapas del servidor).
     return !((s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1));
+}
+
+bool es_portal(Mundo& m, const Recursos& rec, int x, int y) {
+    const SegmentoMapa* s = segmento(m, rec, x, y);
+    if (!s) return false;
+    for (const PortalMapa& p : s->portales)
+        if (s->base_x + p.x == x && s->base_y + p.y == y) return true;
+    return false;
 }
 
 void reiniciar_jugador(Mundo& m) {

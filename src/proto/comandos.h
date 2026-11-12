@@ -1,5 +1,6 @@
 // Paquetes cliente -> servidor. Se arman en un buffer reutilizable y se encolan al hilo de red.
 #pragma once
+#include <initializer_list>
 #include <span>
 #include <string_view>
 #include <vector>
@@ -111,15 +112,23 @@ inline Escritor usar_hechizo(const TablaOpcodes& t, u32 id, u32 objetivo, u16 x,
 }
 // C_UseItem de un pergamino de polymorph (uso 16): d ítem, s monstruo (como en PolyTable del
 // servidor; "none" vuelve a la forma normal).
+// C_UseItem de un ítem que se usa sobre otro (identificar, encantar arma o armadura): d ítem, d objetivo.
+inline Escritor usar_item_sobre(const TablaOpcodes& t, u32 item, u32 objetivo) {
+    Escritor e(t, Cli::USEITEM);
+    e.d(item).d(objetivo);
+    return e;
+}
 inline Escritor usar_item_texto(const TablaOpcodes& t, u32 item, std::string_view texto) {
     Escritor e(t, Cli::USEITEM);
     e.d(item).s(texto);
     return e;
 }
 // C_NPCAction: d objeto, s acción. Shape Change responde así a la lista "monlist" (con el propio id).
-inline Escritor accion_npc(const TablaOpcodes& t, u32 objeto, std::string_view accion) {
+// El tablón de subastas lleva además la casa: "select", "map" y "apply" + s número.
+inline Escritor accion_npc(const TablaOpcodes& t, u32 objeto, std::string_view accion, std::string_view casa = {}) {
     Escritor e(t, Cli::NPCACTION);
     e.d(objeto).s(accion);
+    if (!casa.empty()) e.s(casa);
     return e;
 }
 // C_NPCTalk: d NPC. El servidor responde con su página (S_NPCTalkReturn).
@@ -144,12 +153,46 @@ inline Escritor subir_atributo(const TablaOpcodes& t, std::string_view atributo)
     e.h(ATTR_SUBIR_ATRIBUTO).c(1).s(atributo);
     return e;
 }
-// C_Attr como respuesta a S_MessageYN: h 0, d número, h tipo, h 1 sí / 0 no.
+// C_Attr como respuesta a S_MessageYN: h tipo, d número, h tipo, h 1 sí / 0 no. El tipo va dos
+// veces: C_Attr mira el segundo para elegir la pregunta, pero las de guerra (217 aceptar, 221
+// rendición, 222 fin) comparan con el primero; con 0 ahí, aceptar una guerra no hacía nada.
 inline Escritor responder(const TablaOpcodes& t, u32 numero, u16 tipo, bool si) {
     Escritor e(t, Cli::ATTR);
-    e.h(0).d(numero).h(tipo).h(si ? 1 : 0);
+    e.h(tipo);
+    // Forma larga (3.63/3.80): repite número y tipo y responde en 2 bytes. Corta (US 2009, sin
+    // número en el perfil): la respuesta en 1 byte, el tipo ya alcanza para elegir la pregunta.
+    if (t.perfil.bytes_numero_pregunta) e.d(numero).h(tipo).h(si ? 1 : 0);
+    else e.c(si ? 1 : 0);
     return e;
 }
+// C_Attr con texto (S_MessageYN que pide un nombre: 512 el de la casa): h tipo, d número, h tipo,
+// h 1, s texto.
+inline Escritor responder_texto(const TablaOpcodes& t, u32 numero, u16 tipo, std::string_view texto) {
+    Escritor e(t, Cli::ATTR);
+    e.h(tipo).d(numero).h(tipo).h(1).s(texto);
+    return e;
+}
+// Castillos. C_War: c tipo (0 declarar, 2 rendirse, 3 terminar), s clan.
+enum TipoGuerra : u8 { GUERRA_DECLARAR = 0, GUERRA_RENDIRSE = 2, GUERRA_TERMINAR = 3 };
+inline Escritor guerra(const TablaOpcodes& t, TipoGuerra tipo, std::string_view clan) {
+    Escritor e(t, Cli::WAR);
+    e.c(tipo).s(clan);
+    return e;
+}
+// C_TaxRate: d personaje, c tasa (10–50).
+inline Escritor tasa_castillo(const TablaOpcodes& t, u32 personaje, u8 tasa) {
+    Escritor e(t, Cli::TAXRATE);
+    e.d(personaje).c(tasa);
+    return e;
+}
+// C_Deposit / C_Drawal: d personaje, d cantidad (poner en o sacar de los fondos del castillo).
+inline Escritor fondos_castillo(const TablaOpcodes& t, bool depositar, u32 personaje, u32 cantidad) {
+    Escritor e(t, depositar ? Cli::DEPOSIT : Cli::DRAWAL);
+    e.d(personaje).d(cantidad);
+    return e;
+}
+// C_ChangeWarTime: sin datos; el servidor responde S_WarTime con la fecha del próximo asedio.
+inline Escritor fecha_asedio(const TablaOpcodes& t) { return Escritor(t, Cli::CHANGEWARTIME); }
 // Grupo. C_CreateParty: c 0 (reparto normal; 1 automático), d personaje invitado.
 inline Escritor invitar_grupo(const TablaOpcodes& t, u32 personaje) {
     Escritor e(t, Cli::CREATEPARTY);
@@ -220,6 +263,111 @@ inline Escritor puerta(const TablaOpcodes& t, u16 x, u16 y, u32 id) {
     e.h(x);
     e.h(y);
     e.d(id);
+    return e;
+}
+// C_DeleteInventoryItem: d ítem, d cantidad (el basurero del inventario; 0 sería toda la pila).
+inline Escritor borrar_item(const TablaOpcodes& t, u32 item, u32 cantidad) {
+    Escritor e(t, Cli::DELETEINVENTORYITEM);
+    e.d(item).d(cantidad);
+    return e;
+}
+// C_EnterPortal: h x, h y de la celda del portal (el servidor la busca en DungeonTable de su mapa).
+inline Escritor entrar_portal(const TablaOpcodes& t, u16 x, u16 y) {
+    Escritor e(t, Cli::ENTERPORTAL);
+    e.h(x).h(y);
+    return e;
+}
+// C_CharReset (reiniciar atributos): 1 + los 6 iniciales (fue, int, sab, des, con, car); 2 + paso
+// (0 sube un nivel, 7 diez, 1–6 un nivel y un punto en ese atributo, 8 + atributo termina);
+// 3 + los 6 finales (después de repartir los puntos de elixir).
+inline Escritor reinicio(const TablaOpcodes& t, u8 etapa, std::initializer_list<u8> datos) {
+    Escritor e(t, Cli::CHARRESET);
+    e.c(etapa);
+    for (u8 v : datos) e.c(v);
+    return e;
+}
+// C_Exclude: s nombre (bloquear o desbloquear: el servidor responde S_PacketBox 18 o 19).
+inline Escritor bloquear(const TablaOpcodes& t, std::string_view nombre) {
+    Escritor e(t, Cli::EXCLUDE);
+    e.s(nombre);
+    return e;
+}
+// C_Buddy (lista de amigos: S_Buddy, la página "buddy"), C_AddBuddy / C_DeleteBuddy: s nombre.
+inline Escritor amigos(const TablaOpcodes& t) { return Escritor(t, Cli::BUDDYLIST); }
+inline Escritor amigo(const TablaOpcodes& t, bool agregar, std::string_view nombre) {
+    Escritor e(t, agregar ? Cli::ADDBUDDY : Cli::DELETEBUDDY);
+    e.s(nombre);
+    return e;
+}
+// C_ChatParty (grupo de chat): 0 + s nombre echa, 1 sale, 2 muestra la lista.
+inline Escritor grupo_chat(const TablaOpcodes& t, u8 tipo, std::string_view nombre = {}) {
+    Escritor e(t, Cli::CHATPARTY);
+    e.c(tipo);
+    if (tipo == 0) e.s(nombre);
+    return e;
+}
+// Tienda de jugadores. C_Shop: c 0, h n venta, n × (d ítem, d precio, d cantidad), h n compra
+// (ídem), y el título (los bytes que siguen: se repiten a los demás en S_DoActionShop); c 1 la cierra.
+struct LineaTienda {
+    u32 item, precio, cantidad;
+};
+inline Escritor abrir_tienda(const TablaOpcodes& t, std::span<const LineaTienda> venta, std::string_view titulo) {
+    Escritor e(t, Cli::SHOP);
+    e.c(0).h(static_cast<u16>(venta.size()));
+    for (const LineaTienda& l : venta) e.d(l.item).d(l.precio).d(l.cantidad);
+    e.h(0).s(titulo);
+    return e;
+}
+inline Escritor cerrar_tienda(const TablaOpcodes& t) {
+    Escritor e(t, Cli::SHOP);
+    e.c(1);
+    return e;
+}
+// C_ShopList: c tipo (0 lo que vende, 1 lo que compra), d vendedor. Responde S_PrivateShop.
+inline Escritor ver_tienda(const TablaOpcodes& t, u8 tipo, u32 vendedor) {
+    Escritor e(t, Cli::SHOPLIST);
+    e.c(tipo).d(vendedor);
+    return e;
+}
+// Venderle a la tienda (C_Result tipo 1): d vendedor, c 1, c 1, c 0, d ítem propio, 3 bytes de
+// cantidad (readCH), c orden. Comprarle es C_Result tipo 0 con (orden, cantidad) por línea.
+inline Escritor vender_a_tienda(const TablaOpcodes& t, u32 vendedor, u32 item, u32 cantidad, u8 orden) {
+    Escritor e(t, Cli::RESULT);
+    e.d(vendedor).c(RESULTADO_VENTA).c(1).c(0).d(item);
+    e.c(static_cast<u8>(cantidad)).c(static_cast<u8>(cantidad >> 8)).c(static_cast<u8>(cantidad >> 16)).c(orden);
+    return e;
+}
+// Tablón de los pueblos. C_Board: d tablón (responde S_Board, la primera página). C_BoardBack: d
+// tablón, d el último tema visto (la página siguiente). C_BoardRead: d tablón, d tema (S_BoardRead).
+// C_BoardWrite: d tablón, s título, s texto (cuesta 300 adena). C_BoardDelete: d tablón, d tema.
+inline Escritor tablon(const TablaOpcodes& t, Cli c, u32 tablon_id, u32 tema = 0) {
+    Escritor e(t, c);
+    e.d(tablon_id);
+    if (c != Cli::BOARD) e.d(tema);
+    return e;
+}
+inline Escritor escribir_tablon(const TablaOpcodes& t, u32 tablon_id, std::string_view titulo, std::string_view texto) {
+    Escritor e(t, Cli::BOARDWRITE);
+    e.d(tablon_id).s(titulo).s(texto);
+    return e;
+}
+// Correo. C_Mail: c tipo; 0–2 abre esa bandeja; 0x10–0x12 + d carta la lee; 0x30–0x32 + d la borra;
+// 0x40 + d la guarda; 0x20 (50 adena) o 0x21 (al clan, 1000 adena) + h 0 + s destinatario (o clan)
+// + asunto y texto en UTF-16LE, cada uno terminado en 0 0.
+inline Escritor correo(const TablaOpcodes& t, u8 tipo, u32 carta = 0) {
+    Escritor e(t, Cli::MAIL);
+    e.c(tipo);
+    if (tipo >= 0x10) e.d(carta);
+    return e;
+}
+inline Escritor escribir_correo(const TablaOpcodes& t, bool al_clan, std::string_view a_quien, std::string_view asunto,
+                                std::string_view texto) {
+    Escritor e(t, Cli::MAIL);
+    e.c(al_clan ? 0x21 : 0x20).h(0).s(a_quien);
+    for (std::string_view parte : {asunto, texto}) {
+        for (char ch : parte) e.c(static_cast<u8>(ch)).c(0);
+        e.c(0).c(0);
+    }
     return e;
 }
 // C_GiveItem: d a quién (NPC o mascota), h x, h y (no se usan), d ítem, d cantidad.

@@ -60,6 +60,261 @@ TEST_CASE("Decodificar: S_CharPacks y paquete truncado") {
     CHECK(ev.empty());
 }
 
+TEST_CASE("Decodificar: nivel de S_NPCPack y S_PinkName") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // S_NPCPack: h x, h y, d id, h gfx, c estado, c dir, c luz, c vel, d exp, h legal, s "$1", s "",
+    // c flags, d 0, s, s, c 0, c HP (0xFF), c 0, c nivel 25, c 0, c 0xFF, c 0xFF.
+    const u8 n[] = {3,    0x10, 0x80, 0x20, 0x80, 0x30, 0, 0, 0, 49, 0, 0, 2, 0, 0, 5,    0, 0, 0, 0, 0,
+                    '$',  '1',  0,    0,    0,    0,    0, 0, 0, 0, 0,  0, 0xFF, 0, 25, 0, 0xFF, 0xFF};
+    REQUIRE(decodificar({n, sizeof n}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PONER_OBJETO);
+    CHECK(ev[0].v[OB_GFX] == 49);
+    CHECK(ev[0].v[OB_NIVEL] == 25);
+    CHECK(ev[0].v[OB_MASCOTA] == 0);
+    // S_PetPack: el nombre del dueño va en el segundo texto tras el clan (vacío en NPCs y personajes).
+    ev.clear();
+    const u8 m[] = {3,                          // opcode S_CharPack
+                    0x10, 0x80,                 // h x
+                    0x20, 0x80,                 // h y
+                    1, 0, 0, 0,                 // d id
+                    0x30, 0,                    // h gfx
+                    0, 0, 0, 0,                 // c estado, dirección, luz, velocidad
+                    0, 0, 0, 0,                 // d exp
+                    0, 0,                       // h legal
+                    'P', 'e', 't', 0,           // s nombre
+                    0,                          // s título
+                    0,                          // c flags
+                    0, 0, 0, 0,                 // d clan
+                    0,                          // s null (clan)
+                    'D', 'u', 'e', 'n', 'o', 0, // s dueño
+                    0, 0x50, 0, 9, 0, 0xFF, 0xFF};  // c 0, c HP 80, c 0, c nivel 9, c 0, c 0xFF, c 0xFF
+    REQUIRE(decodificar({m, sizeof m}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].v[OB_MASCOTA] == 1);
+    CHECK(ev[0].s[1] == "Dueno's");
+    CHECK(ev[0].v[OB_HP] == 0x50);
+    // S_PinkName: d id, d 180 segundos.
+    ev.clear();
+    const u8 r[] = {252, 0x30, 0, 0, 0, 180, 0, 0, 0};
+    REQUIRE(decodificar({r, sizeof r}, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::NOMBRE_ROSA);
+    CHECK(ev[0].id == 0x30);
+    CHECK(ev[0].v[0] == 180);
+}
+
+TEST_CASE("Decodificar: S_CharReset (reiniciar atributos), S_Liquor, Bless of Eva y S_Ability") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    auto uno = [&](std::vector<u8> p) {
+        ev.clear();
+        REQUIRE(decodificar(p, t, arena, ev));
+        REQUIRE(ev.size() == 1);
+        return ev[0];
+    };
+    // Mismo opcode (33) que el menú de mascota: 1 empieza (mago: hp 12, mp 6, ac 10, nivel máximo 30).
+    Evento e = uno({33, 1, 12, 0, 6, 0, 10, 30});
+    CHECK(e.tipo == Ev::REINICIO);
+    CHECK(e.v[RE_TIPO] == 1);
+    CHECK(e.v[RE_HP] == 12);
+    CHECK(e.v[RE_MAX] == 30);
+    // 2: nivel 11 de 30, hp 80, mp 40, ac 9, atributos 8 18 18 7 12 12.
+    e = uno({33, 2, 11, 30, 80, 0, 40, 0, 9, 0, 8, 18, 18, 7, 12, 12});
+    CHECK(e.v[RE_NIVEL] == 11);
+    CHECK(e.v[RE_FUE + 1] == 18);  // inteligencia
+    CHECK(e.v[RE_FUE + 5] == 12);  // carisma
+    e = uno({33, 3, 4});
+    CHECK(e.v[RE_PUNTOS] == 4);
+    ev.clear();
+    std::vector<u8> otro = {33, 0x55, 1};  // ni mascota (0x0c) ni reinicio: ignorado
+    REQUIRE(decodificar(otro, t, arena, ev));
+    CHECK(ev.empty());
+    igual(cmd::reinicio(t, 1, {8, 18, 18, 7, 12, 12}), {236, 1, 8, 18, 18, 7, 12, 12});
+    igual(cmd::reinicio(t, 2, {8, 2}), {236, 2, 8, 2});
+    e = uno({31, 5, 0, 0, 0, 8});
+    CHECK(e.tipo == Ev::LICOR);
+    CHECK(e.v[0] == 8);
+    e = uno({12, 5, 0, 0, 0, 0x58, 0x02});
+    CHECK(e.v[IE_CLASE] == IE_EVA);
+    CHECK(e.v[IE_SEG] == 600);
+    e = uno({116, 1, 1, 2, 0, 0});
+    CHECK(e.tipo == Ev::ANILLO);
+    CHECK(e.v[1] == 1);
+}
+
+TEST_CASE("Decodificar: grupo y bloqueados (S_PacketBox), S_Sound y sus comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // 104: un miembro además del líder ("A", 100 %) y "B" (0 %).
+    std::vector<u8> lista = {40, 104, 1, 1, 0, 0, 0, 'A', 0, 100, 4, 0, 0, 0, 1, 0, 2, 0,
+                             2, 0, 0, 0, 'B', 0, 0, 4, 0, 0, 0, 1, 0, 2, 0, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 3);
+    CHECK(ev[0].v[GR_TIPO] == GR_VACIAR);
+    CHECK(ev[1].id == 1);
+    CHECK(ev[1].s[0] == "A");
+    CHECK(ev[1].v[GR_LIDER] == 1);
+    CHECK(ev[1].v[GR_HP] == 100);
+    CHECK(ev[2].s[0] == "B");
+    CHECK(ev[2].v[GR_LIDER] == 0);
+    // 105: miembro nuevo, sin vida.
+    ev.clear();
+    std::vector<u8> nuevo = {40, 105, 3, 0, 0, 0, 'C', 0, 4, 0, 0, 0, 1, 0, 2, 0};
+    REQUIRE(decodificar(nuevo, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].s[0] == "C");
+    CHECK(ev[0].v[GR_HP] == 0xFF);
+    // 106: nuevo líder, seguido de las posiciones (110).
+    ev.clear();
+    std::vector<u8> lider = {40, 106, 3, 0, 0, 0, 0, 0, 1, 3, 0, 0, 0, 4, 0, 0, 0, 1, 0, 2, 0, 0};
+    REQUIRE(decodificar(lider, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].v[GR_TIPO] == GR_LIDER_NUEVO);
+    CHECK(ev[0].id == 3);
+    // 17: la lista de bloqueados; 19: uno quitado.
+    ev.clear();
+    std::vector<u8> bloq = {40, 17, 2, 'X', 0, 'Y', 0};
+    REQUIRE(decodificar(bloq, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].s[0] == "Y");
+    ev.clear();
+    std::vector<u8> quitado = {40, 19, 'X', 0};
+    REQUIRE(decodificar(quitado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::BLOQUEADO);
+    CHECK(ev[0].v[0] == 0);
+    // El peso sigue igual (otro subtipo de la misma caja).
+    ev.clear();
+    std::vector<u8> peso = {40, 10, 120};
+    REQUIRE(decodificar(peso, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::PESO);
+    // S_Sound: c repetir, h sonido.
+    ev.clear();
+    std::vector<u8> son = {84, 0, 0xb5, 0x01};
+    REQUIRE(decodificar(son, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::SONIDO);
+    CHECK(ev[0].v[0] == 437);
+    igual(cmd::bloquear(t, "X"), {101, 'X', 0});
+    igual(cmd::amigos(t), {60});
+    igual(cmd::amigo(t, true, "Y"), {99, 'Y', 0});
+    igual(cmd::amigo(t, false, "Y"), {211, 'Y', 0});
+    igual(cmd::grupo_chat(t, 0, "Z"), {113, 0, 'Z', 0});
+    igual(cmd::grupo_chat(t, 2), {113, 2});
+}
+
+TEST_CASE("Tienda de jugadores: S_DoActionShop, S_PrivateShop y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // S_DoActionGFX con la acción 70 y el título.
+    std::vector<u8> sentado = {218, 5, 0, 0, 0, 70, 'V', 'e', 'n', 'd', 'o', 0};
+    REQUIRE(decodificar(sentado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::ACCION_OBJETO);
+    CHECK(ev[0].v[0] == 70);
+    CHECK(ev[0].s[0] == "Vendo");
+    // S_PrivateShop tipo 0: una línea (orden 0, bendición 1, gfx 34, 3 a 500, "$1", 0).
+    ev.clear();
+    std::vector<u8> vende = {190, 0, 5, 0, 0, 0, 1, 0, 0, 1, 34, 0, 3, 0, 0, 0, 0xf4, 1, 0, 0, '$', '1', 0, 0};
+    REQUIRE(decodificar(vende, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::TIENDA);
+    CHECK(ev[0].id == 5);
+    CHECK(ev[1].v[TP_GFX] == 34);
+    CHECK(ev[1].v[TP_CANTIDAD] == 3);
+    CHECK(ev[1].v[TP_PRECIO] == 500);
+    CHECK(ev[1].s[0] == "$1");
+    // Tipo 1: (orden 2, ítem propio 9, 4 a 100).
+    ev.clear();
+    std::vector<u8> compra = {190, 1, 5, 0, 0, 0, 1, 0, 2, 9, 0, 0, 0, 4, 0, 0, 0, 100, 0, 0, 0};
+    REQUIRE(decodificar(compra, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].v[TP_ORDEN] == 2);
+    CHECK(ev[1].v[TP_ITEM] == 9);
+    const cmd::LineaTienda venta[] = {{9, 500, 3}};
+    igual(cmd::abrir_tienda(t, venta, "Vendo"), {16, 0, 1, 0, 9, 0, 0, 0, 0xf4, 1, 0, 0, 3, 0, 0, 0, 0, 0, 'V', 'e', 'n', 'd', 'o', 0});
+    igual(cmd::cerrar_tienda(t), {16, 1});
+    igual(cmd::ver_tienda(t, 1, 5), {193, 1, 5, 0, 0, 0});
+    igual(cmd::vender_a_tienda(t, 5, 9, 2, 3), {40, 5, 0, 0, 0, 1, 1, 0, 9, 0, 0, 0, 2, 0, 0, 3});
+}
+
+TEST_CASE("Tablón y correo: S_Board, S_BoardRead, S_Mail y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(2048);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // Primera página: c 0, d tablón 7, d 0x7FFFFFFF, c 1, c 0, h 300, (d 3, "Ana", "1/2", "Hola").
+    std::vector<u8> pag = {64, 0, 7, 0, 0, 0, 0xff, 0xff, 0xff, 0x7f, 1, 0, 0x2c, 1,
+                           3, 0, 0, 0, 'A', 'n', 'a', 0, '1', '/', '2', 0, 'H', 'o', 'l', 'a', 0};
+    REQUIRE(decodificar(pag, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::TABLON);
+    CHECK(ev[0].id == 7);
+    CHECK(ev[1].id == 3);
+    CHECK(ev[1].s[0] == "Ana  1/2");
+    CHECK(ev[1].s[1] == "Hola");
+    // Página siguiente: sin c 0, h 300.
+    ev.clear();
+    std::vector<u8> sig = {64, 0, 7, 0, 0, 0, 3, 0, 0, 0, 1, 2, 0, 0, 0, 'B', 0, 'd', 0, 'T', 0};
+    REQUIRE(decodificar(sig, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].id == 2);
+    ev.clear();
+    std::vector<u8> leer = {56, 3, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 'o', 'l', 'a', 0, '1', '/', '2', 0, 'x', 'y', 0};
+    REQUIRE(decodificar(leer, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::TABLON_LEER);
+    CHECK(ev[0].s[0] == "Ana  1/2  Hola");
+    CHECK(ev[0].s[1] == "xy");
+    // S_Mail lista: tipo 0, una carta (d 9, leída 0, fecha, recibida, "Ana", asunto "Hi" en UTF-16).
+    ev.clear();
+    std::vector<u8> lista = {1, 0, 1, 0, 9, 0, 0, 0, 0, 1, 0, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[1].id == 9);
+    CHECK(ev[1].s[0] == "Ana");
+    CHECK(ev[1].s[1] == "Hi");
+    // El texto (0x10) y el aviso de carta nueva (0x50).
+    ev.clear();
+    std::vector<u8> texto = {1, 0x10, 9, 0, 0, 0, 'o', 0, 'k', 0, 0, 0};
+    REQUIRE(decodificar(texto, t, arena, ev));
+    CHECK(ev[0].v[CO_TIPO] == 0x10);
+    CHECK(ev[0].s[1] == "ok");
+    ev.clear();
+    std::vector<u8> nueva = {1, 0x50, 9, 0, 0, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0};
+    REQUIRE(decodificar(nueva, t, arena, ev));
+    CHECK(ev[0].v[CO_TIPO] == 0x50);
+    CHECK(ev[0].v[CO_ENVIADA] == 0);
+    CHECK(ev[0].s[0] == "Ana");
+    igual(cmd::tablon(t, Cli::BOARD, 7), {73, 7, 0, 0, 0});
+    igual(cmd::tablon(t, Cli::BOARDREAD, 7, 3), {59, 7, 0, 0, 0, 3, 0, 0, 0});
+    igual(cmd::escribir_tablon(t, 7, "T", "x"), {14, 7, 0, 0, 0, 'T', 0, 'x', 0});
+    igual(cmd::correo(t, 0), {22, 0});
+    igual(cmd::correo(t, 0x10, 9), {22, 0x10, 9, 0, 0, 0});
+    igual(cmd::escribir_correo(t, false, "Ana", "Hi", "x"), {22, 0x20, 0, 0, 'A', 'n', 'a', 0, 'H', 0, 'i', 0, 0, 0, 'x', 0, 0, 0});
+}
+
 TEST_CASE("Combate: S_AttackPacket, S_HpMeter, C_Attack y C_Restart") {
     TablaOpcodes t;
     tabla_opcodes("jp363", t);
@@ -120,6 +375,7 @@ TEST_CASE("Ítems: S_InvList (varios eventos), S_AddItem, S_ItemAmount y comando
     CHECK(ev[1].id == 0x11);
     CHECK(ev[1].v[IT_GFX] == 34);
     CHECK(ev[1].s[0] == "$1 ($9)");
+    CHECK(ev[1].s[1] == std::string_view("\xAA\xBB", 2));  // los atributos
     CHECK(ev[2].id == 0x22);
     CHECK(ev[2].v[IT_USO] == 59);
     CHECK(ev[2].v[IT_CANTIDAD] == 5);
@@ -137,6 +393,21 @@ TEST_CASE("Ítems: S_InvList (varios eventos), S_AddItem, S_ItemAmount y comando
     REQUIRE(decodificar(c, t, arena, ev));
     CHECK(ev[0].tipo == Ev::ITEM_CANTIDAD);
     CHECK(ev[0].v[IT_CANTIDAD] == 4);
+    CHECK(ev[0].s[1].empty());  // sin identificar
+
+    // S_ItemStatus de un ítem identificado (mismo número que S_ItemAmount): con los atributos.
+    ev.clear();
+    c = {127, 0x22, 0, 0, 0, '$', '2', 0, 1, 0, 0, 0, 3, 19, 2, 11};
+    REQUIRE(decodificar(c, t, arena, ev));
+    CHECK(ev[0].s[1] == std::string_view("\x13\x02\x0b", 3));
+
+    // S_IdentifyDesc: h desc, y como S_ServerMessage (h 135, c 2, nombre, defensa).
+    ev.clear();
+    std::vector<u8> id = {43, 0x10, 0, 135, 0, 2, '$', '3', 0, '2', '+', '1', 0};
+    REQUIRE(decodificar(id, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::MENSAJE_SERVIDOR);
+    CHECK(ev[0].v[MS_ID] == 135);
+    CHECK(ev[0].s[1] == "2+1");
 
     Escritor u = cmd::usar_item(t, 0x22);
     Bytes bu = u.cuerpo();
@@ -217,7 +488,7 @@ TEST_CASE("Social: preguntas, intercambio, título, emblema, página del clan y 
     CHECK(ev[0].s[1] == std::string_view("Clan\x01" "0\x01\x01" "2\x01" "Ana Beto "));
 
     Escritor r = cmd::responder(t, 7, 953, true);
-    const u8 er[] = {61, 0, 0, 7, 0, 0, 0, 0xB9, 0x03, 1, 0};
+    const u8 er[] = {61, 0xB9, 0x03, 7, 0, 0, 0, 0xB9, 0x03, 1, 0};
     Bytes br = r.cuerpo();
     REQUIRE(br.size() >= sizeof er);
     CHECK(std::memcmp(br.data(), er, sizeof er) == 0);
@@ -343,9 +614,9 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     e = uno({33, 0x0c, 0, 0, 1, 0, 0, 0, 5, 0, 0, 0});
     CHECK(e.v[MA_AGREGAR] == 0);
     ev.clear();
-    std::vector<u8> reinicio = {33, 0x01, 0, 0};
+    std::vector<u8> reinicio = {33, 0x01, 12, 0, 6, 0, 10, 30};
     REQUIRE(decodificar(reinicio, t, arena, ev));
-    CHECK(ev.empty());  // S_CharReset (mismo número): ignorado
+    CHECK(ev[0].tipo == Ev::REINICIO);  // S_CharReset (mismo número): no es la mascota
     e = uno({177, 5, 0, 0, 0, 0, 0, 2});
     CHECK(e.tipo == Ev::ELEGIR_OBJETIVO_MASCOTA);
     CHECK(e.id == 5);
@@ -359,6 +630,24 @@ TEST_CASE("Puertas, estados alterados, cantidad y mascotas: decodificar, aplicar
     igual(cmd::dar_item(t, 5, 1, 2, 7, 3), {244, 5, 0, 0, 0, 1, 0, 2, 0, 7, 0, 0, 0, 3, 0, 0, 0});
     igual(cmd::cantidad(t, 9, 2, "make1"), {109, 9, 0, 0, 0, 2, 0, 0, 0, 0, 'm', 'a', 'k', 'e', '1', 0});
     igual(cmd::inventario_mascota(t, 5), {217, 5, 0, 0, 0});
+    igual(cmd::borrar_item(t, 0x33, 2), {209, 0x33, 0, 0, 0, 2, 0, 0, 0});
+    igual(cmd::usar_item_sobre(t, 0x33, 0x44), {44, 0x33, 0, 0, 0, 0x44, 0, 0, 0});
+    igual(Escritor(t, Cli::EXITGHOST), {210});
+    igual(Escritor(t, Cli::RETURNTOLOGIN), {218});
+    igual(cmd::entrar_portal(t, 32686, 33376), {249, 0xAE, 0x7F, 0x60, 0x82});
+
+    // S_Invis (d id, c tipo) y S_Resurrection (d quién, c tipo, d quién lo revivió, d clase).
+    std::vector<u8> inv = {57, 5, 0, 0, 0, 1};
+    ev.clear();
+    REQUIRE(decodificar(inv, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::INVISIBLE);
+    CHECK(ev[0].id == 5);
+    CHECK(ev[0].v[0] == 1);
+    std::vector<u8> res = {227, 5, 0, 0, 0, 0, 6, 0, 0, 0, 1, 0, 0, 0};
+    ev.clear();
+    REQUIRE(decodificar(res, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::RESUCITAR);
+    CHECK(ev[0].id == 5);
     igual(cmd::usar_item_mascota(t, 5, 2), {213, 0, 5, 0, 0, 0, 2});
     igual(cmd::objetivo_mascota(t, 5, 77), {155, 5, 0, 0, 0, 0, 77, 0, 0, 0});
 }
@@ -401,4 +690,260 @@ TEST_CASE("Reparar armas, marcadores y cambiar de personaje: decodificar y coman
     igual(cmd::borrar_marcador(t, "Plaza"), {223, 'P', 'l', 'a', 'z', 'a', 0});
     igual(cmd::usar_teleport(t, 9, 4, 1), {44, 9, 0, 0, 0, 4, 0, 1, 0, 0, 0});
     igual(cmd::hechizo_teleport(t, 5, 4, 1), {115, 0, 4, 4, 0, 1, 0, 0, 0});
+}
+
+TEST_CASE("Castillos y casas: S_HouseList, S_HouseMap, S_War, S_CastleMaster, fondos, S_WarTime y comandos") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(2048);
+    std::vector<Evento> ev;
+    auto igual = [](Escritor w, std::vector<u8> esperado) {
+        REQUIRE(w.cuerpo().size() >= esperado.size());
+        CHECK(std::memcmp(w.cuerpo().data(), esperado.data(), esperado.size()) == 0);
+    };
+    // S_HouseList: tablón 7, una casa (262145, "Casa", área 78, 11/2, 100000).
+    std::vector<u8> lista = {24, 7, 0, 0, 0, 1, 0, 0x01, 0, 4, 0, 'C', 'a', 's', 'a', 0, 78, 0, 11, 2, 0xa0, 0x86, 1, 0};
+    REQUIRE(decodificar(lista, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::CASAS);
+    CHECK(ev[0].id == 7);
+    CHECK(ev[1].tipo == Ev::CASA);
+    CHECK(ev[1].id == 262145);
+    CHECK(ev[1].s[0] == "Casa");
+    CHECK(ev[1].v[CS_AREA] == 78);
+    CHECK(ev[1].v[CS_MES] == 11);
+    CHECK(ev[1].v[CS_DIA] == 2);
+    CHECK(ev[1].v[CS_PRECIO] == 100000);
+    ev.clear();
+    std::vector<u8> mapa = {44, 7, 0, 0, 0, 0x01, 0, 4, 0};
+    REQUIRE(decodificar(mapa, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::CASA_MAPA);
+    CHECK(ev[0].v[0] == 262145);
+    // S_War 1: "A" declara la guerra a "B". S_CastleMaster: castillo 1, personaje 5.
+    ev.clear();
+    std::vector<u8> war = {123, 1, 'A', 0, 'B', 0, 66, 1, 5, 0, 0, 0};
+    REQUIRE(decodificar(std::span<const u8>(war).first(6), t, arena, ev));
+    REQUIRE(decodificar(std::span<const u8>(war).subspan(6), t, arena, ev));
+    CHECK(ev[0].tipo == Ev::GUERRA);
+    CHECK(ev[0].v[GU_TIPO] == 1);
+    CHECK(ev[0].s[1] == "B");
+    CHECK(ev[1].tipo == Ev::SENOR_CASTILLO);
+    CHECK(ev[1].id == 5);
+    CHECK(ev[1].v[0] == 1);
+    // Asedio: S_PacketBox 0 (empieza, castillo 4) y 4 (ocupado).
+    ev.clear();
+    std::vector<u8> asedio = {40, 0, 4, 0, 0};
+    REQUIRE(decodificar(asedio, t, arena, ev));
+    std::vector<u8> ocupado = {40, 4};
+    REQUIRE(decodificar(ocupado, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::ASEDIO);
+    CHECK(ev[0].v[GU_CASTILLO] == 4);
+    CHECK(ev[1].v[GU_TIPO] == 4);
+    // S_TaxRate, S_Deposit y S_Drawal.
+    ev.clear();
+    std::vector<u8> tasa = {72, 5, 0, 0, 0, 10, 50}, dep = {203, 5, 0, 0, 0}, ret = {224, 5, 0, 0, 0, 0x10, 0x27, 0, 0};
+    REQUIRE(decodificar(tasa, t, arena, ev));
+    REQUIRE(decodificar(dep, t, arena, ev));
+    REQUIRE(decodificar(ret, t, arena, ev));
+    CHECK(ev[0].v[CF_TIPO] == CF_TASA);
+    CHECK(ev[0].v[CF_B] == 50);
+    CHECK(ev[1].v[CF_TIPO] == CF_DEPOSITAR);
+    CHECK(ev[2].v[CF_TIPO] == CF_RETIRAR);
+    CHECK(ev[2].v[CF_B] == 10000);
+    // S_WarTime (opcode de S_MapID): 2026-11-01 20:00 con la fórmula del servidor da 86204.
+    ev.clear();
+    std::vector<u8> fecha = {150, 6, 0, 'J', 'S', 'T', 0, 0, 0, 0};
+    for (u32 i = 0; i < 6; ++i) {
+        const u32 v = 86204 + 4 * i;
+        for (int b = 0; b < 4; ++b) fecha.push_back(static_cast<u8>(v >> (8 * b)));
+        fecha.push_back(0);
+    }
+    REQUIRE(decodificar(fecha, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::FECHA_ASEDIO);
+    CHECK(ev[0].v[FA_N] == 6);
+    CHECK(ev[0].s[0] == "JST");
+    CHECK(std::abs(ev[0].v[FA_MINUTOS] - 29892720) < 182);
+    // S_MapID sigue siendo el mapa.
+    ev.clear();
+    std::vector<u8> mapid = {150, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar(mapid, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::MAPA);
+    CHECK(ev[0].v[0] == 4);
+    // Comandos.
+    // "agsel": la casa antes de los datos, sin el h 1.
+    ev.clear();
+    std::vector<u8> agsel = {119, 7, 0, 0, 0, 'a', 'g', 's', 'e', 'l', 0, '2', '6', '2', '1', '4', '5', 0, 2, 0, 'C', 0, 'G', 0};
+    REQUIRE(decodificar(agsel, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::HTML);
+    CHECK(ev[0].v[HT_CASA] == 262145);
+    CHECK(ev[0].v[HT_DATOS] == 2);
+    CHECK(ev[0].s[1] == "C\x01G");
+    // Una casa que no es un número (o demasiado larga) queda en 0: no se manda otra casa parecida.
+    for (const char* mala : {"12a3", "1234567890"}) {
+        ev.clear();
+        std::vector<u8> p = {119, 7, 0, 0, 0, 'a', 'g', 's', 'e', 'l', 0};
+        for (const char* c = mala; *c; ++c) p.push_back(static_cast<u8>(*c));
+        p.insert(p.end(), {0, 2, 0, 'C', 0, 'G', 0});
+        REQUIRE(decodificar(p, t, arena, ev));
+        CHECK(ev[0].v[HT_CASA] == 0);
+    }
+    // S_WarTime con un valor que no entra en i32 (×182): esa fecha se descarta, las otras quedan.
+    ev.clear();
+    std::vector<u8> fecha_mala = {150, 2, 0, 'J', 'S', 'T', 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0x7F, 0};
+    for (int b = 0; b < 4; ++b) fecha_mala.push_back(static_cast<u8>(86204u >> (8 * b)));
+    // c 0 de la segunda fecha y relleno: S_WarTime trae 30 bytes o más (si no, es S_MapID).
+    fecha_mala.insert(fecha_mala.end(), {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
+    REQUIRE(fecha_mala.size() - 1 >= 30);
+    REQUIRE(decodificar(fecha_mala, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::FECHA_ASEDIO);
+    CHECK(ev[0].v[FA_N] == 1);
+    CHECK(std::abs(ev[0].v[FA_MINUTOS] - 29892720) < 182);
+    igual(cmd::accion_npc(t, 7, "map", "262145"), {37, 7, 0, 0, 0, 'm', 'a', 'p', 0, '2', '6', '2', '1', '4', '5', 0});
+    igual(cmd::guerra(t, cmd::GUERRA_DECLARAR, "B"), {235, 0, 'B', 0});
+    igual(cmd::tasa_castillo(t, 5, 20), {200, 5, 0, 0, 0, 20});
+    igual(cmd::fondos_castillo(t, true, 5, 100), {35, 5, 0, 0, 0, 100, 0, 0, 0});
+    igual(cmd::fondos_castillo(t, false, 5, 100), {192, 5, 0, 0, 0, 100, 0, 0, 0});
+    igual(cmd::fecha_asedio(t), {4});
+    igual(cmd::responder_texto(t, 3, 512, "Casa"), {61, 0, 2, 3, 0, 0, 0, 0, 2, 1, 0, 'C', 'a', 's', 'a', 0});
+}
+
+TEST_CASE("3.80C (tw380): opcodes, vida en 4 bytes y S_Door") {
+    TablaOpcodes t;
+    REQUIRE(tabla_opcodes("tw380", t));
+    CHECK(t.cable_init == 150);
+    CHECK(t.cli(Cli::LOGINPACKET) == 119);
+    CHECK(t.srv(87) == Srv::CHARPACK);
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // S_HPUpdate (225): d 1234, d 2000.
+    std::vector<u8> hp = {225, 0xd2, 0x04, 0, 0, 0xd0, 0x07, 0, 0};
+    REQUIRE(decodificar(hp, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::HP);
+    CHECK(ev[0].v[0] == 1234);
+    CHECK(ev[0].v[1] == 2000);
+    // S_Door (209): h x, h y, c dirección, c 0x41 (no se pasa).
+    ev.clear();
+    std::vector<u8> puerta = {209, 0x10, 0x80, 0x20, 0x80, 1, 0x41};
+    REQUIRE(decodificar(puerta, t, arena, ev));
+    CHECK(ev[0].tipo == Ev::PUERTA);
+    CHECK(ev[0].v[PU_BLOQUEADA] == 1);
+    // En 3.63 la vida sigue en 2 bytes.
+    TablaOpcodes j;
+    REQUIRE(tabla_opcodes("jp363", j));
+    ev.clear();
+    std::vector<u8> hp363 = {42, 0xd2, 0x04, 0xd0, 0x07};
+    REQUIRE(decodificar(hp363, j, arena, ev));
+    CHECK(ev[0].v[1] == 2000);
+}
+
+TEST_CASE("Decodificar y responder S_MessageYN: forma larga (jp363) y corta (s3ep1)") {
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    // jp363: cable 155, h 0, d número=1337, h tipo=953, s "Ensayo"
+    TablaOpcodes jp;
+    tabla_opcodes("jp363", jp);
+    const u8 largo[] = {155, 0, 0, 0x39, 0x05, 0, 0, 0xb9, 0x03, 'E', 'n', 's', 'a', 'y', 'o', 0};
+    REQUIRE(decodificar({largo, sizeof largo}, jp, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PREGUNTA);
+    CHECK(ev[0].v[PR_NUMERO] == 1337);
+    CHECK(ev[0].v[PR_TIPO] == 953);
+    CHECK(ev[0].s[0] == "Ensayo");
+    // La respuesta larga: h tipo, d número, h tipo, h sí
+    Escritor r = cmd::responder(jp, 1337, 953, true);
+    const u8 esp_largo[] = {jp.cli(Cli::ATTR), 0xb9, 0x03, 0x39, 0x05, 0, 0, 0xb9, 0x03, 1, 0};
+    CHECK(std::memcmp(r.cuerpo().data(), esp_largo, sizeof esp_largo) == 0);
+
+    // s3ep1: cable 105, h tipo=953, s "Ensayo" (sin h 0 ni número)
+    ev.clear();
+    TablaOpcodes s3;
+    tabla_opcodes("s3ep1", s3);
+    const u8 corto[] = {105, 0xb9, 0x03, 'E', 'n', 's', 'a', 'y', 'o', 0};
+    REQUIRE(decodificar({corto, sizeof corto}, s3, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::PREGUNTA);
+    CHECK(ev[0].v[PR_TIPO] == 953);
+    CHECK(ev[0].s[0] == "Ensayo");
+    // La respuesta corta: h tipo, c sí
+    Escritor rc = cmd::responder(s3, 0, 953, true);
+    const u8 esp_corto[] = {s3.cli(Cli::ATTR), 0xb9, 0x03, 1};  // opcode + h tipo + c sí = 4 bytes justos
+    REQUIRE(rc.cuerpo().size() == 4);
+    CHECK(std::memcmp(rc.cuerpo().data(), esp_corto, sizeof esp_corto) == 0);
+}
+
+TEST_CASE("3.0 English / US 2009 (s3ep1): tabla de opcodes y saludo") {
+    TablaOpcodes t;
+    REQUIRE(tabla_opcodes("s3ep1", t));
+    CHECK(t.cable_init == 125);          // saludo: opcode 0x7D
+    CHECK(t.perfil.bytes_vida == 2);     // vida en 2 bytes, como 3.63
+    CHECK(t.perfil.bytes_catalizador_item == 0);  // S_AddItem/S_InvList sin el campo catalizador...
+    CHECK(t.perfil.bytes_cola_item == 0);         // ...ni la cola fija de 11 bytes del 3.63/3.80
+    CHECK(t.perfil.bytes_pre_pregunta == 0);      // S_MessageYN sin el h 0...
+    CHECK(t.perfil.bytes_numero_pregunta == 0);   // ...ni el número (el tipo va primero y hace de número)
+    CHECK(t.perfil.bytes_golpe_ataque == 1);      // S_AttackPacket: golpe/acierto en 1 byte (writeC), no 2
+    CHECK(t.srv(1) == Srv::CHARPACK);    // S_CharPack = 1
+    CHECK(t.srv(89) == Srv::SERVERVERSION);
+    CHECK(t.srv(63) == Srv::LOGINRESULT);
+    CHECK(t.srv(116) == Srv::LOGINTOGAME);  // S_Unknown1
+    CHECK(t.srv(82) == Srv::DOOR);          // S_Attribute
+    CHECK(t.cli(Cli::LOGINPACKET) == 113);
+    CHECK(t.cli(Cli::MOVECHAR) == 15);
+    CHECK(t.cli(Cli::PARTYLIST) == 77);
+
+    // S_AttackPacket del US 2009 (ATTACKPACKET = cable 35): el golpe va en 1 byte. Acierto con dir 3.
+    Arena arena(1024);
+    std::vector<Evento> ev;
+    const u8 golpe[] = {35, 1, 0x10, 0, 0, 0, 0x20, 0, 0, 0, 1, 3, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar({golpe, sizeof golpe}, t, arena, ev));
+    REQUIRE(ev.size() == 1);
+    CHECK(ev[0].tipo == Ev::ATAQUE);
+    CHECK(ev[0].id == 0x10);
+    CHECK(ev[0].v[AT_OBJETIVO] == 0x20);
+    CHECK(ev[0].v[AT_GOLPE] == 1);
+    CHECK(ev[0].v[AT_DIR] == 3);
+    // Un fallo con dirección (golpe 0, dir 4): leído con 2 bytes daría 0x0400 (un "acierto" falso) y la
+    // dirección saldría del byte siguiente; con el ancho de 1 byte del perfil es correctamente un fallo.
+    ev.clear();
+    const u8 fallo[] = {35, 1, 0x10, 0, 0, 0, 0x20, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0};
+    REQUIRE(decodificar({fallo, sizeof fallo}, t, arena, ev));
+    CHECK(ev[0].v[AT_GOLPE] == 0);
+    CHECK(ev[0].v[AT_DIR] == 4);
+
+    CHECK(tabla_opcodes("inexistente", t) == false);
+}
+
+TEST_CASE("S_BookmarkLoad (opcode 33, subtipo 42): todos los marcadores al entrar") {
+    TablaOpcodes t;
+    tabla_opcodes("jp363", t);
+    Arena arena(4096);
+    std::vector<Evento> ev;
+    // c 33, c 42, c 105, c 0, c 2, 104 × c (índices de los marcadores, luego 0xff), c 100, c 0, c 2, c 0.
+    std::vector<u8> carga = {33, 42, 105, 0, 2};
+    for (int i = 0; i < 104; ++i) carga.push_back(i < 2 ? static_cast<u8>(i) : 0xff);
+    carga.insert(carga.end(), {100, 0, 2, 0});
+    // "Plaza" en (100, 200), mapa 4, marcador 0x10015307 (los h van en little-endian).
+    carga.insert(carga.end(), {100, 0, 200, 0, 'P', 'l', 'a', 'z', 'a', 0, 4, 0, 0x07, 0x53, 0x01, 0x10});
+    // "Casa" en (1, 2), mapa 0x40, marcador 5.
+    carga.insert(carga.end(), {1, 0, 2, 0, 'C', 'a', 's', 'a', 0, 0x40, 0, 5, 0, 0, 0});
+    REQUIRE(decodificar(carga, t, arena, ev));
+    REQUIRE(ev.size() == 2);
+    CHECK(ev[0].tipo == Ev::MARCADOR);
+    CHECK(ev[0].id == 0x10015307u);
+    CHECK(ev[0].v[MK_MAPA] == 4);
+    CHECK(ev[0].v[MK_X] == 100);
+    CHECK(ev[0].v[MK_Y] == 200);
+    CHECK(std::string(ev[0].s[0]) == "Plaza");
+    CHECK(ev[1].tipo == Ev::MARCADOR);
+    CHECK(ev[1].id == 5);
+    CHECK(ev[1].v[MK_MAPA] == 0x40);
+    CHECK(ev[1].v[MK_X] == 1);
+    CHECK(ev[1].v[MK_Y] == 2);
+    CHECK(std::string(ev[1].s[0]) == "Casa");
+    // Sin marcadores: no hay eventos y el resto del paquete no se interpreta.
+    ev.clear();
+    std::vector<u8> vacio = {33, 42, 105, 0, 2};
+    for (int i = 0; i < 104; ++i) vacio.push_back(0xff);
+    vacio.insert(vacio.end(), {100, 0, 0, 0});
+    REQUIRE(decodificar(vacio, t, arena, ev));
+    CHECK(ev.empty());
 }

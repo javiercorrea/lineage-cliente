@@ -18,6 +18,36 @@ TEST_CASE("Atlas: estantes dentro de una página") {
     CHECK_FALSE(a.reservar(64, 10, 1, r3));  // más ancha que la página (con el margen)
 }
 
+TEST_CASE("Atlas: cabe dice si una imagen entra alguna vez (con su margen)") {
+    EmpaquetadoAtlas a(2048, 2);
+    CHECK(a.cabe(2047, 2047));
+    CHECK_FALSE(a.cabe(2048, 10));  // del tamaño de la página: con el margen no entra nunca
+    CHECK_FALSE(a.cabe(10, 70000));  // más que u16: no se trunca
+    RegionAtlas r;
+    CHECK(a.reservar(2047, 2047, 1, r));
+    CHECK_FALSE(a.reservar(2048, 1, 1, r));
+}
+
+TEST_CASE("Atlas: si todas las páginas se dibujan en el frame, al terminarlo se vacía la menos dibujada") {
+    EmpaquetadoAtlas a(32, 3);  // una imagen de 31×31 llena una página
+    RegionAtlas r;
+    REQUIRE(a.reservar(31, 31, 1, r));
+    REQUIRE(a.reservar(31, 31, 2, r));
+    REQUIRE(a.reservar(31, 31, 3, r));
+    a.fin_de_frame();
+    CHECK(a.tomar_reemplazada() == -1);  // hubo lugar: nada que vaciar
+    // Frame 4: la página 1 se dibuja mucho y la 2 una vez; algo nuevo no entra.
+    for (int i = 0; i < 5; ++i) a.usar(1, 4);
+    a.usar(2, 4);
+    CHECK_FALSE(a.reservar(31, 31, 4, r));
+    CHECK(a.tomar_reemplazada() == -1);  // no se vacía a mitad del frame
+    a.fin_de_frame();
+    CHECK(a.tomar_reemplazada() == 2);   // la menos dibujada
+    REQUIRE(a.reservar(31, 31, 5, r));   // en el frame siguiente ya entra
+    CHECK(r.pagina == 2);
+    CHECK(a.reemplazos() == 1);
+}
+
 TEST_CASE("Atlas: con las páginas llenas se reemplaza la usada hace más tiempo") {
     EmpaquetadoAtlas a(32, 3);  // una imagen de 31×31 llena una página
     RegionAtlas r;

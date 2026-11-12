@@ -1,4 +1,6 @@
 #include <algorithm>
+#include "plataforma/archivo_mapeado.h"
+#include "recursos/imagen.h"
 #include "ui/ui.h"
 
 namespace lin::ui {
@@ -67,6 +69,44 @@ bool campo(Graficos& g, const EntradaFrame& e, std::string& valor, int x, int y,
     return caja_texto(g, e, valor, x, y, ancho, foco, es_clave, maximo);
 }
 
+bool desplegable(Graficos& g, EntradaFrame& e, std::span<const std::string> opciones, size_t& elegido, bool& abierto, int x,
+                 int y, int ancho) {
+    const int fila = ALTO_GLIFO + 8;
+    const bool sobre_caja = sobre(e, x - 4, y - 4, ancho + 8, fila);
+    g.gpu().rectangulo(x - 4, y - 4, ancho + 8, fila, clave_orden(CAPA_UI, 3), abierto || sobre_caja ? rgba(60, 48, 30, 255) : rgba(30, 24, 16, 255));
+    g.gpu().rectangulo(x - 4, y + ALTO_GLIFO + 3, ancho + 8, 1, clave_orden(CAPA_UI, 4), rgba(150, 130, 90));
+    if (elegido < opciones.size()) g.texto(opciones[elegido], x, y, clave_orden(CAPA_UI_TEXTO, 0), COLOR_TEXTO);
+    g.texto("v", x + ancho - 6, y, clave_orden(CAPA_UI_TEXTO, 0), rgba(214, 190, 140));
+    bool cambio = false;
+    if (abierto) {
+        // La lista va en un nivel de ventana propio, encima de todo: si no, el texto de los
+        // controles de abajo (que va en CAPA_UI_TEXTO) se vería a través de ella.
+        const u32 nivel_antes = g.gpu().nivel_ventana();
+        g.gpu().nivel_ventana(31);
+        const u64 kf = clave_orden(CAPA_UI, 200), kt = clave_orden(CAPA_UI_TEXTO, 200);
+        const int ly = y - 4 + fila, lh = fila * static_cast<int>(opciones.size());
+        g.gpu().rectangulo(x - 5, ly - 1, ancho + 10, lh + 2, kf, rgba(150, 130, 90));
+        for (size_t i = 0; i < opciones.size(); ++i) {
+            const int fy = ly + fila * static_cast<int>(i);
+            const bool encima = sobre(e, x - 4, fy, ancho + 8, fila);
+            g.gpu().rectangulo(x - 4, fy, ancho + 8, fila, kf + (1ull << 24),
+                               encima ? rgba(90, 70, 40, 255) : i == elegido ? rgba(50, 40, 26, 255) : rgba(20, 16, 11, 255));
+            g.texto(opciones[i], x, fy + 4, kt, COLOR_TEXTO);
+            if (encima && e.clic) {
+                cambio = i != elegido;
+                elegido = i;
+            }
+        }
+        g.gpu().nivel_ventana(nivel_antes);
+        if (e.clic || e.escape) abierto = false;  // eligió, o tocó afuera
+        e.clic = e.escape = false;
+    } else if (sobre_caja && e.clic) {
+        abierto = true;
+        e.clic = false;
+    }
+    return cambio;
+}
+
 void texto_centrado(Graficos& g, std::string_view t, int x, int y, int w, u32 color) {
     g.texto(t, static_cast<float>(x + (w - ancho_texto(t.data(), t.size())) / 2), static_cast<float>(y),
             clave_orden(CAPA_UI_TEXTO, 0), color);
@@ -94,6 +134,210 @@ bool ventana(Graficos& g, const EntradaFrame& e, bool simple, int x, int y, std:
     }
     // Cerrar: la X del marco (o el "[x]"), arriba a la derecha.
     return e.clic && sobre(e, x + w - 28, y + 2, 26, 20);
+}
+
+void barra_scroll(Graficos& g, EntradaFrame& e, BarraScroll& st, int x, int y, int ancho, int alto, u32 total,
+                  u32 visibles, u32& pos, u64 clave, bool sobre_lista) {
+    if (total <= visibles) {
+        st = {};
+        pos = 0;
+        return;
+    }
+    const u32 max = total - visibles;
+    u32 p = std::min(pos, max);
+    if (sobre_lista && e.rueda) p = static_cast<u32>(std::clamp<i64>(static_cast<i64>(p) - e.rueda, 0, max));
+    const int flecha = ancho, pista_y = y + flecha, pista_h = alto - 2 * flecha;
+    const int pulgar_h = std::max(ancho, pista_h * static_cast<int>(visibles) / static_cast<int>(total));
+    const int libre = pista_h - pulgar_h;
+    auto pulgar_en = [&](u32 q) { return pista_y + static_cast<int>(static_cast<i64>(libre) * q / max); };
+    const bool arriba = boton_texto(g, e, "^", x, y, ancho, flecha);
+    const bool abajo = boton_texto(g, e, "v", x, y + alto - flecha, ancho, flecha);
+    if (!st.arrastrando) {  // soltar el pulgar sobre una flecha no es un clic en ella
+        if (arriba && p > 0) --p;
+        if (abajo && p < max) ++p;
+    }
+    const int pulgar_y = pulgar_en(p);
+    const bool en_pulgar = sobre(e, x, pulgar_y, ancho, pulgar_h);
+    if (e.pulsado && sobre(e, x, y, ancho, alto)) {
+        st.presionada = true;
+        if (en_pulgar) {
+            st.arrastrando = true;
+            st.movido = false;
+            st.agarre = e.my - pulgar_y;
+            st.my0 = e.my;
+        } else if (sobre(e, x, pista_y, ancho, pista_h)) {  // clic en la pista: una página
+            p = e.my < pulgar_y ? (p > visibles ? p - visibles : 0) : std::min(p + visibles, max);
+        }
+        e.pulsado = false;
+    }
+    if (st.arrastrando && e.presionado) {
+        if (e.my != st.my0) st.movido = true;
+        if (st.movido && libre > 0) {
+            // Al más cercano: pulgar_en redondea hacia abajo y, si no, la posición se correría una fila.
+            const i64 t = static_cast<i64>(e.my - st.agarre - pista_y);
+            p = static_cast<u32>(std::clamp<i64>((t * max + libre / 2) / libre, 0, max));
+        }
+    }
+    const bool activo = st.arrastrando || en_pulgar;
+    if (st.presionada && !e.presionado) {
+        st = {};
+        e.clic = false;
+    }
+    g.gpu().rectangulo(x, pista_y, ancho, pista_h, clave, rgba(20, 16, 12, 230));
+    g.gpu().rectangulo(x, pulgar_en(p), ancho, pulgar_h, clave + (1ull << 24),
+                       activo ? rgba(200, 170, 110, 255) : rgba(130, 108, 72, 255));
+    pos = p;
+}
+
+BotonesBarra botones_barra(int ancho) {
+    constexpr int LADO = 18, M = 4;
+#ifdef __APPLE__
+    return {M, M + LADO + M, LADO};  // [cerrar][minimizar], como en macOS
+#else
+    // MULTIPLATAFORMA: sin probar en Linux ni Windows.
+    return {ancho - LADO - M, ancho - 2 * LADO - 2 * M, LADO};
+#endif
+}
+
+void barra_ventana(Graficos& g, const EntradaFrame& e, std::string_view titulo, int x0, int y0, int ancho) {
+    g.gpu().rectangulo(x0, y0, ancho, BARRA_VENTANA_ALTO, clave_orden(CAPA_UI, 0), rgba(44, 34, 24));
+    texto_centrado(g, titulo, x0, y0 + 7, ancho, COLOR_TITULO);
+    const BotonesBarra b = botones_barra(ancho);
+    // Solo se dibujan (el resultado de los clics lo decide barra_evento).
+    boton_texto(g, e, "-", x0 + b.minimizar, y0 + 4, b.lado, b.lado);
+    boton_texto(g, e, "x", x0 + b.cerrar, y0 + 4, b.lado, b.lado);
+}
+
+namespace {
+
+constexpr int BORDE_GRUESO = 6;  // puntos
+constexpr int TAM_MIN_W = 320, TAM_MIN_H = 240;
+
+bool en_rango(int v, int inicio, int lado) { return v >= inicio && v < inicio + lado; }
+
+// Botón de la barra bajo (gx, gy) de la cuadrícula: 1 minimizar, 2 cerrar, 0 la barra sin botón, -1 fuera.
+int boton_bajo(const Gpu& gpu, int gx, int gy) {
+    const int ancho = gpu.grid_ancho();
+    if (gy < 0 || gy >= BARRA_VENTANA_ALTO || gx < 0 || gx >= ancho) return -1;
+    const BotonesBarra b = botones_barra(ancho);
+    if (en_rango(gx, b.cerrar, b.lado)) return 2;
+    if (en_rango(gx, b.minimizar, b.lado)) return 1;
+    return 0;
+}
+
+// Bordes de la ventana bajo (x, y) en puntos de la ventana.
+int bordes_bajo(SDL_Window* v, float x, float y) {
+    int ww = 0, wh = 0;
+    SDL_GetWindowSize(v, &ww, &wh);
+    int b = 0;
+    if (x < BORDE_GRUESO) b |= BORDE_IZQ;
+    if (x >= ww - BORDE_GRUESO) b |= BORDE_DER;
+    if (y < BORDE_GRUESO) b |= BORDE_ARR;
+    if (y >= wh - BORDE_GRUESO) b |= BORDE_ABA;
+    return b;
+}
+
+void empezar_arrastre(SDL_Window* v, Barra& b, int bordes) {
+    SDL_GetGlobalMouseState(&b.raton_x, &b.raton_y);
+    SDL_GetWindowPosition(v, &b.vx, &b.vy);
+    SDL_GetWindowSize(v, &b.vw, &b.vh);
+    b.bordes = bordes;
+    b.arrastrando = true;
+}
+
+}  // namespace
+
+bool barra_evento(Gpu& gpu, SDL_Window* v, Barra& b, const SDL_Event& ev, bool activa) {
+    if (!activa) return false;
+    switch (ev.type) {
+    case SDL_EVENT_MOUSE_BUTTON_DOWN: {
+        if (ev.button.button != SDL_BUTTON_LEFT) return false;
+        int gx = 0, gy = 0;
+        gpu.a_grilla(ev.button.x, ev.button.y, gx, gy);
+        const int boton = boton_bajo(gpu, gx, gy);
+        if (boton > 0) {  // los botones van primero (también sobre el borde superior)
+            b.pulsada = true;
+            b.boton = boton;
+            return true;
+        }
+        const int bordes = b.redimensionable ? bordes_bajo(v, ev.button.x, ev.button.y) : 0;
+        if (bordes) {
+            b.pulsada = true;
+            b.boton = 0;
+            empezar_arrastre(v, b, bordes);
+            return true;
+        }
+        if (boton == 0) {  // la barra sin botón: arrastra la ventana
+            b.pulsada = true;
+            b.boton = 0;
+            empezar_arrastre(v, b, 0);
+            return true;
+        }
+        return false;
+    }
+    case SDL_EVENT_MOUSE_BUTTON_UP: {
+        if (ev.button.button != SDL_BUTTON_LEFT || !b.pulsada) return false;
+        int gx = 0, gy = 0;
+        gpu.a_grilla(ev.button.x, ev.button.y, gx, gy);
+        // Un botón cuenta si se soltó sobre el mismo que se presionó (y no se arrastró).
+        if (!b.arrastrando && b.boton > 0 && boton_bajo(gpu, gx, gy) == b.boton)
+            b.accion = b.boton == 1 ? AccionBarra::MINIMIZAR : AccionBarra::CERRAR;
+        b.pulsada = false;
+        b.arrastrando = false;
+        b.boton = 0;
+        return true;
+    }
+    case SDL_EVENT_MOUSE_MOTION:
+        return b.pulsada;  // lo que empezó en la barra no llega al juego
+    default:
+        return false;
+    }
+}
+
+AccionBarra barra_frame(SDL_Window* v, Barra& b) {
+    if (b.arrastrando) {
+        float x = 0, y = 0;
+        if (!(SDL_GetGlobalMouseState(&x, &y) & SDL_BUTTON_LMASK)) {
+            b.arrastrando = false;  // soltado fuera de la ventana: el evento de subida cierra el resto
+        } else {
+            const int dx = static_cast<int>(x - b.raton_x), dy = static_cast<int>(y - b.raton_y);
+            if (b.bordes == 0) {
+                SDL_SetWindowPosition(v, b.vx + dx, b.vy + dy);
+            } else {
+                int x0 = b.vx, y0 = b.vy, w = b.vw, h = b.vh;
+                if (b.bordes & BORDE_IZQ) {
+                    w = std::max(TAM_MIN_W, b.vw - dx);
+                    x0 = b.vx + b.vw - w;
+                }
+                if (b.bordes & BORDE_DER) w = std::max(TAM_MIN_W, b.vw + dx);
+                if (b.bordes & BORDE_ARR) {
+                    h = std::max(TAM_MIN_H, b.vh - dy);
+                    y0 = b.vy + b.vh - h;
+                }
+                if (b.bordes & BORDE_ABA) h = std::max(TAM_MIN_H, b.vh + dy);
+                SDL_SetWindowPosition(v, x0, y0);
+                SDL_SetWindowSize(v, w, h);
+            }
+        }
+    }
+    const AccionBarra acc = b.accion;
+    b.accion = AccionBarra::NINGUNA;
+    return acc;
+}
+
+void poner_icono(SDL_Window* ventana, const char* archivo) {
+    const char* base = SDL_GetBasePath();
+    std::vector<u8> b;
+    if (!leer_archivo(std::string(base ? base : "") + "datos/iconos/" + archivo, b) &&
+        !leer_archivo(std::string("datos/iconos/") + archivo, b))
+        return;
+    ImagenRGBA img;
+    if (!decodificar_png(b, img, false)) return;
+    // RGBA32 = bytes R, G, B, A, como ImagenRGBA.
+    if (SDL_Surface* s = SDL_CreateSurfaceFrom(img.ancho, img.alto, SDL_PIXELFORMAT_RGBA32, img.px.data(), img.ancho * 4)) {
+        SDL_SetWindowIcon(ventana, s);
+        SDL_DestroySurface(s);
+    }
 }
 
 }  // namespace lin::ui

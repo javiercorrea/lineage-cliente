@@ -158,7 +158,8 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
   - **Ahora:** esos tiles se decodifican con alfa 50 % (`ALFA_TRANSLUCIDO`) y se mezclan con el suelo.
   - **Personajes en la sombra:** dibujar la sombra encima del personaje lo oscurecería también donde el cuerpo sube por encima de ella. En su lugar, el personaje cuya celda tiene una sombra se dibuja oscurecido (×150/255). F5 lo apaga (`sombra_personajes` en `settings.ini`). No hay forma de compararlo con el original desde los datos.
   - **Verificado:** capturas con F5 encendido y apagado junto al árbol del punto de inicio: el personaje en la sombra se oscurece y fuera de ella queda igual. Hay un test con el `.s32` real.
-- Luz y noche (S_Light y S_GameTime se reciben y guardan, pero todavía no se dibujan), y clima.
+- Luz y noche: hechas después, ver [PLAN_LUZ_AGUA.md](docs/analisis/PLAN_LUZ_AGUA.md) (noche, mazmorras, luces, agua, visión de elfo y borrachera).
+  Costo de la oscuridad contra `efecto_luz=0`, vista de 2560×1654 a zoom 1, CPU por frame: de noche en un lugar poblado (37 240 instancias), 2,08 contra 1,69 ms en optimizado y 9,13 contra 6,18 en `debug`; en mazmorra, 2,98 contra 2,80 y 5,44 contra 4,30. Sin asignaciones por frame. Cinco muestras de un segundo: la base varía entre corridas, así que vale la diferencia. Contador de fps en pantalla: Shift+F3 (`luz_contador_fps.png`).
 - Las acciones puntuales (ataque, daño) se guardan y animan, pero el combate es el entregable 5.
 - Rendimiento: ver la sección [Rendimiento](#rendimiento) (precarga en un hilo, reemplazo LRU del atlas y test de cero allocations).
 
@@ -217,7 +218,7 @@ local (`servidor_local/`), con la instalación de Lineage Justice. Las capturas 
 
 **Pendiente o conocido:**
 - **Ventana de estado:** no encontré la imagen exacta del original en esta instalación. Se usa el marco genérico `4131.img` con el contenido escrito encima.
-- **Colores:** los de cada canal y los de los códigos `\fX` son aproximados. La paleta real está en `lin.bin`.
+- **Colores:** los de cada canal son aproximados. Los códigos `\fX` usan la paleta real del original (`mundo/chat.cpp`, ver DESCUBRIMIENTOS.md); los títulos los dibujan por tramos y el chat toma el primero para toda la línea.
 - **Entrada de texto:** acepta solo ASCII. Para escribir en coreano falta la conversión de UTF-8 a CP949 de la entrada IME.
 - **Lo que todavía no hace el panel:**
   - las flechas de desplazamiento y el botón para agrandar el chat (`1045`–`1056`) son gráficos sin función;
@@ -562,7 +563,7 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 - **Página del clan:** `S_Pledge` manda 3 datos (clan, conectados, todos), pero las páginas "pledge" y "pledgeM" leen 5 (`#1` y `#3` son las cantidades). El cliente las cuenta y reordena.
 - **Emblema:** se pide una vez por clan con `C_Clan` y llega en `S_Emblem` (16 × 12 píxeles RGB555); se dibuja a la izquierda del nombre. `/emblem` sube uno de muestra (el original lo carga de un archivo).
 
-**Títulos y alineamiento:** el título (`S_CharTitle`) va arriba del nombre. El nombre de los jugadores es azul con alineamiento ≥ 500, rojo con ≤ −500 y blanco en el medio; el objetivo sigue en amarillo.
+**Títulos y alineamiento:** el título (`S_CharTitle`) va arriba del nombre. El nombre de los jugadores cambia gradualmente con el alineamiento: blanco en 0, celeste hacia azul (16000 o más) y rosa hacia rojo (−16000 o menos); el objetivo sigue en amarillo. Mascotas e invocaciones muestran "Dueño's" arriba del nombre.
 
 **Verificado** (dos clientes a la vez contra el servidor local):
 - **Grupo:** Charla (`--decir="/invite Prueba"`) invita a Prueba (`--aceptar`), que recibe la pregunta 953 y acepta. "/party" muestra "Leader: Charla" con los dos miembros.
@@ -626,7 +627,7 @@ Completa lo que el paso 6.5 había adelantado (lanzar, efectos visuales y aditiv
 **Monstruos sin sprite** (`tipo_objeto` en `app/npc_ui.cpp`):
 - **Qué son:** 30 de los monstruos de la base de esta versión usan un gfx que falta en la tabla de sprites y en los `.pak` (Depraved Soul, gfx 8457, y los de las islas nuevas). Se dibujan como un bloque magenta.
 - **Antes:** el bloque era de 8×8 y no se podía elegir. Además, como su gfx no tiene tipo (atributo 102), se lo trataba como un NPC: el clic caminaba hasta él para hablarle.
-- **Ahora:** el bloque es del tamaño de un cuerpo (24×36), entra en la lista de cosas clicables, y un gfx sin acciones en la tabla cuenta como monstruo: el clic lo ataca y el cursor es la espada.
+- **Ahora:** el bloque es del tamaño de un cuerpo (24×36), entra en la lista de cosas clicables, y un gfx sin acciones en la tabla cuenta como monstruo: el clic lo ataca y el cursor es la espada. Los jugadores (nombre propio y nivel 0) siguen siendo personajes.
 - **Verificado:** `.spawn 46186` junto a Charla y un clic simulado (`--arrastrar`): caminó hasta él y atacó (3 efectos de ataque). Captura: `docs/capturas/10_monstruo_sin_sprite.png`.
 
 **Techos y árboles translúcidos** (`dibujar_objetos_mapa` en `app/pantalla_juego.cpp`):
@@ -751,6 +752,252 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
   - sin flechas el servidor cuenta el disparo como fallo y no avisa; el cliente tampoco;
   - el arco a dos manos con un escudo puesto da "You cannot take that off" si el escudo está sellado.
 
+## Basurero, detalle de los ítems e identificar
+
+![Ítem identificado](docs/capturas/item_identificado.png) ![Basurero](docs/capturas/basurero.png)
+
+- **Basurero** (`C_DeleteInventoryItem`; `app/inventario_ui.cpp`, `app/cantidad_ui.cpp`): ícono abajo a la derecha del inventario. Arrastrar un ítem encima lo elimina, también lo que no se puede soltar ni vender. Siempre pregunta, con el diálogo de cantidad: cuántos de una pila, o confirmar si es uno. El servidor rechaza lo equipado, lo que no se puede borrar y lo sellado (con su mensaje). **Verificado:** una pila de 5 Potion of Bravery de Charla quedó en 3 (`S_ItemAmount` y la base); arrastrar al basurero abre la confirmación.
+- **Detalle de un ítem:** al pasar el mouse, el nombre y, si está identificado, sus atributos, uno por línea: daño o AC, material, peso, encantamiento, dos manos, clases que lo usan, acierto y daño (también con arco), FUE…CAR, HP, MP, SP, MR, resistencias a elementos y a estados, regeneración, bono de experiencia, robo de HP o MP. Si no está identificado, "Unidentified". Los atributos (`getStatusBytes` del servidor) llegan en `S_AddItem`, `S_InvList` y `S_ItemStatus`; antes el decodificador los saltaba. Se guardan por ítem (`I_ATRIBUTOS`) y `describir_atributos` (`mundo/inventario.cpp`) los pasa a texto.
+- **Pergaminos que se usan sobre otro ítem** (identificar, encantar arma y armadura: usos 7, 14, 26 y 27): el servidor lee en `C_UseItem` el ítem objetivo, y el cliente no lo mandaba, así que no funcionaban. Ahora, al usarlo, el pie del inventario pide "Click the target item" y el clic en un ítem manda `C_UseItem` con el objetivo; Esc cancela. `S_IdentifyDesc` sale como mensaje del servidor en el chat.
+- **Verificado:** un "Helmet of Magic Resistance" +2 sin identificar ("Unidentified"); `--usar="Scroll of Identify"` y un clic sobre el casco: `S_ItemStatus` con los atributos y `S_IdentifyDesc`; el detalle muestra AC 2, hierro, peso 35, Enchant +2, todas las clases y MR +6. Tests del formato (un arma y una armadura), de los paquetes y de los comandos.
+- **Pendiente o conocido:** los pergaminos de encantar no se probaron (mismo camino que identificar); el grado de los accesorios llega pero no se muestra; los textos del detalle están en inglés como el resto de la interfaz.
+
+## Invisibilidad, resucitar, modo espectador y volver al login
+
+![Resucitado](docs/capturas/resucitar.png)
+
+- **Invisible** (`S_Invis`: d id, c 1/0): el servidor se lo manda al propio personaje (capa de invisibilidad, hechizo, `.invisible` de GM); a los demás les llega `S_RemoveObject`. El personaje se dibuja translúcido (`FLAG_INVISIBLE`, el mismo flag de `S_CharPack`, así que un GM ve igual a los invisibles). **Verificado:** `.invisible` con Charla: `S_Invis` 1 y el personaje translúcido.
+- **Resucitar** (`S_Resurrection`: d quién, c tipo, d quién lo revivió, d clase): va al resucitado y a quienes lo ven. El cadáver vuelve a estar vivo (sin la acción de morir) y, si es el jugador, desaparece el cuadro "You have died". **Verificado** con dos clientes: Prueba (no GM) con `--aceptar` y Charla con `.recall Prueba`, `.death Prueba` y, unos segundos después, `.ress`: la pregunta 322, el sí (`C_Attr`), `S_Resurrection` y Prueba de pie con 89/89.
+  - Si `.ress` llega en el mismo instante que `.death`, el servidor manda la acción de morir después de `S_Resurrection` (la muerte se anima con retraso) y el cliente queda mostrando el cadáver de alguien vivo. Solo pasa con los comandos de GM seguidos.
+- **Modo espectador** (fantasma: mirar el Ultimate Battle por 100 adena, o después de perder ahí): con el flag 128 del propio personaje aparece arriba el botón "Leave spectator mode", que manda `C_ExitGhost` y el servidor lo devuelve a donde estaba. **No probado en vivo** (hace falta un Ultimate Battle); el comando, con test.
+- **Volver al login** ("Back" en la selección de personaje): avisa con `C_ReturnToLogin` antes de cortar, como el original. **Verificado:** el paquete sale y el login siguiente entra sin "ya conectado". `--pulsar` ahora también funciona en la selección de personaje.
+
+## Portales
+
+- **Formato** (`recursos/mapa.*`): el final del `.s32`, después de los objetos, tiene tres bloques: `u32 n` × 5 bytes (los "HideSwitches" de l1j-client), `u32 n` × u32 (juegos de tiles) y `u16 n` portales × {u8 largo, nombre, u8 x en medias celdas, u8 y, u16 mapa destino, i16, i16}. l1j-client los leía con otro formato (registros fijos de 9 bytes) y salía basura.
+- **Contra el servidor** (mapa 4): el cliente tiene 120 portales (67 son cruces dentro del mismo mapa); de los 74 de la tabla `dungeons`, 42 están en la misma celda (38 con el mismo mapa destino), 6 en una vecina y 26 solo los tiene el servidor.
+- **Uso** (`mover_jugador`): al intentar entrar a una celda bloqueada que es un portal del mapa, `C_EnterPortal` con su celda, como el original. Los que solo tiene el servidor siguen con el paso hacia la celda bloqueada (`C_MoveChar`, que también mira la tabla). En una celda pasable alcanza el paso normal: así un portal que el servidor no tiene no impide pisarla.
+- **Verificado:** Charla en (32686, 33377) y un paso al norte: `C_EnterPortal` (32686, 33376) y el teletransporte al castillo de Windawood (mapa 29). Test del formato con el segmento real (`tests/test_recursos.cpp`).
+
+## Buffs: íconos y encantar arma o armadura
+
+![Íconos de buffs](docs/capturas/buffs_iconos.png)
+
+- **Íconos que faltaban:** Enchant Strength (Mighty) y Enchant Dexterity, y los de elfo (Dress Mighty/Dexterity), llegan en `S_Strup` (120) y `S_Dexup` (28), que no se decodificaban. Ahora son efectos activos con el ícono del hechizo (tipo 5 mago, 2 elfo; las pociones, "STR"/"DEX").
+- **Bless Weapon, Holy Weapon, Enchant Weapon, Blessed Armor, Shadow Fang:** el servidor no manda ícono, solo el mensaje 161 ("... brilla"). El cliente registra el efecto al recibirlo después de lanzarlo, con la duración de `spells` (`duration=`).
+- **Enchant Weapon y Blessed Armor no funcionaban:** el servidor lee en `C_UseSkill`, en el lugar del objetivo, el ítem a encantar (`_itemobjid`), y el cliente no lo mandaba (respondía 79, "no pasó nada"). Ahora manda el arma o la armadura (cuerpo) equipada; la clase de `spells` dice cuál (`SpellEnchantWeapon`, `SpellBlessedArmor`; `SpellEnchantCurrentWeapon` usa la equipada sin indicarla).
+- **Verificado** con Aprendiz (maga) y la daga equipada: Enchant Strength (`S_Strup` 1200 s), Bless Weapon (161), Enchant Dexterity (`S_Dexup`) y Enchant Weapon (con el id de la daga: 161) muestran sus cuatro íconos (20m, 20m, 20m, 30m). Blessed Armor sin armadura equipada: 79, como corresponde.
+- **Buffs sin paquete de ícono** (Advance Spirit, Light, Counter Magic, muchos de elfo, caballero y elfo oscuro): el cliente original trae en `spells` la duración de cada uno, así que lleva el tiempo él mismo. Ahora, al lanzar un buff sobre sí mismo, el ícono se pone cuando llega su gráfico (`S_SkillSound` con el `graphic=` de `spells`) sobre el personaje en los 3 s siguientes; sin `graphic=` (Light), vale el primero que llegue en 1,5 s. Si el servidor también manda el suyo (Holy Walk, Shield...), se dibuja uno solo. **Verificado** con Aprendiz: Advance Spirit (20m), Light (60m) y Holy Walk (59s, una sola vez) (`docs/capturas/buffs_propios.png`); con Cloud (caballero, nivel y vida subidos solo para la prueba y después restaurados): Reduction Armor y Solid Carriage quedan registrados.
+- **Magias sin ícono en los datos:** `spellicon.idx` tiene 168 entradas y en 0 las de caballero (Shock Stun, Reduction Armor, Bounce Attack, Solid Carriage, Counter Barrier), Armor Break, Avatar, Triple Arrow, Elemental Falldown, Counter Mirror, Aqua Protect, las de elfo 169–176 y Bloodlust; las de caballero dragón (181–195) e ilusionista (201–220) quedan fuera del archivo. Se ven como un recuadro con las primeras letras del nombre. Hay una serie de íconos de estado (1576–1600, el estilo del de Holy Walk, 1578) que probablemente son esos, pero ningún archivo de datos legible dice cuál es cuál: esa tabla debe estar en `lin.bin` (cifrado). Pendiente: asignarlos a mano, comparando con el original.
+
+## Hechizos de área alrededor del lanzador
+
+![Tornado](docs/capturas/area_tornado.png) ![Blizzard](docs/capturas/area_blizzard.png)
+
+- **Sin objetivo:** Tornado, Fire Storm, Blizzard y Freezing Blizzard afectan el área alrededor del lanzador (en el servidor, objetivo "none" con área 4, 3, 10 y 10). La ficha dice "Area of Effect Within N cells", igual que Lightning Storm y Meteor Strike, que sí van sobre un objetivo; la diferencia está en `spells`: las primeras no tienen `range=`. Ahora se lanzan al instante, sin pedir objetivo.
+- **El gráfico:** llega en `S_RangeSkill` tipo 0 con la lista de afectados; el cliente lo ponía sobre cada monstruo (y sin monstruos, no se veía nada). Ahora va en la celda del lanzador y se reparte según la clase de `spells`: `SpellTornado`, 4 copias (arriba, abajo, izquierda y derecha en pantalla, a la mitad del área); `SpellBlizzard`, una cada 3 celdas en todo el círculo del área (10 celdas: toda la pantalla original). Los sprites (758, 1819, 757, 3933) son de un solo cuadro de efecto: el original arma la composición en el ejecutable, así que la disposición es aproximada.
+- **Verificado** con Aprendiz: Tornado y Blizzard sin objetivo (`C_UseSkill` de 4 bytes; el servidor responde con `S_RangeSkill` tipo 0) y las capturas. Tests de la clasificación y del paquete.
+- **Pendiente:** comparar con el original la distancia de los 4 tornados y la densidad de la ventisca.
+
+## Colores de los nombres: PK y nivel de los monstruos
+
+![Nivel](docs/capturas/nombres_nivel.png) ![Rosa](docs/capturas/nombre_rosa.png)
+
+- **Nombre rosa** (`S_PinkName`: d id, d segundos): quien ataca a otro jugador legal en zona normal queda rosa 180 s (a él y a quienes lo ven); con 0 segundos, termina. Se guarda por objeto (`O_ROSA`). **Verificado** con dos clientes en un campo del mapa 4: Charla con Ctrl ataca a Prueba; llega `S_PinkName` 180 a los dos y Charla se ve rosa. (Después, los dos de vuelta en Talking Island.)
+- **Monstruos según su nivel:** `S_NPCPack` trae el nivel del monstruo (el segundo byte después del HP; en los personajes es 0). El nombre va blanco si es mucho más bajo que el jugador (≤ −10), verde si es parecido, amarillo si es algo más alto (≥ +5) y rojo si es mucho más alto (≥ +10) (`nivel_relativo`, `DIF_*` en `mundo/mundo.h`). Los NPC siguen en celeste. **Verificado** con Aprendiz (nivel 30): Rock Golem (5) blanco, Scorpion (26) verde, Elekkadom (35) amarillo, Jack-O-Lantern (45) rojo.
+- **Pendiente:** los umbrales son aproximados (como lo recordaba el usuario; no están en los datos); los jefes no se distinguen: el paquete no dice si un monstruo es jefe.
+
+## Pociones de FUE y DES, otros efectos y reiniciar atributos
+
+![Reiniciar atributos](docs/capturas/reiniciar_atributos.png) ![Poción de FUE](docs/capturas/pocion_fue.png)
+
+- **Pociones de FUE y DES** (Flora, estímulo, talento): llegan como `S_Strup`/`S_Dexup` con el aumento en el lugar del tipo (6), así que no se distinguen de las magias por el paquete; el ícono es el del ítem recién usado. **Verificado** con Aprendiz y la poción 40922: `S_Strup` 300 s y el ícono de la poción (5m).
+- **`S_Liquor`:** 1 borracho (la pantalla se mece hasta el 0), 8 tercer acelerador: todas las acciones × 0,87 (como en el `AcceleratorChecker` del servidor) y su efecto en la barra (600 s; el paquete no trae el tiempo). **`S_SkillIconBlessOfEva`:** respirar bajo el agua, con su tiempo. **`S_Ability`:** anillos de control de teletransporte e invocación; se guardan (el cliente ya pregunta el destino del teleport y la invocación llega como página del servidor).
+- **Reiniciar atributos** (`app/reinicio_ui.cpp`; `S_CharReset` comparte el número 33 con el menú de mascota: subtipos 1–3): con la Candle of Reminiscence se habla con Lolo (Gludio, acción "ent"); el servidor lleva al personaje al mapa 997 y abre la ventana:
+  1. los 75 puntos iniciales como al crear el personaje (el servidor no los valida: cada atributo entre la base y base + bonus de la clase, y la suma 75; las tablas de `pantalla_crear.cpp`);
+  2. subir de nivel: de a 1 o de a 10 hasta el 50; desde ahí cada nivel suma un punto en un atributo elegido; el último nivel termina (`C_CharReset` 2, 8 + atributo);
+  3. si hay elixires, repartir esos puntos (`S_CharReset` 3, `C_CharReset` 3).
+  **Verificado** con Aprendiz (maga, nivel 30) y `--reiniciar-atributos`: `S_CharReset` 1 (12/6/10/30), los atributos iniciales, 2 × 10 niveles y 9 × 1 con su `S_CharReset` 2, el fin, la vela consumida y de vuelta en Gludio con nivel 30. Después se restauró su fila de la base.
+- **Pendiente:** el reparto de los elixires no se probó (Aprendiz no tiene); el original muestra la ventana con imágenes propias, esta es una ventana de texto.
+
+## Grupo, bloqueados, amigos y sonidos del servidor
+
+![Panel del grupo](docs/capturas/grupo_panel.png)
+
+- **Panel del grupo** (`dibujar_grupo`, `app/social_ui.cpp`): `S_PacketBox` 104 trae la lista con el líder y la vida de cada uno (al que se une), 105 el que se une (a los demás), 106 el líder nuevo; la vida se actualiza con `S_HpMeter`, que el servidor manda a todo el grupo aunque estén lejos. Se vacía con los mensajes 418 (disuelto), 419 (echado) o 420 con el propio nombre. A la izquierda, a media altura, los otros miembros con su barra de vida y el líder con "*". **Verificado** con dos clientes en el mapa 2005: Charla `/invite Prueba`, Prueba con `--aceptar`: a Prueba le llega 104 y ve "* Charla" con su vida; a Charla, 105 y "Prueba entered the party".
+  - El servidor manda la vida de la lista 104 como 0 o 100 (calcula `(int)(hp/max) * 100`); la real llega enseguida con `S_HpMeter`.
+- **Bloqueados:** `/exclude Nombre` (`C_Exclude`) bloquea o desbloquea; el servidor confirma con `S_PacketBox` 18 o 19 y manda la lista con 17. **Verificado:** `/exclude Hooper` → 18.
+- **Amigos:** `/buddy` (`C_Buddy`: la página "buddy" con la lista y quién está conectado), `/addbuddy` y `/delbuddy`. **Verificado:** `/buddy` → `S_ShowHTML` "buddy".
+- **Grupo de chat:** `/chatparty` (la lista), `/chatoutparty`, `/chatbanish Nombre` (`C_ChatParty`). **Verificado:** `/chatparty` fuera de un grupo de chat → mensaje 425.
+- **`S_Sound`:** el sonido que pide el servidor (`sound/<n>.wav`). Con test; no se buscó en vivo qué ítem lo dispara.
+
+## Tienda de jugadores
+
+![Tienda](docs/capturas/tienda_jugador.png)
+
+- **Dónde:** solo en las salas del mercado (mapas 340, 350, 360 y 370; fuera, el servidor responde el mensaje 876).
+- **Vendedores** (`app/tienda_ui.cpp`): `S_DoActionGFX` con la acción 70 trae el título de la tienda (también a quien llega después). Se los dibuja sentados (el último cuadro de la acción 70) con el título sin fondo y con sus colores sobre el nombre. Un clic camina hasta 2 celdas y pide la lista (`C_ShopList`); `S_PrivateShop` tipo 0 trae lo que vende (orden, bendición, ícono, cantidad, precio y nombre) y tipo 1 lo que compra, solo con los ítems propios que le sirven.
+- **Comprar y venderle:** la ventana tiene "Sells" y "Buys"; un clic en una línea pregunta cuántos con el diálogo de cantidad y manda `C_Result` tipo 0 (orden y cantidad) o tipo 1 (ítem propio, cantidad en 3 bytes y orden); después pide la lista otra vez.
+- **La propia:** `/shop Título` abre la ventana para armarla: un clic en un ítem del inventario pide el precio por unidad y lo agrega con toda la pila; "Open" la abre (`C_Shop` 0 con la lista y el título) y "Close shop" (o `/shop` otra vez) la cierra (`C_Shop` 1).
+- **Verificado** con dos clientes en el mapa 340 y `--tienda-propia` / `--cantidad`: Charla abre "Vendo pociones" con 3 Potion of Bravery a 50; Prueba la ve sentada con el título, hace clic (a 5 celdas: 3 pasos y la lista), compra 1: `S_AddItem`, su adena 106 → 56 y la lista con 2. En la base: Prueba 56 adena y 1 poción; Charla +50 adena y 2 pociones. (Después, las dos de vuelta en Talking Island.)
+- **Pendiente:** la propia solo vende (la lista de compra de `C_Shop` va vacía); "Buys" (venderle a otro) no se probó en vivo; el precio y el título no se pueden editar en la ventana (el título va con `/shop Título`).
+
+## Tablón de los pueblos y correo
+
+![Tablón](docs/capturas/tablon.png) ![Correo](docs/capturas/correo.png) ![Correo nuevo](docs/capturas/correo_sobre.png)
+
+- **Tablón** (`app/tablon_ui.cpp`; gfx 1544, 1546, 1557, 1559, 2205, 2207): un clic camina hasta él y manda `C_Board` (antes iba `C_NPCTalk`, que el servidor no responde para el tablón). `S_Board` trae una página de hasta 8 temas (id, autor, fecha, título; la primera además el costo, 300); "Next" pide la siguiente con el último tema (`C_BoardBack`); un clic lee el tema (`C_BoardRead` / `S_BoardRead`); "Write" (título y texto) publica (`C_BoardWrite`) y el autor puede borrar el suyo (`C_BoardDelete`). El servidor cobra las 300 adena sin revisar que alcancen: el cliente no deja publicar sin ellas.
+- **Correo** (`app/correo_ui.cpp`): `/mail` abre la bandeja (Inbox, Clan, Saved: `C_Mail` 0–2); un clic lee la carta (0x10+), "Delete" (0x30+) y "Keep" (0x40, a guardadas). "Write" escribe a un personaje (50 adena) o a todo el clan (1000 por miembro): destinatario, asunto y texto. El asunto y el texto van en UTF-16LE (asunto, 0 0, texto, 0 0); el cliente escribe y muestra solo ASCII (lo demás, "?"). Una carta nueva (`S_Mail` 0x50) avisa en el chat. El servidor manda la bandeja al entrar al juego.
+- **Verificado** en el tablón de Talking Island (mapa 0) y con dos personajes, escribiendo con `--pulsar` y clics simulados: Charla publica "Hola tablon" (`C_BoardWrite`, la página con 1 tema, 300 adena menos en la base), lo lee ("Charla 26/10/31 Hola tablon") y lo borra (la página vacía; 0 temas en la base). Charla le escribe a Prueba "Hola correo" (`S_Mail` 0x50 de la copia y 0x20 entregada); Prueba abre `/mail` y lee "From Charla: Hola correo".
+- **Gráficos del original:** la ventana de correo usa los de `Sprite.pak` (buscados en hojas de miniaturas de las 1444 `N.img`): el papel 656, la marca de leída 657, cerrar 658, Write 662, Delete 664, Cancel 578 y Send 582 (cada botón con su resaltado en N + 1); tinta oscura sobre el papel. Ninguna imagen es un sobre de "correo nuevo": el aviso es un dibujo propio, un sobre con sello arriba a la izquierda con la cantidad sin leer (de la bandeja que el servidor manda al entrar y de cada `S_Mail` 0x50), que titila y abre el correo con un clic. **Verificado:** Charla escribe "Sobre nuevo" desde la ventana nueva; Prueba entra, ve el sobre con 1 y al tocarlo se abre la bandeja (una carta leída con la marca, la nueva sin leer).
+- **De paso:** el basurero del inventario usa el del original (1003; 1004 resaltado con un ítem encima).
+- **Pendiente:** el texto de una línea (se muestra cortado en varias); sin acentos ni caracteres no ASCII; las flechas de página del original (666/667, 672–675) no se usan (se muestran 10 cartas).
+
+## Equipo del personaje
+
+![Equipo](docs/capturas/equipo.png) ![Equipo, UI simple](docs/capturas/equipo_simple.png) ![Correo, UI simple](docs/capturas/correo_simple.png)
+
+- **Pestañas en la ventana de estado** (Alt+C): "Status" (los atributos, como antes) y "Equipment" (`app/equipo_ui.cpp`), como el original, que los muestra en la misma ventana.
+- **La imagen del original:** 981 de `Sprite.pak` (179×275), encontrada en las hojas de miniaturas junto a la página de estado (982) y el marco (983/984): la silueta con un recuadro por parte del cuerpo y "Armor Class". En cada recuadro, el ícono de lo equipado: la parte sale del tipo de uso del ítem (1 arma, 2 armadura, 18 camiseta, 19 capa, 20 guantes, 21 botas, 22 casco, 24 collar, 25 escudo, 37 cinturón, 40 aro) y "equipado" del sufijo del nombre. Los anillos (23) no tienen recuadro: van más chicos en el espacio libre de abajo a la derecha. Con el puntero encima, el nombre y los atributos del ítem. La AC va en su campo. Sin la imagen, recuadros oscuros en el mismo lugar.
+- **Con la UI simple** (F2) no se usan los fondos del original: el equipo es una lista de las partes, de la cabeza a los pies (rótulo, ícono y nombre de lo equipado; los anillos en la última fila; "Armor Class" abajo), y el correo usa el recuadro oscuro con texto claro y botones de texto en vez del papel 656 y sus botones. Los nombres largos se cortan sin partir caracteres CP949 (`bytes_que_caben`).
+- **Verificado** con Charla: casco, capa, camiseta, armadura, guantes, arco, botas y AC −13 en sus recuadros.
+- **Pendiente:** qué parte va en cada recuadro se dedujo de dónde cae sobre la silueta (casco en la cabeza, aro al costado, botas en los pies): conviene compararlo con el original; los talismanes y patrones (usos 43–48) no se muestran; la página "Status" sigue con el marco propio (la 982 del original queda para después).
+
+## Casas y castillos
+
+![Subasta](docs/capturas/casas_subasta.png) ![Mapa de la casa](docs/capturas/casas_mapa.png) ![Nombre de la casa](docs/capturas/casas_nombre.png) ![Puerta](docs/capturas/casas_puerta.png)
+![Torre](docs/capturas/asedio_torre.png) ![Corona](docs/capturas/asedio_corona.png) ![Castillo tomado](docs/capturas/asedio_tomado.png) ![Impuesto](docs/capturas/castillo_impuesto.png) ![Fecha del asedio](docs/capturas/castillo_fecha.png)
+![Guerra declarada](docs/capturas/guerra_declarada.png) ![Al entrar](docs/capturas/guerra_al_entrar.png) ![Rendición](docs/capturas/guerra_rendicion.png)
+
+Plan: [docs/analisis/PLAN_CASTILLOS_CASAS.md](docs/analisis/PLAN_CASTILLOS_CASAS.md).
+
+**Protocolo** (tests de bytes en `tests/test_proto.cpp`):
+- `S_HouseList`, `S_HouseMap`, `S_War`, `S_CastleMaster`, `S_TaxRate`, `S_Deposit`, `S_Drawal`;
+- `S_WarTime` comparte el opcode 150 con `S_MapID` y se distingue por el largo;
+- `S_PacketBox` 0–4 (el asedio);
+- `C_War`, `C_TaxRate`, `C_Deposit`, `C_Drawal`, `C_ChangeWarTime` y `C_Attr` con texto;
+- la página "agsel" trae la casa antes de los datos.
+
+**Casas** (`app/casas_ui.cpp`):
+- **Tablón de subastas:** tiene el mismo gfx que los tablones de los pueblos (1544): el clic ya mandaba `C_Board` y el servidor respondía `S_HouseList`, que se perdía.
+  - Ahora es una ventana con cada casa: "Giran house N" (los nombres de la base vienen en coreano), área, cierre y puja; se desplaza con la rueda.
+  - Un clic manda "select" + casa. La página "agsel" va al diálogo del NPC y la lista se corre a la derecha. Sus acciones "map" y "apply" llevan la casa.
+- **Mapa de la casa:** la imagen del original no se encontró en `Sprite.pak`. El mapa es propio: los terrenos de las casas del pueblo, sacados de `L1HouseLocation.java` del servidor (62 casas: Giran, Heine y Gludin; las de Aden no tienen coordenadas en el servidor). Va en isométrico, con la casa resaltada y el personaje.
+- **Pujar:** "apply" abre el diálogo de cantidad ("agapply").
+- **Mayordomo:** todo es HTML.
+  - "name" pregunta el nombre (`S_MessageYN` 512). El diálogo de preguntas ahora tiene una caja de texto para esa pregunta y responde `C_Attr` con el texto.
+  - Los datos "$N" de las páginas (el nombre del mayordomo en "agpay") se traducen con `desc-e.tbl`.
+
+**Castillos** (`app/castillos_ui.cpp`):
+- **Señor del castillo** (`S_CastleMaster`): una corona dibujada a la izquierda del nombre (y del emblema). No se encontró la del original.
+- **Asedio:**
+  - avisos en el chat y un cartel arriba mientras dura;
+  - los portones (gfx de tipo 11 con 28/29) son puertas;
+  - el daño de portones y torres (`S_DoActionGFX` 32–37) se queda en el último frame, como abrir y cerrar;
+  - la torre sana (sin acción quieta) se dibuja con su primera acción;
+  - la torre y la corona (gfx 1482) se atacan con un clic: tomar la corona es "atacarla" (`C_Attack` → `onAction`).
+- **Chambelán:**
+  - "tax" (`S_TaxRate`), "cdeposit" (`S_Deposit`) y "withdrawal" (`S_Drawal`) abren el diálogo de cantidad, que responde `C_TaxRate`, `C_Deposit` o `C_Drawal`;
+  - "Declare next siege time" (acción "asktime", que el servidor no atiende) manda `C_ChangeWarTime` y los 6 horarios de `S_WarTime` van al chat. El servidor no deja elegir uno.
+- **Guerras de clanes:** `/war`, `/surrender` y `/ceasefire` + clan (`C_War` 0, 2, 3). `S_War` va al chat y se lleva la lista de clanes enemigos.
+
+**Servidor:**
+- `HouseTable.updateHouse` guarda fechas con el `DateFormat` del idioma. En inglés MariaDB las rechazaba y no se guardaban ni el dueño ni el nombre de la casa. `arrancar.sh` usa ahora formato japonés (`user.language.format=ja`).
+- Scripts solo para pruebas en `servidor_local/pruebas/`:
+  - `subasta_cerrar.sql` cierra ya la subasta de Giran 1;
+  - `asedio_kent.sql` empieza el asedio de Kent y baja la vida de la torre y del portón (se leen al arrancar);
+  - `restaurar.sql` deja todo como estaba.
+
+**Verificado contra el servidor local** (Charla: príncipe nivel 81, GM, líder de Prueberos):
+- **Casa:**
+  1. Lista de Giran, "agsel" de Giran 1 y su mapa.
+  2. Puja de 100.000; con la subasta cerrada, Prueberos ganó la casa.
+  3. Mayordomo Emma: "Casa Prueba" quedó en la base; la puerta se abre ("open": acción 28 y `S_Door` pasable); "pay" muestra el impuesto.
+- **Asedio de Kent:**
+  1. Cartel y aviso.
+  2. Grietas 32, 33, 34 y la torre destruida (35).
+  3. Aparece la corona; Charla la toma: `S_CastleMaster` 1 y Prueberos queda con `castle_id` 1. La corona sale junto a su nombre.
+- **Chambelán Ishmael:** impuesto al 20 % (en la base), depósito de 1000 (fondos 1000), retiro de los fondos y la fecha del próximo asedio. La primera fecha queda a menos de 182 minutos de la real: el servidor redondea a esa unidad.
+- **Guerra:** Prueba (subida a nivel 30 con permisos de GM temporales) fundó "Rivales" y declaró la guerra a Prueberos. Charla, al entrar, ve "Your pledge is at war with the Rivales pledge"; después Prueba se rindió.
+- **Restauración:** todo se restauró: casa, castillo, clanes, Prueba, y la adena y las flechas de Charla.
+
+**Pendiente:**
+- el daño del portón no se vio en vivo: con arco, el servidor exige línea de vista hasta la celda del portón, que está bloqueada; hace falta un arma cuerpo a cuerpo;
+- el fin del asedio (`S_PacketBox` 1) no se esperó;
+- mercenarios: el servidor no los implementa;
+- muebles de la casa.
+
+## Sin parámetros: servidores en el login y control en vivo
+
+![Login con servidores](docs/capturas/login_servidores_simple.png) ![Menú abierto](docs/capturas/login_menu_servidores.png) ![Interfaz original](docs/capturas/login_servidores_original.png)
+
+Plan: [docs/analisis/PLAN_CONTROL_VIVO.md](docs/analisis/PLAN_CONTROL_VIVO.md).
+
+- **El cliente no tiene parámetros:**
+  - se quitaron los 53 `--algo`, la estructura `Automatizacion` y sus ~114 usos en 16 archivos;
+  - también `LINEAGE_DIR` y la regla de pasar cualquier clave de `settings.ini` como `--clave=valor`.
+- **Servidores** (`plataforma/rutas.*`):
+  - una línea por servidor en `settings.ini`: `servidor=Nombre|host|puerto|protocolo|cuenta`, y `servidor_elegido=`;
+  - el formato anterior se convierte solo;
+  - la clave ya no se lee ni se guarda; la cuenta se recuerda por servidor al entrar bien;
+  - la tabla de opcodes se elige al conectar, con el protocolo del servidor elegido (un protocolo desconocido es un aviso en el login, no un cierre);
+  - `leer_config` y `escribir_config` trabajan sobre texto, con su test (`tests/test_core.cpp`).
+- **Login:** `ui::desplegable` con los servidores (la lista abierta va en su propio nivel de ventana, encima de todo), en la UI simple (una fila "Server" arriba de la cuenta) y en la original (arriba del recuadro), con `host:puerto protocolo` debajo.
+- **Tamaño de la ventana:** se guarda al cerrar (`ventana=AxB`).
+- **Control en vivo** (`app/control.cpp`, solo con la opción de CMake `LIN_CONTROL`, encendida en `debug` y `debug-asan`):
+  - **El socket:** de archivo, `0600`; se revisa una vez por frame en el hilo principal, sin hilos.
+  - **Los comandos:** usan las mismas funciones que la interfaz. Se hicieron públicas `iniciar_login`, `entrar_juego`, `enviar_chat`, `buscar_item`, `buscar_hechizo`, `activar`, `responder_pregunta`, `aceptar_cantidad` y `crear_personaje_rapido`.
+  - **Las esperas** responden cuando se cumplen.
+  - **La versión final:** `release` lo deja afuera, y `cmake/sin_control.cmake` falla si el ejecutable trae el texto del socket. También `LIN_CONFIG` existe solo con `LIN_CONTROL`.
+- **Herramientas:**
+  - `herramientas/lin_ctl.py` (terminal y módulo; varios clientes a la vez);
+  - `herramientas/pruebas/subastas.py`, la primera prueba en vivo como script.
+- **Verificado:**
+  - login malo (el motivo vuelve como error), login, personaje, `estado` y captura del menú abierto con clic y Esc;
+  - la prueba de subastas completa (lista, una casa, su mapa y la vuelta de Charla a su lugar), sin contar frames;
+  - dos clientes a la vez (Charla y Prueba);
+  - `release` sin el control.
+- **Pruebas en vivo como scripts** (`herramientas/pruebas/`, `todas.py`):
+  - las 13 pasan juntas contra el servidor local: login, moverse, chat_estado, combate_hechizos, inventario, equipo, npc, tablon_correo, subastas, social; y con `--servidor`, casas, castillos y guerra;
+  - estas tres últimas reinician el servidor y restauran la base solas (`servidor.py`: respaldo de las filas de los personajes, su inventario y los clanes).
+  - Pasarlas a scripts encontró:
+    - **un error del cliente:** `C_Attr` mandaba 0 en el primer campo, así que aceptar una guerra o una rendición no hacía nada (ver DESCUBRIMIENTOS);
+    - **una carrera en el control:** la respuesta a un comando podía llegar antes del `esperar` que lo sigue. Ahora `esperar paquete=`/`chat=` cuentan también lo llegado desde el comando anterior;
+    - **`esperar ms=`:** hacía falta para el servidor, que ignora un cambio de equipo justo después de otro.
+- **Pendiente:**
+  - el socket en Windows (`afunix.h`, MULTIPLATAFORMA);
+  - editar la lista de servidores desde el login.
+
+## Servidor 3.80C (L1JGO-Whale)
+
+![Entrar](docs/capturas/380_entrar.png) ![NPC](docs/capturas/380_npc.png) ![Combate](docs/capturas/380_combate.png)
+
+- **El servidor:** [L1JGO-Whale](https://github.com/r0ptik/L1JGO-Whale), un servidor 3.80C de Taiwán en Go con PostgreSQL. `servidor_380/instalar.sh` lo deja local:
+  - commit fijo, Go y PostgreSQL de Homebrew;
+  - base propia en `servidor_380/datos`, puerto 5433;
+  - configuración generada en `l1jgo/local.toml`, sin el `#npc:gfx` de depuración en los nombres;
+  - `arrancar.sh` lo levanta en el puerto 7001 y `detener.sh` lo detiene.
+- **Protocolo `tw380`** (`proto/opcodes.cpp`):
+  - la tabla sale de `internal/net/packet/opcodes.go` del servidor, por nombre;
+  - el paquete inicial es el opcode 150 (semilla y 11 bytes fijos); el cifrado es el mismo de 3.63;
+  - **diferencias de formato:**
+    - vida y maná en 4 bytes en `S_OwnCharStatus`, `S_HPUpdate` y `S_MPUpdate` (`Lector::vida`, con `PerfilProtocolo::bytes_vida`);
+    - `S_Door` es el opcode 209, con el mismo formato;
+    - `S_WarTime` tiene su propio opcode (231): va al decodificador de `S_MapID`, que lo distingue por el largo.
+  - **El resto** (login, lista y creación de personajes, entrar, `S_CharPack`, movimiento, chat, inventario, páginas de NPC, ataques) funcionó sin cambios.
+  - **En `settings.ini`:** `servidor=Whale 3.80|127.0.0.1|7001|tw380|`.
+- **Verificado en vivo** con el control (cuenta `prueba`, personaje Ensayo, creado desde el cliente; GM puesto en la base para las pruebas):
+  - login, crear un príncipe y entrar (mapa 2005, la isla de los principiantes);
+  - estado con la vida correcta, caminar, chat (con su eco);
+  - inventario, `.item` (pociones), `.level 20`;
+  - hablar con NPCs (`cuse1`, `tutor`, con los vínculos de las páginas del juego);
+  - `.spawn` de un Jack-O-Lantern y pelear (9–11 por golpe; el monstruo le saca 21–25 y lo mata: aparece el aviso de muerte).
+- **Limitaciones (del servidor o de la instalación):**
+  - **Texto en chino:** los nombres de ítems y los mensajes del sistema llegan en chino (Big5; el servidor solo acepta Big5 o GBK), y la instalación trae solo la fuente coreana: se ven ilegibles. Los nombres de NPC usan `$N` y se ven bien.
+  - **Sin equivalente en `tw380`** (quedan sin mandar o sin reconocer): noticias, `S_Teleport`, el mensaje azul, borrar hechizos, el menú de mascotas, volver al login, la página siguiente del tablón y la fecha del asedio.
+  - **Opcode 64** (`S_CharSynAck`: casilleros de equipo, emblema, reinicio): sin decodificar.
+  - **No probado:** tiendas, almacén, grupo, intercambio, clanes, casas y castillos en 3.80; las pruebas de `herramientas/pruebas` usan personajes del servidor 3.63.
+
 ## Interfaz: ventanas móviles, transparencia y botones
 
 ![UI simple](docs/capturas/ui_ventanas_simple.png) ![UI original](docs/capturas/ui_ventanas_original.png)
@@ -785,7 +1032,8 @@ Primera tanda de la revisión de opcodes (`docs/analisis/OPCODES_PENDIENTES.md`)
 
 - **Cuándo cambia** (`app/cursores.cpp`):
   - **mano:** para moverse y sobre la interfaz;
-  - **espada:** sobre un monstruo, o con Ctrl sobre otro personaje o NPC (atacarlo);
+  - **espada:** sobre un monstruo, o con Ctrl sobre otro personaje, NPC o mascota ajena (atacarlo);
+  - **moneda:** sobre un vendedor (sin Ctrl);
   - **círculo de objetivo:** mientras un hechizo espera su objetivo.
 - **Cómo se dibujan:** son cursores del sistema (`SDL_CreateColorCursor`, con una versión de 64 px para pantallas Retina). Se mueven sin el retraso de un frame que tendría dibujarlos con el juego.
 - **Los originales no están en esta instalación:**
@@ -862,8 +1110,10 @@ Medido con `--perf` (una línea por segundo en el registro; los mismos datos en 
 
 ```
 LINEAGE_DIR=... ./build/debug/lin_tests
-[doctest] test cases: 61 | 61 passed | 0 failed
+[doctest] test cases: 62 | 62 passed | 0 failed
 ```
+
+El último, en `tests/test_mundo.cpp`: los atributos de un ítem identificado en texto (un arma y una armadura). Resucitar e invisible están en el caso de muerte y reinicio de `tests/test_mundo.cpp`; sus paquetes y comandos, en `tests/test_proto.cpp`.
 
 Los 2 últimos, en `tests/test_mundo.cpp`: la arena de textos se compacta sin cambiar los nombres, y los segmentos del hilo de carga (iguales a los cargados en el momento, objetos con su rango y rectángulo, y liberación de los lejanos).
 

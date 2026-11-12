@@ -51,6 +51,7 @@ void procesar_mascotas(App& a) {
     EntradaFrame& e = a.entrada;
     if (a.mundo.objetos.buscar(a.mascota_eligiendo) == SIN_SLOT || e.clic_derecho || e.escape) {
         a.mascota_eligiendo = 0;
+        e.escape = false;  // Esc cancela solo esto
         return;
     }
     if (e.pulsado && !sobre_alguna_ventana(a) && !sobre_barra(a) && !sobre_mascotas(a)) {

@@ -1,9 +1,13 @@
+#include <string>
+#include <vector>
 #include <doctest/doctest.h>
 #include <string>
 #include "comun.h"
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
 #include "proto/comandos.h"
+#include "recursos/fuente.h"
+#include "recursos/fuente_ttf.h"
 #include "proto/decodificar.h"
 #include "recursos/fuente.h"
 
@@ -216,7 +220,48 @@ TEST_CASE("Estado: porcentaje de experiencia y ajuste de línea") {
     CHECK(porcentaje_exp(2, 300) == doctest::Approx(100.0f));
     CHECK(porcentaje_exp(0, 10) == 0.0f);
     const char* t = "uno dos tres";
-    CHECK(bytes_que_caben(t, 12, 6 * 12) == 12);
-    CHECK(bytes_que_caben(t, 12, 6 * 9) == 8);   // corta después de "dos "
-    CHECK(bytes_que_caben("abcdef", 6, 6 * 3) == 3);  // sin espacios: corta en el ancho
+    const int a = ancho_ttf('a');  // avance de una letra en la fuente de la interfaz (ahora 7 px)
+    CHECK(bytes_que_caben(t, 12, a * 12) == 12);
+    CHECK(bytes_que_caben(t, 12, a * 9) == 8);   // corta después de "dos "
+    CHECK(bytes_que_caben("abcdef", 6, a * 3) == 3);  // sin espacios: corta en el ancho
+}
+
+TEST_CASE("Chat: códigos de color y miles") {
+    auto partes = [](std::string_view t, bool doble = false) {
+        std::vector<std::pair<std::string, u32>> r;
+        recorrer_codigos(t, 7, doble, [&](std::string_view s, u32 c) { r.emplace_back(std::string(s), c); });
+        return r;
+    };
+    CHECK(partes("hola") == std::vector<std::pair<std::string, u32>>{{"hola", 7}});
+    const auto rojo = partes("a\\f3b");
+    REQUIRE(rojo.size() == 2);
+    CHECK(rojo[0] == std::pair<std::string, u32>{"a", 7});
+    CHECK(rojo[1].first == "b");
+    CHECK(rojo[1].second == color_codigo('3', 7));
+    CHECK(rojo[1].second != 7);
+    CHECK(partes("\\f3x\\f>y")[1] == std::pair<std::string, u32>{"y", 7});
+    CHECK(partes("\\bAz")[0] == std::pair<std::string, u32>{"z", 7});
+    CHECK(partes("\\\\f3a")[0].first == "f3a");     // \\ se descarta, como en el original
+    CHECK(partes("c:\\x")[0].first == "c:\\x");     // otra barra se muestra
+    CHECK(partes("\\f~")[0].first == "\\f~");       // fuera de rango: no es un código
+    CHECK(partes("\x95\\f3", true)[0].first == "\x95\\f3");  // Shift-JIS: la barra es del carácter
+
+    char b[32];
+    CHECK(std::string(con_miles(0, b, sizeof b)) == "0");
+    CHECK(std::string(con_miles(999, b, sizeof b)) == "999");
+    CHECK(std::string(con_miles(10000, b, sizeof b)) == "10.000");
+    CHECK(std::string(con_miles(1234567, b, sizeof b)) == "1.234.567");
+}
+
+TEST_CASE("Chat: color del nombre según el alineamiento") {
+    auto c = [](u8 r, u8 g, u8 b) { return static_cast<u32>(r | (g << 8) | (b << 16)) | 0xFF000000u; };
+    CHECK(color_alineamiento(0) == c(240, 240, 240));
+    CHECK(color_alineamiento(8000) == c(150, 215, 255));
+    CHECK(color_alineamiento(16000) == c(70, 120, 255));
+    CHECK(color_alineamiento(32767) == c(70, 120, 255));
+    CHECK(color_alineamiento(-8000) == c(255, 170, 195));
+    CHECK(color_alineamiento(-16000) == c(255, 60, 50));
+    CHECK(color_alineamiento(-32768) == c(255, 60, 50));
+    CHECK(color_alineamiento(4000) == c(195, 228, 247));  // punto medio del primer tramo
+    CHECK(color_alineamiento(-4000) != color_alineamiento(4000));
 }

@@ -34,13 +34,20 @@ enum ColObjeto : size_t {
     O_LEGAL,             // alineamiento (color del nombre)
     O_SONIDO,            // último frame de animación dibujado (índice + 1; 0 = ninguno): su sonido suena una vez
     O_NOMBRE, O_TITULO,
+    O_NIVEL,             // de S_CharPack (los monstruos; 0 en los personajes): color del nombre
+    O_MASCOTA,           // 1 si es mascota o invocación de un jugador (trae el nombre del dueño)
+    O_ROSA,              // nombre rosa (S_PinkName: atacó a otro jugador) hasta este momento (ms)
 };
-using TablaObjetos =
-    TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32, TextoRef, TextoRef>;
+using TablaObjetos = TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32,
+                              TextoRef, TextoRef, u8, u8, u64>;
 
 // Efecto con duración sobre el propio personaje (módulo "Buffs" del plan): haste, brave, escudos...
 // Clase EA_* y tipo según el paquete que lo informó (ver ICONO_EFECTO y VELOCIDAD en eventos.h).
-enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO };
+// EA_FUERZA / EA_DESTREZA: S_Strup / S_Dexup (tipo 5 Enchant Mighty/Dexterity, 2 Dress, otro: poción).
+// EA_HECHIZO: lo registra el cliente (tipo = id del hechizo), para los buffs sobre el arma o la
+// armadura, de los que el servidor no manda ícono.
+// EA_TERCERA: tercer acelerador (S_Liquor 8); EA_EVA: Bless of Eva (respirar bajo el agua).
+enum ClaseEfecto : u8 { EA_HASTE, EA_BRAVE, EA_ESCUDO, EA_AURA, EA_ICONO, EA_FUERZA, EA_DESTREZA, EA_HECHIZO, EA_TERCERA, EA_EVA };
 struct EfectoActivo {
     u8 clase, tipo;
     u64 fin;  // ms
@@ -61,6 +68,10 @@ struct EstadoJugador {
     u8 hechizos[FILAS_HECHIZOS] = {};  // S_AddSkill: fila = nivel, bit c = hechizo fila*8+c+1
     u8 haste = 0;  // 0 normal, 1 rápido, 2 lento (S_SkillHaste)
     u8 brave = 0;  // 0 nada, 1 poción, 3 waffle, 4 caminar rápido, 6 bloodlust (S_SkillBrave)
+    bool tercera = false;  // tercer acelerador (S_Liquor 8): todo × 0,87, como la waffle
+    bool borracho = false; // S_Liquor 1: la pantalla se mece
+    bool luz_hechizo = false;  // S_Light 20 propio (hechizo LIGHT): radio 14 y 5 niveles más de luz ambiente
+    u8 anillos = 0;        // S_Ability: bit 1 control de teletransporte, bit 5 control de invocación
     u8 inmovil = 0;   // S_Paralysis: el que empezó (PARALISIS_*), 0 = puede moverse y actuar
     u8 ceguera = 0;   // S_CurseBlind: 0 ve, 1 ciego, 2 ciego con Floating Eye
     EfectoActivo efectos[MAX_EFECTOS_ACTIVOS];
@@ -77,9 +88,18 @@ enum Paralisis : u8 {
     PARALISIS = 2, PARALISIS_2 = 4, SUENO = 10, CONGELADO = 12, ATURDIDO = 22, ATADO = 24,
 };
 // Flags de S_CharPack (y S_Poison): veneno (verde), invisible, congelado (gris).
-constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8;
+// Flags de S_CharPack / S_OwnCharPack. Fantasma: modo espectador (mirar el Ultimate Battle o después
+// de perder ahí); se sale con C_ExitGhost.
+constexpr u8 FLAG_VENENO = 1, FLAG_INVISIBLE = 2, FLAG_CONGELADO = 8, FLAG_FANTASMA = 128;
 // Tipo de gfx de las puertas (atributo 102): sus acciones son abrir (28) y cerrar (29).
-constexpr u8 TIPO_PUERTA = 8, ACC_ABRIR = 28, ACC_CERRAR = 29;
+// Estructuras de los castillos (tipo 11): portones (28, 29 y daño 32–36, destruido 37) y torres de
+// guardia (grietas 32–34, destruida 35). La corona del asedio (gfx 1482) solo tiene la acción 3.
+constexpr u8 TIPO_PUERTA = 8, TIPO_ESTRUCTURA = 11, ACC_ABRIR = 28, ACC_CERRAR = 29;
+constexpr GfxId GFX_CORONA = 1482;
+// Acciones que dejan a una puerta o estructura quieta en su último frame (abierta, dañada...).
+inline bool accion_fija(u8 tipo, u8 accion) {
+    return (tipo == TIPO_PUERTA || tipo == TIPO_ESTRUCTURA) && (accion == ACC_ABRIR || accion == ACC_CERRAR || (accion >= 32 && accion <= 37));
+}
 
 // Gráfico de un hechizo en el mundo: sobre un objeto (lo sigue), en una celda, o un proyectil que
 // vuela de (x0, y0) a (x1, y1) durante vuelo_ms. Se dibuja la acción 0 del gfx una vez (el
@@ -139,8 +159,9 @@ struct Mundo {
     const TablaSprites* sprites = nullptr;  // para la duración de los pasos (caminar de cada sprite)
     EstadoJugador jugador;
     MapId mapa = 0;
+    bool submarino = false;  // S_MapID: el mapa es bajo el agua (efecto azul y ola)
     i32 hora = 0;
-    u8 clima = 0;
+    u8 nieve = 0, lluvia = 0;  // intensidad 0-3 de cada clima (S_Weather): son independientes
     bool en_juego = false;
     EfectoVisual efectos[MAX_EFECTOS_VISUALES];
     u32 siguiente_efecto = 0;
@@ -170,6 +191,23 @@ constexpr u8 ESTADO_MUERTO = ACC_MORIR;
 
 void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora_ms);
 void agregar_efecto(Mundo& m, const EfectoVisual& e);
+// Color del nombre de un monstruo según su nivel respecto del jugador, como el original: blanco si
+// es mucho más bajo (casi no da experiencia), verde si es parecido, amarillo si es algo más alto y
+// rojo si es mucho más alto. Los umbrales no están en los datos: son aproximados (DIF_*).
+enum class NivelRelativo : u8 { FACIL, PAREJO, DIFICIL, PELIGROSO };
+constexpr int DIF_FACIL = -10, DIF_DIFICIL = 5, DIF_PELIGROSO = 10;  // nivel del monstruo − nivel del jugador
+constexpr NivelRelativo nivel_relativo(int monstruo, int jugador) {
+    const int d = monstruo - jugador;
+    return d <= DIF_FACIL ? NivelRelativo::FACIL
+           : d >= DIF_PELIGROSO ? NivelRelativo::PELIGROSO
+           : d >= DIF_DIFICIL   ? NivelRelativo::DIFICIL
+                                : NivelRelativo::PAREJO;
+}
+static_assert(nivel_relativo(5, 30) == NivelRelativo::FACIL && nivel_relativo(28, 30) == NivelRelativo::PAREJO &&
+              nivel_relativo(36, 30) == NivelRelativo::DIFICIL && nivel_relativo(45, 30) == NivelRelativo::PELIGROSO);
+
+// Pone (o quita, con 0 segundos) un efecto activo del propio personaje.
+void poner_efecto_activo(EstadoJugador& j, u8 clase, u8 tipo, i32 segundos, u64 ahora);
 // Quita los efectos activos que ya terminaron.
 void vencer_efectos(EstadoJugador& j, u64 ahora);
 // Al pedir el reinicio (C_Restart) el servidor reubica al personaje y vuelve a mandar lo que ve:
@@ -186,6 +224,8 @@ const SegmentoMapa* segmento_cargado(Mundo& m, const Recursos& rec, int x, int y
 // llamada.
 void actualizar_segmentos(Mundo& m, int x, int y, int radio);
 bool celda_pasable(Mundo& m, const Recursos& rec, int x, int y);
+// ¿Hay un portal del mapa del cliente en la celda? (ver PortalMapa)
+bool es_portal(Mundo& m, const Recursos& rec, int x, int y);
 
 // Proyección isométrica (map_coord.cpp de l1j-client): celda -> píxel del mundo. En double:
 // las coordenadas rondan 32 000 (≈1,5 millones de píxeles) y en float la resta de la cámara

@@ -9,6 +9,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(LIN_ASAN "Compilar con AddressSanitizer y UBSan" OFF)
 option(LIN_TESTS "Compilar los tests" ON)
+# Control en vivo para pruebas (src/app/control.cpp): ON en los presets de desarrollo, OFF en release.
+option(LIN_CONTROL "Compilar el control en vivo (socket de pruebas)" OFF)
+# Para todo el código: también decide LIN_CONFIG (otro settings.ini), que solo existe en desarrollo.
+if(LIN_CONTROL)
+    add_compile_definitions(LIN_CONTROL=1)
+else()
+    add_compile_definitions(LIN_CONTROL=0)
+endif()
 
 # Dependencias antes de las opciones de advertencias: estas aplican solo a nuestro código.
 include(cmake/dependencias.cmake)
@@ -29,6 +37,8 @@ endif()
 
 # datos/ (tabla de sprites) junto a los ejecutables
 file(COPY ${CMAKE_SOURCE_DIR}/datos DESTINATION ${CMAKE_BINARY_DIR})
+file(GLOB_RECURSE ARCHIVOS_DATOS CONFIGURE_DEPENDS ${CMAKE_SOURCE_DIR}/datos/*)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${ARCHIVOS_DATOS})
 
 # --- Módulos (librerías estáticas). Solo plataforma, render y audio ven SDL3. -----------------------
 add_library(lin_core INTERFACE)
@@ -37,7 +47,8 @@ target_include_directories(lin_core INTERFACE src)
 add_library(lin_plataforma STATIC
     src/plataforma/archivo_mapeado.cpp
     src/plataforma/socket.cpp
-    src/plataforma/rutas.cpp)
+    src/plataforma/rutas.cpp
+    src/i18n/textos.cpp)
 target_link_libraries(lin_plataforma PUBLIC lin_core PRIVATE SDL3::SDL3)
 
 add_library(lin_proto STATIC
@@ -57,6 +68,7 @@ add_library(lin_recursos STATIC
     src/recursos/tabla_sprites.cpp
     src/recursos/mapa.cpp
     src/recursos/fuente.cpp
+    src/recursos/fuente_ttf.cpp
     src/recursos/cp949.cpp
     src/recursos/textos.cpp
     src/recursos/precarga.cpp
@@ -67,8 +79,11 @@ add_library(lin_recursos STATIC
 target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb cgltf)
 
 add_library(lin_mundo STATIC
+    src/mundo/autobuffs.cpp
+    src/mundo/autopocion.cpp
     src/mundo/cargador_segmentos.cpp
     src/mundo/chat.cpp
+    src/mundo/luz.cpp
     src/mundo/mundo.cpp
     src/mundo/inventario.cpp)
 target_link_libraries(lin_mundo PUBLIC lin_core lin_proto lin_recursos)
@@ -98,6 +113,8 @@ add_executable(lineage
     src/app/inventario_ui.cpp
     src/app/hechizos_ui.cpp
     src/app/barra_ui.cpp
+    src/app/autobuffs_ui.cpp
+    src/app/autopocion_ui.cpp
     src/app/forma_ui.cpp
     src/app/npc_ui.cpp
     src/app/ventanas.cpp
@@ -105,12 +122,29 @@ add_executable(lineage
     src/app/social_ui.cpp
     src/app/sonido.cpp
     src/app/clima.cpp
+    src/app/luz_ui.cpp
+    src/app/ventana_ui.cpp
     src/app/cantidad_ui.cpp
+    src/app/correo_ui.cpp
+    src/app/casas_ui.cpp
+    src/app/castillos_ui.cpp
+    src/app/equipo_ui.cpp
+    src/app/reinicio_ui.cpp
+    src/app/tablon_ui.cpp
+    src/app/tienda_ui.cpp
     src/app/mascotas_ui.cpp
     src/app/marcadores_ui.cpp
     src/app/modelos.cpp
     src/core/asignaciones.cpp)  # operator new instrumentado (ver core/asignaciones.h)
 target_link_libraries(lineage PRIVATE lin_mundo lin_ui lin_audio)  # traen proto, recursos, render y SDL3
+if(LIN_CONTROL)
+    target_sources(lineage PRIVATE src/app/control.cpp)
+else()
+    # La versión final no debe llevar el control: ni el código ni el texto del socket.
+    add_custom_command(TARGET lineage POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -DBIN=$<TARGET_FILE:lineage> -P ${CMAKE_SOURCE_DIR}/cmake/sin_control.cmake
+        COMMENT "Comprobando que el ejecutable no incluya el control en vivo")
+endif()
 if(APPLE)
     # MULTIPLATAFORMA: en macOS se compila como ejecutable de consola para depurar;
     # el empaquetado .app (MACOSX_BUNDLE, Info.plist, icono) queda para el entregable 11.
@@ -119,6 +153,10 @@ endif()
 
 add_executable(explorador tools/explorador.cpp)
 target_link_libraries(explorador PRIVATE lin_ui)
+
+# Editor visual de settings.ini: la misma UI simple del juego, sin cargar el juego.
+add_executable(settings tools/settings.cpp)
+target_link_libraries(settings PRIVATE lin_ui)
 
 if(LIN_TESTS)
     enable_testing()
@@ -134,9 +172,16 @@ if(LIN_TESTS)
         tests/test_atlas.cpp
         tests/test_asignaciones.cpp
         tests/test_hechizos.cpp
+        tests/test_luz.cpp
         tests/test_npc.cpp
         tests/test_sonidos.cpp
         tests/test_modelo.cpp
+        tests/test_fuente.cpp
+        tests/test_textos.cpp
+        tests/test_ajustes.cpp
+        tests/test_autobuffs.cpp
+        tests/test_autopocion.cpp
+        tests/test_socket.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)
     add_test(NAME lin_tests COMMAND lin_tests)

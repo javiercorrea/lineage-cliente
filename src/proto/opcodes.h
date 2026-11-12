@@ -19,7 +19,8 @@ enum class Srv : u8 {
     RANGESKILLS, POLY, SHOWHTML, SHOWSHOPBUYLIST, SHOWSHOPSELLLIST, SHOWRETRIEVELIST,
     YES_NO, TRADE, TRADEADDITEM, TRADESTATUS, EMBLEM, SKILLBUY,
     DOOR, PARALYSIS, POISON, CURSEBLIND, INPUTAMOUNT, PETCTRL, SELECTTARGET, TRUETARGET,
-    BOOKMARKS, SELECTLIST,
+    BOOKMARKS, SELECTLIST, IDENTIFYDESC, INVIS, RESURRECTION, STRUP, DEXUP, PINKNAME, LIQUOR, BLESSOFEVA, ABILITY, SOUND, PRIVATESHOPLIST, BOARD, BOARDREAD, MAIL,
+    HOUSELIST, HOUSEMAP, WAR, CASTLEMASTER, TAXRATE, DEPOSIT, DRAWAL,
     CANTIDAD
 };
 
@@ -31,20 +32,49 @@ enum class Cli : u8 {
     CREATEPARTY, PARTYLIST, LEAVEPARTY, BANPARTY, TRADE, TRADEADDITEM, TRADEADDOK, TRADEADDCANCEL,
     CREATECLAN, JOINCLAN, LEAVECLAN, BANCLAN, TITLE, PLEDGE, WHO, CLAN, EMBLEM, SKILLBUY, SKILLBUYOK,
     DOOR, GIVEITEM, AMOUNT, PETMENU, USEPETITEM, SELECTTARGET,
-    CHANGECHAR, FIXWEAPONLIST, SELECTLIST, BOOKMARK, BOOKMARKDELETE,
+    CHANGECHAR, FIXWEAPONLIST, SELECTLIST, BOOKMARK, BOOKMARKDELETE, DELETEINVENTORYITEM,
+    EXITGHOST, RETURNTOLOGIN, ENTERPORTAL, CHARRESET, EXCLUDE, BUDDYLIST, ADDBUDDY, DELETEBUDDY, CHATPARTY, SHOP, SHOPLIST,
+    BOARD, BOARDREAD, BOARDNEXT, BOARDWRITE, BOARDDELETE, MAIL,
+    WAR, TAXRATE, DEPOSIT, DRAWAL, CHANGEWARTIME,
     CANTIDAD
+};
+
+// Parámetros del formato de los cuerpos que varían entre versiones (los números de opcode van en la
+// tabla). Toda diferencia de versión se expresa como un dato de acá, no como un `if` en los
+// decodificadores (ver docs/analisis/PLAN_MULTIVERSION.md). Cada campo arranca con el valor del
+// 3.63c, que es el caso base.
+struct PerfilProtocolo {
+    u8 bytes_vida = 2;  // ancho de vida y maná (S_OwnCharStatus, S_HPUpdate, S_MPUpdate); 4 en 3.80C
+    // Cuerpo de ítem (S_AddItem, S_InvList): el 3.63/3.80 ponen antes del tipo un campo h de
+    // catalizador mágico (2 bytes) y cierran con una cola fija (c 10, d 0, d 0, h 0 = 11 bytes); el
+    // US 2009 no tiene ni uno ni otra.
+    u8 bytes_catalizador_item = 2;
+    u8 bytes_cola_item = 11;
+    // Pregunta sí/no (S_MessageYN) y su respuesta (C_Attr). El 3.63/3.80 anteponen un h 0 y un d con
+    // el número de pregunta, y responden con número+tipo+respuesta en 2 bytes; el US 2009 manda solo
+    // el tipo y responde con la respuesta en 1 byte (el tipo alcanza para elegir la pregunta). Ver
+    // `pregunta` y `responder`: con número = forma larga; sin número (0) = forma corta.
+    u8 bytes_pre_pregunta = 2;
+    u8 bytes_numero_pregunta = 4;
+    // Ancho del campo de golpe/acierto en los paquetes de ataque (S_AttackPacket y variantes): el
+    // 3.0c/US 2009 lo manda en 1 byte (`writeC`), el 3.3c en adelante en 2 (`writeH`; ver el comentario
+    // de S_AttackPacket.java del jp363, que conserva ambas formas). Leer el ancho equivocado desalinea
+    // la dirección y confunde un fallo con un acierto.
+    u8 bytes_golpe_ataque = 2;
 };
 
 struct TablaOpcodes {
     Srv srv_de_cable[256];                          // número de cable -> interno
     u8 cable_de_cli[static_cast<int>(Cli::CANTIDAD)];  // interno -> número de cable
     u8 cable_init;                                  // opcode del paquete inicial (sin cifrar)
+    PerfilProtocolo perfil;                         // formato de los cuerpos para esta versión
 
     Srv srv(u8 cable) const { return srv_de_cable[cable]; }
     u8 cli(Cli c) const { return cable_de_cli[static_cast<int>(c)]; }
 };
 
-// Versiones disponibles: "jp363" (L1J-JP 3.63c, servidor local de pruebas).
+// Versiones disponibles: "jp363" (L1J-JP 3.63c), "tw380" (3.80C de Taiwán, L1JGO-Whale) y "s3ep1"
+// (3.0 English / US 2009, l1j-en/classic).
 // PENDIENTE: cargar las demás desde los opcodes.txt de docs/analisis/opcodes (s3ep1, kr380...).
 bool tabla_opcodes(std::string_view version, TablaOpcodes& salida);
 

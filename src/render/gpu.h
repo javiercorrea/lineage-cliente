@@ -48,7 +48,13 @@ inline u32 rgba(u8 r, u8 g, u8 b, u8 a = 255) { return r | (g << 8) | (b << 16) 
 
 constexpr int TAM_PAGINA = 2048;
 constexpr int PAGINAS_ATLAS = 8;           // 8 × 16 MB; LIN_ATLAS_PAGINAS y LIN_ATLAS_TAM achican el atlas para probar el reemplazo
-constexpr u32 MAX_INSTANCIAS = 1u << 16;
+// 6 MB de buffer. Una vista grande (5K con zoom ×1) ya pide ~55 000 solo de suelo, más la lluvia.
+constexpr u32 MAX_INSTANCIAS = 1u << 17;
+// Topes por capa, porque se descarta lo que llega con la lista llena y el suelo se manda primero: el
+// fondo y el suelo pueden ocupar hasta MAX − 2 × RESERVA, los objetos, personajes y efectos hasta
+// MAX − RESERVA, y la interfaz todo. Así en una vista enorme se pierde suelo del borde, no personajes
+// ni la interfaz.
+constexpr u32 RESERVA_CAPAS = 1u << 14;
 constexpr u32 TAM_SUBIDA_ATLAS = 32u << 20; // máximo de píxeles nuevos por frame
 
 // Modelos 3D (rama agente/modelos-3d): cada modelo visible se dibuja en una ranura de una capa extra
@@ -76,13 +82,16 @@ public:
     // Al comienzo de cada frame: fija la escala y el tamaño lógico según la ventana. `zoom` es la
     // escala deseada (píxeles reales por píxel lógico; 0 = la mayor que entra, como el original).
     // Sin `ampliable`, el tamaño lógico es el mínimo y la imagen queda centrada.
-    void ajustar_vista(bool ampliable, int zoom);
+    // `franja`: píxeles lógicos reservados arriba (la barra de la ventana); el contenido va debajo.
+    void ajustar_vista(bool ampliable, int zoom, int franja = 0);
     // Mayor escala con la que entra el tamaño mínimo en la ventana actual.
-    int escala_maxima() const;
+    int escala_maxima(int franja = 0) const;
     void cerrar();
 
     // Reserva lugar en el atlas y encola la subida. false si no hay lugar este frame.
     bool subir(const ImagenRGBA& img, RegionAtlas& salida);
+    // false si la imagen es más grande que una página del atlas: no entraría nunca.
+    bool cabe_en_atlas(const ImagenRGBA& img) const { return empaquetado_.cabe(img.ancho, img.alto); }
     // Página del atlas vaciada por el último subir, o -1: sus regiones ya no valen.
     int tomar_pagina_reemplazada() { return empaquetado_.tomar_reemplazada(); }
 
@@ -100,10 +109,24 @@ public:
     bool subir_malla(const Modelo& m, MallaGpu& salida);
     void liberar_malla(MallaGpu& m);
     RegionAtlas dibujar_modelo(const MallaGpu& m, const float* mvp, const float* rotacion, const float (*huesos)[16], int n_huesos);
+    // Este frame, lo que va por debajo de CAPA_EFECTOS (mundo, no interfaz) se multiplica por
+    // `tinte`, por `brillo` (bw × bh celdas de celda × celda píxeles lógicos, 255 = sin cambio) y,
+    // si se pasan, por el color de cada fila de la vista (`filas`, n_filas colores RGBA que cubren
+    // la altura de la vista de arriba abajo; nullptr = blanco). Para solo tinte: brillo de 1 × 1 y una
+    // celda mayor que la vista. Vale para el frame actual.
+    // Deja lista la textura de brillo para bw × bh celdas, para no reservarla durante un frame.
+    void reservar_brillo(int bw, int bh) { asegurar_luz(bw, bh); }
+    void multiplicar_mundo(const u8* brillo, int bw, int bh, int celda, u32 tinte, const u32* filas = nullptr,
+                           int n_filas = 0);
+    // Este frame, el mundo se vuelve a escribir: `fase_ola` >= 0 lo desplaza por columnas (ola bajo el
+    // agua; fase 0..99) y `modo_vision` lo transforma (1 elfo, 2 elfo oscuro; 0 ninguno).
+    // `fase_borracho` >= 0 mece el mundo por filas (borrachera, S_Liquor 1; fase 0..99).
+    void reemplazar_mundo(int fase_ola, int modo_vision, int fase_borracho = -1);
     // Mientras se dibuja una ventana (nivel 1..30 de abajo hacia arriba; 0 = ninguna): lo que va
     // en CAPA_UI y CAPA_UI_TEXTO se dibuja en CAPA_VENTANAS, todo junto a ese nivel. Así una
     // ventana tapa entera a las de abajo, su texto incluido.
     void nivel_ventana(u32 nivel) { nivel_ventana_ = nivel; }
+    u32 nivel_ventana() const { return nivel_ventana_; }
 
     // Ordena la lista del frame (lo hace presentar si no se llamó antes; separado para medirlo
     // aparte de la espera del vsync).
@@ -114,6 +137,14 @@ public:
 
     // Ventana (píxeles) -> coordenadas lógicas.
     void a_logico(float wx, float wy, int& lx, int& ly) const;
+    // Ventana (píxeles) -> cuadrícula, sin descontar el origen del contenido.
+    void a_grilla(float wx, float wy, int& gx, int& gy) const;
+    // La cuadrícula cubre la ventana. El contenido (ancho() × alto()) va desplazado por el origen;
+    // lo que va fuera del contenido (la barra) se dibuja en coordenadas negativas del contenido.
+    int grid_ancho() const { return grid_w_; }
+    int grid_alto() const { return grid_h_; }
+    int origen_x() const { return origen_x_; }
+    int origen_y() const { return origen_y_; }
 
     int ancho() const { return ancho_; }
     // Píxeles reales por píxel lógico (la del último frame). Para redondear la cámara a 1/escala.
@@ -133,6 +164,9 @@ private:
     bool crear_pipeline_modelos();
     void pase_modelos(SDL_GPUCommandBuffer* cmd);
     bool crear_destino();
+    // Vacía la lista de dibujo y los efectos del frame (con o sin presentarlo).
+    void terminar_frame(u32 instancias_dibujadas);
+    bool asegurar_luz(int bw, int bh);
     void ordenar();
     SDL_GPUCommandBuffer* guardar_captura(SDL_GPUCommandBuffer* cmd);
 
@@ -150,6 +184,22 @@ private:
     };
     ModeloEncolado modelos_[RANURAS_MODELOS];
     int n_modelos_ = 0;
+    SDL_GPUGraphicsPipeline* pipeline_brillo_ = nullptr;
+    SDL_GPUGraphicsPipeline* pipeline_mundo_ = nullptr;   // reemplazar el mundo (ola, visión)
+    SDL_GPUTexture* copia_ = nullptr;                      // copia de destino_ para leerla al reemplazar
+    SDL_GPUTexture* filas_tex_ = nullptr;                  // color por fila (1 × LUZ_TAM RGBA)
+    SDL_GPUTransferBuffer* subida_filas_ = nullptr;
+    std::vector<u32> brillo_filas_;
+    bool reemplazo_activo_ = false;
+    int reemplazo_fase_ = -1, reemplazo_modo_ = 0, reemplazo_fase_b_ = -1;
+    SDL_GPUTexture* luz_ = nullptr;             // brillo del mundo (R8); crece con la vista
+    SDL_GPUTransferBuffer* subida_luz_ = nullptr;
+    std::vector<u8> brillo_buf_;                // copia del frame, reservada al iniciar
+    bool brillo_activo_ = false;
+    int luz_w_ = 0, luz_h_ = 0;                 // tamaño de luz_
+    int brillo_w_ = 0, brillo_h_ = 0, brillo_celda_ = 1;
+    u32 brillo_tinte_ = 0xFFFFFFFFu;
+    u32 n_mundo_ = 0;                           // instancias de CAPA_FONDO..CAPA_MUNDO (prefijo de la lista)
     SDL_GPUTexture* atlas_ = nullptr;
     SDL_GPUTexture* destino_ = nullptr;  // resolución lógica
     SDL_GPUSampler* muestreo_ = nullptr;
@@ -157,6 +207,8 @@ private:
     SDL_GPUTransferBuffer* subida_inst_ = nullptr;
     SDL_GPUTransferBuffer* subida_atlas_ = nullptr;
     int ancho_ = 0, alto_ = 0;            // tamaño lógico del frame actual
+    int grid_w_ = 0, grid_h_ = 0;         // cuadrícula de la ventana (píxeles lógicos, >= el contenido)
+    int origen_x_ = 0, origen_y_ = 0;     // dónde empieza el contenido dentro de la cuadrícula
     int ancho_min_ = 0, alto_min_ = 0;
     int escala_ = 1;
     int destino_w_ = 0, destino_h_ = 0;   // tamaño real de destino_
@@ -166,6 +218,7 @@ private:
     std::vector<SubidaPendiente> pendientes_;
     std::vector<u8> staging_atlas_;
     bool atlas_lleno_avisado_ = false;
+    u64 proximo_aviso_instancias_ = 0;  // frame desde el que se vuelve a avisar de la lista llena
 
     // Lista de dibujo del frame.
     std::vector<Instancia> inst_;

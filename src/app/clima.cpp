@@ -1,10 +1,11 @@
-// Entregable 10: clima. S_Weather manda un número: 1–3 nieve y 17–19 lluvia (de menos a más);
-// el resto, despejado (WeatherTimeController de L1J elige al azar entre 0 y 19 cada hora;
-// el GM lo cambia con ".weather N").
+// Entregable 10: clima. S_Weather da la intensidad de la nieve y de la lluvia, por separado (ver
+// Ev::CLIMA en mundo.cpp). WeatherTimeController de L1J elige al azar cada hora; el GM lo cambia con
+// ".weather" (la sintaxis depende del servidor). Si llegan los dos, se dibuja la lluvia.
 // Las partículas no tienen estado: la posición de cada una es una función del tiempo y de su
 // número (un hash), así no hay nada que crear ni borrar. Solo en los mapas al aire libre.
 #include <cmath>
 #include "app/app.h"
+#include "mundo/luz.h"
 
 namespace lin {
 
@@ -18,19 +19,19 @@ u32 hash(u32 x) {
     return x ^ (x >> 16);
 }
 
-// Mapas al aire libre (los demás son mazmorras, casas o castillos por dentro). Sin un dato del
-// cliente que lo diga, la lista es la del mundo principal y las islas.
-bool al_aire_libre(MapId m) { return m == 0 || m == 4 || m == 68 || m == 69 || m == 70 || m == 2005; }
+// El original no dibuja clima en los mapas oscuros (4666a6). Bajo el agua tampoco tiene sentido,
+// aunque hay mapas submarinos fuera de esa lista.
+bool hay_clima(const Mundo& m) { return !mapa_oscuro(m.mapa) && !m.submarino; }
 
 }  // namespace
 
 void dibujar_clima(App& a, int w, int h, u64 ahora) {
-    const u8 c = a.mundo.clima;
-    const bool nieve = c >= 1 && c <= 3, lluvia = c >= 17 && c <= 19;
-    if ((!nieve && !lluvia) || !al_aire_libre(a.mundo.mapa)) return;
-    const int intensidad = nieve ? c : c - 16;
+    const bool lluvia = a.mundo.lluvia > 0;
+    const int intensidad = lluvia ? a.mundo.lluvia : a.mundo.nieve;
+    if (intensidad == 0 || !hay_clima(a.mundo)) return;
     Gpu& gpu = a.g->gpu();
-    const u64 k = clave_orden(CAPA_EFECTOS, 3);
+    // Encima de todo el mundo, pero dentro de él: el original lo oscurece con la noche, y los nombres no.
+    const u64 k = clave_orden(CAPA_MUNDO, 0xFFFFFFFFu);
     if (lluvia) gpu.rectangulo(0, 0, w, h, k, rgba(10, 16, 30, static_cast<u8>(35 + 20 * intensidad)));  // cielo cubierto
     const int n = (w * h / 4000) * intensidad;
     for (int i = 0; i < n; ++i) {

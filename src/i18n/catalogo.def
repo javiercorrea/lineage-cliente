@@ -1,0 +1,243 @@
+// Catálogo de textos de la interfaz del cliente. Cada línea: X(clave, es, en, pt, de, fr).
+// Orden de los idiomas: es, en, pt, de, fr (ver textos.h). Los %d / %s se conservan en todas.
+// Se agrega una línea por texto nuevo; no hace falta tocar nada más (tests/test_textos.cpp
+// verifica que cada clave tenga los cinco idiomas).
+
+// --- Comunes -------------------------------------------------------------------------------
+X(UI_F2_ORIGINAL, "F2: interfaz original", "F2: original interface", "F2: interface original",
+  "F2: Originaloberfläche", "F2 : interface d'origine")
+X(UI_VOLVER, "Volver", "Back", "Voltar", "Zurück", "Retour")
+
+// --- Login ---------------------------------------------------------------------------------
+X(LOGIN_SERVIDOR, "Servidor", "Server", "Servidor", "Server", "Serveur")
+X(LOGIN_CUENTA, "Cuenta", "Account", "Conta", "Konto", "Compte")
+X(LOGIN_CLAVE, "Clave", "Password", "Senha", "Passwort", "Mot de passe")
+X(LOGIN_ENTRAR, "Entrar", "Login", "Entrar", "Anmelden", "Connexion")
+X(LOGIN_SALIR, "Salir", "Quit", "Sair", "Beenden", "Quitter")
+X(LOGIN_CONECTANDO, "Conectando...", "Connecting...", "Conectando...", "Verbinde...", "Connexion...")
+X(LOGIN_ERR_CUENTA_EXISTE, "La cuenta ya existe.", "The account already exists.", "A conta já existe.",
+  "Das Konto existiert bereits.", "Le compte existe déjà.")
+X(LOGIN_ERR_CLAVE, "Usuario o clave incorrectos.", "Wrong account or password.", "Conta ou senha incorretas.",
+  "Konto oder Passwort falsch.", "Compte ou mot de passe incorrect.")
+X(LOGIN_ERR_EN_USO, "La cuenta ya está en uso.", "The account is already in use.", "A conta já está em uso.",
+  "Das Konto wird bereits verwendet.", "Le compte est déjà utilisé.")
+X(LOGIN_ERR_RECHAZO, "El servidor rechazó el ingreso.", "The server rejected the login.",
+  "O servidor recusou o acesso.", "Der Server hat die Anmeldung abgelehnt.", "Le serveur a refusé la connexion.")
+X(LOGIN_ERR_PROTOCOLO, "Versión de protocolo desconocida: ", "Unknown protocol version: ",
+  "Versão de protocolo desconhecida: ", "Unbekannte Protokollversion: ", "Version de protocole inconnue : ")
+
+// --- Crear personaje -----------------------------------------------------------------------
+X(CREAR_TITULO, "Nuevo personaje", "New character", "Novo personagem", "Neuer Charakter", "Nouveau personnage")
+X(CREAR_CLASE, "Clase", "Class", "Classe", "Klasse", "Classe")
+X(CREAR_SEXO, "Sexo", "Sex", "Sexo", "Geschlecht", "Sexe")
+X(CREAR_HOMBRE, "Hombre", "Male", "Masculino", "Männlich", "Homme")
+X(CREAR_MUJER, "Mujer", "Female", "Feminino", "Weiblich", "Femme")
+X(CREAR_ATRIBUTOS, "Atributos", "Attributes", "Atributos", "Attribute", "Attributs")
+X(CREAR_PUNTOS_LIBRES, "Puntos libres: %d", "Points left: %d", "Pontos livres: %d", "Freie Punkte: %d",
+  "Points restants : %d")
+X(CREAR_NOMBRE, "Nombre", "Name", "Nome", "Name", "Nom")
+X(CREAR_CREAR, "Crear", "Create", "Criar", "Erstellen", "Créer")
+X(CREAR_FALTA_PUNTOS, "Hay que repartir todos los puntos.", "Spend all the points.",
+  "Distribua todos os pontos.", "Alle Punkte verteilen.", "Répartissez tous les points.")
+X(CREAR_FALTA_NOMBRE, "Falta el nombre.", "The name is missing.", "Falta o nome.", "Der Name fehlt.",
+  "Il manque le nom.")
+X(CREAR_ERR_NOMBRE_EXISTE, "Ese nombre ya existe.", "That name already exists.", "Esse nome já existe.",
+  "Dieser Name existiert bereits.", "Ce nom existe déjà.")
+X(CREAR_ERR_NOMBRE_INVALIDO, "Nombre inválido.", "Invalid name.", "Nome inválido.", "Ungültiger Name.",
+  "Nom invalide.")
+X(CREAR_ERR_REPARTO, "Reparto de puntos inválido o sin ranuras libres.",
+  "Invalid point allocation or no free slots.", "Distribuição de pontos inválida ou sem vagas livres.",
+  "Ungültige Punkteverteilung oder keine freien Plätze.",
+  "Répartition des points invalide ou aucun emplacement libre.")
+X(CREAR_ERR_GENERICO, "No se pudo crear el personaje.", "The character could not be created.",
+  "Não foi possível criar o personagem.", "Der Charakter konnte nicht erstellt werden.",
+  "Impossible de créer le personnage.")
+
+// --- Selección de personaje ----------------------------------------------------------------
+X(PJ_TITULO, "Elige un personaje", "Select a character", "Escolha um personagem", "Charakter wählen",
+  "Choisir un personnage")
+X(PJ_NUEVO, "+ Nuevo personaje", "+ New character", "+ Novo personagem", "+ Neuer Charakter",
+  "+ Nouveau personnage")
+X(PJ_LINEA, "Nv %d %s%s%s", "Lv %d %s%s%s", "Nv %d %s%s%s", "Stufe %d %s%s%s", "Niv %d %s%s%s")
+X(PJ_ELEGIR, "Elige un personaje de la lista", "Choose a character from the list",
+  "Escolha um personagem da lista", "Wähle einen Charakter aus der Liste",
+  "Choisissez un personnage dans la liste")
+X(PJ_ENTRAR, "Entrar", "Enter", "Entrar", "Betreten", "Entrer")
+X(PJ_BORRAR, "Borrar", "Delete", "Apagar", "Löschen", "Supprimer")
+X(PJ_SEGURO, "¿Seguro?", "Sure?", "Tem certeza?", "Sicher?", "Sûr ?")
+X(PJ_NIVEL, "Nivel", "Level", "Nível", "Stufe", "Niveau")
+X(PJ_LEGAL, "Legal", "Lawful", "Ordeiro", "Rechtschaffen", "Loyal")
+
+// --- Clases (nombres del juego) ------------------------------------------------------------
+X(CLASE_PRINCIPE, "Príncipe", "Prince", "Príncipe", "Prinz", "Prince")
+X(CLASE_CABALLERO, "Caballero", "Knight", "Cavaleiro", "Ritter", "Chevalier")
+X(CLASE_ELFO, "Elfo", "Elf", "Elfo", "Elf", "Elfe")
+X(CLASE_MAGO, "Mago", "Wizard", "Mago", "Magier", "Magicien")
+X(CLASE_ELFO_OSCURO, "Elfo oscuro", "Dark Elf", "Elfo sombrio", "Dunkelelf", "Elfe noir")
+X(CLASE_CABALLERO_DRAGON, "Caballero dragón", "Dragon Knight", "Cavaleiro dragão", "Drachenritter",
+  "Chevalier dragon")
+X(CLASE_ILUSIONISTA, "Ilusionista", "Illusionist", "Ilusionista", "Illusionist", "Illusionniste")
+
+// --- Editor de ajustes (tools/settings.cpp) -------------------------------------------------
+X(AJ_TITULO, "AJUSTES DEL CLIENTE", "CLIENT SETTINGS", "AJUSTES DO CLIENTE", "CLIENT-EINSTELLUNGEN",
+  "PARAMÈTRES DU CLIENT")
+X(AJ_TITULO_VENTANA, "Ajustes del cliente Lineage", "Lineage client settings", "Configurações do cliente Lineage",
+  "Lineage-Client-Einstellungen", "Paramètres du client Lineage")
+X(AJ_PESTANA_JUEGO, "Juego", "Game", "Jogo", "Spiel", "Jeu")
+X(AJ_PESTANA_INTERFAZ, "Interfaz", "Interface", "Interface", "Oberfläche", "Interface")
+X(AJ_PESTANA_AUDIO, "Audio", "Audio", "Áudio", "Audio", "Audio")
+X(AJ_PESTANA_SERVIDORES, "Servidores", "Servers", "Servidores", "Server", "Serveurs")
+X(AJ_PESTANA_PERSONAJES, "Personajes", "Characters", "Personagens", "Charaktere", "Personnages")
+X(AJ_SI, "Sí", "Yes", "Sim", "Ja", "Oui")
+X(AJ_NO, "No", "No", "Não", "Nein", "Non")
+X(AJ_NUEVO_NOMBRE, "Nuevo", "New", "Novo", "Neu", "Nouveau")
+X(AJ_ERR_ANCHO, "Ventana: el ancho debe estar entre 320 y 7680", "Window: width must be between 320 and 7680",
+  "Janela: a largura deve estar entre 320 e 7680", "Fenster: Breite muss zwischen 320 und 7680 liegen",
+  "Fenêtre : la largeur doit être entre 320 et 7680")
+X(AJ_ERR_ALTO, "Ventana: el alto debe estar entre 240 y 4320", "Window: height must be between 240 and 4320",
+  "Janela: a altura deve estar entre 240 e 4320", "Fenster: Höhe muss zwischen 240 und 4320 liegen",
+  "Fenêtre : la hauteur doit être entre 240 et 4320")
+X(AJ_ERR_ZOOM, "Zoom: entre 0 (automático) y 16", "Zoom: between 0 (automatic) and 16",
+  "Zoom: entre 0 (automático) e 16", "Zoom: zwischen 0 (automatisch) und 16", "Zoom : entre 0 (automatique) et 16")
+X(AJ_ERR_OPACIDAD, "Opacidad de ventanas: entre 0 y 255", "Window opacity: between 0 and 255",
+  "Opacidade das janelas: entre 0 e 255", "Fensterdeckkraft: zwischen 0 und 255",
+  "Opacité des fenêtres : entre 0 et 255")
+X(AJ_ERR_MUSICA, "Volumen de música: entre 0 y 100", "Music volume: between 0 and 100",
+  "Volume da música: entre 0 e 100", "Musiklautstärke: zwischen 0 und 100", "Volume de la musique : entre 0 et 100")
+X(AJ_ERR_EFECTOS, "Volumen de efectos: entre 0 y 100", "Sound effects volume: between 0 and 100",
+  "Volume dos efeitos: entre 0 e 100", "Effektlautstärke: zwischen 0 und 100", "Volume des effets : entre 0 et 100")
+X(AJ_ERR_PUERTO, "Servidor: el puerto debe estar entre 1 y 65535", "Server: port must be between 1 and 65535",
+  "Servidor: a porta deve estar entre 1 e 65535", "Server: Port muss zwischen 1 und 65535 liegen",
+  "Serveur : le port doit être entre 1 et 65535")
+X(AJ_CARPETA, "Carpeta del juego", "Game folder", "Pasta do jogo", "Spielordner", "Dossier du jeu")
+X(AJ_BUSCAR, "Buscar carpeta...", "Browse folder...", "Procurar pasta...", "Ordner suchen...", "Parcourir...")
+X(AJ_CARPETA_OK, "Carpeta correcta: están los .pak del juego.", "Folder OK: the game .pak files are here.",
+  "Pasta correta: os arquivos .pak do jogo estão aqui.", "Ordner korrekt: die .pak-Dateien sind vorhanden.",
+  "Dossier correct : les fichiers .pak du jeu sont là.")
+X(AJ_CARPETA_MAL, "Aquí no están Sprite.pak, Text.pak y Tile.pak.",
+  "Sprite.pak, Text.pak and Tile.pak are not here.", "Sprite.pak, Text.pak e Tile.pak não estão aqui.",
+  "Sprite.pak, Text.pak und Tile.pak fehlen hier.", "Sprite.pak, Text.pak et Tile.pak ne sont pas ici.")
+X(AJ_CARPETA_CAMBIADA, "Carpeta del juego cambiada.", "Game folder changed.", "Pasta do jogo alterada.",
+  "Spielordner geändert.", "Dossier du jeu modifié.")
+X(AJ_CARPETA_NO, "Esa carpeta no tiene los .pak del juego.", "That folder doesn't have the game .pak files.",
+  "Essa pasta não tem os arquivos .pak do jogo.", "Dieser Ordner enthält nicht die .pak-Dateien des Spiels.",
+  "Ce dossier ne contient pas les fichiers .pak du jeu.")
+X(AJ_CAMARA, "Cámara a saltos (F4)", "Jump camera (F4)", "Câmera por saltos (F4)", "Sprungkamera (F4)",
+  "Caméra par sauts (F4)")
+X(AJ_CHAT_ENTER, "Enter abre el chat", "Enter opens chat", "Enter abre o chat", "Enter öffnet den Chat",
+  "Entrée ouvre le chat")
+X(AJ_SOMBRA, "Sombra en personajes", "Shadow on characters", "Sombra nos personagens", "Schatten auf Charakteren",
+  "Ombre sur les personnages")
+X(AJ_EFECTO_LUZ, "Noche y mazmorras oscuras", "Night and dark dungeons", "Noite e masmorras escuras",
+  "Nacht und dunkle Verliese", "Nuit et donjons sombres")
+X(AJ_EFECTO_AGUA, "Tinte azul bajo el agua", "Blue tint underwater", "Tom azul debaixo d'água",
+  "Blauer Farbton unter Wasser", "Teinte bleue sous l'eau")
+X(AJ_EFECTO_OLA, "Ola bajo el agua", "Wave underwater", "Onda debaixo d'água", "Welle unter Wasser",
+  "Vague sous l'eau")
+X(AJ_EFECTO_INFRA, "Visión de elfo", "Elf vision", "Visão de elfo", "Elfensicht", "Vision de l'elfe")
+X(AJ_COMPENSAR, "Compensar ataque", "Attack compensation", "Compensar ataque", "Angriffskompensation",
+  "Compensation d'attaque")
+X(AJ_TEXTO_DANO, "Texto de daño", "Damage text", "Texto de dano", "Schadenstext", "Texte de dégâts")
+X(AJ_BARRA_PJ, "Barra HP/MP sobre el personaje", "HP/MP bar over the character", "Barra HP/MP sobre o personagem",
+  "HP/MP-Leiste am Charakter", "Barre PV/PM sur le personnage")
+X(AJ_PAGINAS_BARRA, "Páginas de la barra de atajos (1-9)", "Hotbar pages (1-9)", "Páginas da barra de atalhos (1-9)",
+  "Seiten der Schnellleiste (1-9)", "Pages de la barre de raccourcis (1-9)")
+X(AJ_ERR_PAGINAS, "Páginas de la barra: entre 1 y 9", "Hotbar pages: between 1 and 9", "Páginas da barra: entre 1 e 9",
+  "Seiten der Leiste: zwischen 1 und 9", "Pages de la barre : entre 1 et 9")
+X(AJ_MS_MANTENER, "Mantener 1-0 para lanzar sobre uno mismo (ms)", "Hold 1-0 to self-cast (ms)",
+  "Manter 1-0 para lançar em si mesmo (ms)", "1-0 halten: auf sich selbst wirken (ms)", "Maintenir 1-0 pour se cibler (ms)")
+X(AJ_ERR_MS_MANTENER, "Mantener 1-0: entre 150 y 1000 ms", "Hold 1-0: between 150 and 1000 ms",
+  "Manter 1-0: entre 150 e 1000 ms", "1-0 halten: zwischen 150 und 1000 ms", "Maintenir 1-0 : entre 150 et 1000 ms")
+X(AJ_FPS, "Mostrar FPS (Mayús+F3)", "Show FPS (Shift+F3)", "Mostrar FPS (Shift+F3)", "FPS anzeigen (Umschalt+F3)", "Afficher les FPS (Maj+F3)")
+X(AJ_PANTALLA_COMPLETA, "Pantalla completa (al abrir)", "Full screen (on start)", "Tela cheia (ao abrir)", "Vollbild (beim Start)", "Plein écran (au lancement)")
+X(AJ_UI_SIMPLE, "Interfaz simple (F2)", "Simple interface (F2)", "Interface simples (F2)",
+  "Einfache Oberfläche (F2)", "Interface simple (F2)")
+X(AJ_OPACIDAD, "Opacidad de ventanas (0-255)", "Window opacity (0-255)", "Opacidade das janelas (0-255)",
+  "Fensterdeckkraft (0-255)", "Opacité des fenêtres (0-255)")
+X(AJ_LOGO, "Logo PNG (vacío = texto)", "Login PNG logo (empty = text)",
+  "Logo PNG (vazio = texto)", "PNG-Logo (leer = Text)", "Logo PNG (vide = texte)")
+X(AJ_VENTANA_ANCHO, "Ventana: ancho", "Window: width", "Janela: largura", "Fenster: Breite", "Fenêtre : largeur")
+X(AJ_VENTANA_ALTO, "Ventana: alto", "Window: height", "Janela: altura", "Fenster: Höhe", "Fenêtre : hauteur")
+X(AJ_ZOOM, "Zoom (0 = automático)", "Zoom (0 = automatic)", "Zoom (0 = automático)", "Zoom (0 = automatisch)",
+  "Zoom (0 = automatique)")
+X(AJ_IDIOMA, "Idioma del juego", "Game language", "Idioma do jogo", "Spielsprache", "Langue du jeu")
+X(AJ_IDIOMA_AUTO, "Automático (sistema)", "Automatic (system)", "Automático (sistema)", "Automatisch (System)",
+  "Automatique (système)")
+X(AJ_MUSICA, "Música (0-100)", "Music (0-100)", "Música (0-100)", "Musik (0-100)", "Musique (0-100)")
+X(AJ_EFECTOS, "Efectos (0-100)", "Effects (0-100)", "Efeitos (0-100)", "Effekte (0-100)", "Effets (0-100)")
+X(AJ_SERVIDOR_EDITAR, "Servidor a editar", "Server to edit", "Servidor a editar", "Zu bearbeitender Server",
+  "Serveur à modifier")
+X(AJ_AGREGAR, "Agregar", "Add", "Adicionar", "Hinzufügen", "Ajouter")
+X(AJ_QUITAR, "Quitar", "Remove", "Remover", "Entfernen", "Retirer")
+X(AJ_NOMBRE, "Nombre", "Name", "Nome", "Name", "Nom")
+X(AJ_HOST, "Host (IP o nombre)", "Host (IP or name)", "Host (IP ou nome)", "Host (IP oder Name)",
+  "Hôte (IP ou nom)")
+X(AJ_PUERTO, "Puerto", "Port", "Porta", "Port", "Port")
+X(AJ_PROTOCOLO, "Protocolo", "Protocol", "Protocolo", "Protokoll", "Protocole")
+X(AJ_CUENTA, "Cuenta (la última usada)", "Account (last used)", "Conta (a última usada)",
+  "Konto (zuletzt verwendet)", "Compte (dernier utilisé)")
+X(AJ_SERVIDOR_ENTRAR, "Servidor al entrar", "Server on login", "Servidor ao entrar", "Server beim Anmelden",
+  "Serveur à la connexion")
+X(AJ_SIN_DATOS, "Todavía no hay datos guardados por personaje.", "No character data saved yet.",
+  "Ainda não há dados salvos por personagem.", "Noch keine Charakterdaten gespeichert.",
+  "Aucune donnée de personnage enregistrée pour l'instant.")
+X(AJ_SIN_DATOS_2, "Se crean al asignar hechizos a F5-F12 o a la barra Alt+1..0.",
+  "They are created when you assign spells to F5-F12 or the Alt+1..0 bar.",
+  "São criados ao atribuir magias a F5-F12 ou à barra Alt+1..0.",
+  "Sie entstehen, wenn du Zauber auf F5-F12 oder die Leiste Alt+1..0 legst.",
+  "Ils sont créés en assignant des sorts à F5-F12 ou à la barre Alt+1..0.")
+X(AJ_PERSONAJE, "Personaje", "Character", "Personagem", "Charakter", "Personnage")
+X(AJ_ATAJOS_NO, "Atajos F5-F12: ninguno", "F5-F12 shortcuts: none", "Atalhos F5-F12: nenhum",
+  "Tasten F5-F12: keine", "Raccourcis F5-F12 : aucun")
+X(AJ_ATAJOS_SI, "Atajos F5-F12: guardados", "F5-F12 shortcuts: saved", "Atalhos F5-F12: salvos",
+  "Tasten F5-F12: gespeichert", "Raccourcis F5-F12 : enregistrés")
+X(AJ_BARRA_NO, "Barra Alt+1..0: ninguna", "Alt+1..0 bar: none", "Barra Alt+1..0: nenhuma",
+  "Leiste Alt+1..0: keine", "Barre Alt+1..0 : aucune")
+X(AJ_BARRA_SI, "Barra Alt+1..0: guardada", "Alt+1..0 bar: saved", "Barra Alt+1..0: salva",
+  "Leiste Alt+1..0: gespeichert", "Barre Alt+1..0 : enregistrée")
+X(AJ_QUITAR_ATAJOS, "Quitar atajos F5-F12", "Remove F5-F12 shortcuts", "Remover atalhos F5-F12",
+  "Tasten F5-F12 entfernen", "Retirer les raccourcis F5-F12")
+X(AJ_AUTOBUFFS_NO, "Auto-buffs: ninguno", "Auto-buffs: none", "Auto-buffs: nenhum", "Auto-Buffs: keine", "Auto-buffs : aucun")
+X(AJ_AUTOBUFFS_SI, "Auto-buffs: guardados", "Auto-buffs: saved", "Auto-buffs: salvos", "Auto-Buffs: gespeichert",
+  "Auto-buffs : enregistrés")
+X(AJ_QUITAR_AUTOBUFFS, "Quitar auto-buffs", "Remove auto-buffs", "Remover auto-buffs", "Auto-Buffs entfernen",
+  "Retirer les auto-buffs")
+X(AJ_AUTOBUFFS_QUITADOS, "%s: auto-buffs quitados (al pulsar Guardar)", "%s: auto-buffs removed (press Save)",
+  "%s: auto-buffs removidos (ao pulsar Salvar)", "%s: Auto-Buffs entfernt (Speichern drücken)",
+  "%s : auto-buffs retirés (appuyer sur Enregistrer)")
+X(AJ_USAR_AUTOBUFFS, "Auto-buffs (casilleros junto a la barra)", "Auto-buffs (slots next to the bar)",
+  "Auto-buffs (espaços junto à barra)", "Auto-Buffs (Felder neben der Leiste)", "Auto-buffs (cases près de la barre)")
+X(AJ_USAR_AUTOPOCION, "Auto-poción (botón e indicador)", "Auto potion (button and indicator)",
+  "Auto-poção (botão e indicador)", "Auto-Trank (Knopf und Anzeige)", "Auto-potion (bouton et indicateur)")
+X(AJ_AUTOPOCION, "Auto-poción", "Auto potion", "Auto-poção", "Auto-Trank", "Auto-potion")
+X(AJ_UMBRAL_POCION, "Auto-poción con HP bajo", "Auto potion below HP", "Auto-poção com HP abaixo de",
+  "Auto-Trank unter HP", "Auto-potion sous PV")
+X(AJ_QUITAR_BARRA, "Quitar barra", "Remove bar", "Remover barra", "Leiste entfernen", "Retirer la barre")
+X(AJ_ATAJOS_QUITADOS, "%s: atajos quitados (al pulsar Guardar)", "%s: shortcuts removed (press Save)",
+  "%s: atalhos removidos (ao pulsar Salvar)", "%s: Tasten entfernt (Speichern drücken)",
+  "%s : raccourcis retirés (appuyez sur Enregistrer)")
+X(AJ_BARRA_QUITADA, "%s: barra quitada (al pulsar Guardar)", "%s: bar removed (press Save)",
+  "%s: barra removida (ao pulsar Salvar)", "%s: Leiste entfernt (Speichern drücken)",
+  "%s : barre retirée (appuyez sur Enregistrer)")
+X(AJ_VENTANAS_DEF, "Posiciones de ventanas: por defecto", "Window positions: default",
+  "Posições das janelas: padrão", "Fensterpositionen: Standard", "Positions des fenêtres : par défaut")
+X(AJ_VENTANAS_GUARD, "Posiciones de ventanas: guardadas", "Window positions: saved",
+  "Posições das janelas: salvas", "Fensterpositionen: gespeichert", "Positions des fenêtres : enregistrées")
+X(AJ_RESTABLECER, "Restablecer posiciones", "Reset positions", "Redefinir posições", "Positionen zurücksetzen",
+  "Réinitialiser les positions")
+X(AJ_VENTANAS_RESET, "Posiciones de ventanas restablecidas (al pulsar Guardar)",
+  "Window positions reset (press Save)", "Posições das janelas redefinidas (ao pulsar Salvar)",
+  "Fensterpositionen zurückgesetzt (Speichern drücken)",
+  "Positions des fenêtres réinitialisées (appuyez sur Enregistrer)")
+X(AJ_GUARDAR, "Guardar", "Save", "Salvar", "Speichern", "Enregistrer")
+X(AJ_GUARDADO, "Guardado. El juego lo usa al arrancar.", "Saved. The game uses it on startup.",
+  "Salvo. O jogo o usa ao iniciar.", "Gespeichert. Das Spiel verwendet es beim Start.",
+  "Enregistré. Le jeu l'utilise au démarrage.")
+X(AJ_NO_ESCRIBE, "No se pudo escribir el archivo de ajustes.", "Could not write the settings file.",
+  "Não foi possível gravar o arquivo de configurações.", "Die Einstellungen konnten nicht geschrieben werden.",
+  "Impossible d'écrire le fichier de paramètres.")
+X(AJ_REVERTIR, "Revertir", "Revert", "Reverter", "Zurücksetzen", "Annuler les modifications")
+X(AJ_RELEIDO, "Se volvieron a leer los ajustes guardados.", "Saved settings were reloaded.",
+  "As configurações salvas foram recarregadas.", "Die gespeicherten Einstellungen wurden neu geladen.",
+  "Les paramètres enregistrés ont été relus.")
+X(AJ_SALIR, "Salir", "Quit", "Sair", "Beenden", "Quitter")

@@ -34,3 +34,19 @@ __pycache__/
 *.s32
 *.til
 *.spr
+
+# Servidor 3.80C: se baja y genera con servidor_380/instalar.sh
+servidor_380/l1jgo/
+servidor_380/datos/
+servidor_380/servidor.log
+
+# Servidor classic (US 2009 / s3ep1): se baja y genera con servidor_classic/instalar.sh
+servidor_classic/l1jen/
+servidor_classic/datos/
+servidor_classic/server.log
+
+# Servidor classic rama 363 (protocolo jp363): se baja y genera con servidor_classic363/instalar.sh
+servidor_classic363/l1jen/
+servidor_classic363/datos/
+servidor_classic363/server.log
+dist/

@@ -205,10 +205,48 @@ TEST_CASE("Mundo: ataque, daño en el frame de impacto, muerte, cadáver y reini
     aplicar_eventos(m, l5, 6000);
     CHECK(m.objetos.col<O_ACCION>()[m.objetos.buscar(3)] == ACC_MORIR);
 
-    // Muere el jugador y reinicia: se descarta todo salvo él.
+    // Muere el jugador y lo resucitan (S_Resurrection): vuelve a estar vivo, sin reiniciar.
     muere.id = 1;
     Evento l6[] = {muere};
     aplicar_eventos(m, l6, 7000);
+    CHECK(m.jugador.muerto);
+    Evento revive{};
+    revive.tipo = Ev::RESUCITAR;
+    revive.id = 1;
+    Evento l7[] = {revive};
+    aplicar_eventos(m, l7, 7500);
+    CHECK_FALSE(m.jugador.muerto);
+    CHECK(m.objetos.col<O_ESTADO>()[yo] == 0);
+
+    // Invisible (S_Invis) y de vuelta visible.
+    Evento invis{};
+    invis.tipo = Ev::INVISIBLE;
+    invis.id = 1;
+    invis.v[0] = 1;
+    Evento l8[] = {invis};
+    aplicar_eventos(m, l8, 7600);
+    CHECK((m.objetos.col<O_FLAGS>()[yo] & FLAG_INVISIBLE) != 0);
+    invis.v[0] = 0;
+    Evento l9[] = {invis};
+    aplicar_eventos(m, l9, 7700);
+    CHECK((m.objetos.col<O_FLAGS>()[yo] & FLAG_INVISIBLE) == 0);
+
+    // Nombre rosa (S_PinkName) por 180 s y su fin.
+    Evento rosa{};
+    rosa.tipo = Ev::NOMBRE_ROSA;
+    rosa.id = 1;
+    rosa.v[0] = 180;
+    Evento l11[] = {rosa};
+    aplicar_eventos(m, l11, 7800);
+    CHECK(m.objetos.col<O_ROSA>()[yo] == 7800 + 180 * 1000);
+    rosa.v[0] = 0;
+    Evento l12[] = {rosa};
+    aplicar_eventos(m, l12, 7900);
+    CHECK(m.objetos.col<O_ROSA>()[yo] == 0);
+
+    // Muere otra vez y reinicia: se descarta todo salvo él.
+    Evento l10[] = {muere};
+    aplicar_eventos(m, l10, 8000);
     CHECK(m.jugador.muerto);
     reiniciar_jugador(m);
     CHECK_FALSE(m.jugador.muerto);
@@ -326,4 +364,31 @@ TEST_CASE("Mundo: segmentos en el hilo de carga y liberación de los lejanos" * 
     CHECK(m.segmentos.size() == 1);
     CHECK(segmento_cargado(m, rec, x, y) == &m.segmentos[0]);
     CHECK(segmento_cargado(m, rec, x + 64 * 3, y) == nullptr);  // pedido de nuevo
+}
+
+TEST_CASE("Inventario: atributos de un ítem identificado (getStatusBytes) en texto") {
+    char buf[512];
+    // Arma: daño 6/8, hierro, peso 30, +3, dos manos, caballero, FUE +1.
+    const u8 arma[] = {1, 6, 8, 11, 30, 0, 0, 0, 2, 3, 4, 7, 2, 8, 1};
+    size_t n = describir_atributos({reinterpret_cast<const char*>(arma), sizeof arma}, buf, sizeof buf);
+    CHECK(std::string_view(buf, n) ==
+          "Damage 6 (small) / 8 (large)\nMaterial: iron\nWeight 30\nEnchant +3\nTwo-handed\nUsable by: Knight\nSTR +1");
+    // Armadura: AC 4, cuero, sin grado, peso 15, todas las clases, MR 10, resistencia al sueño 5.
+    const u8 armadura[] = {19, 4, 7, 0xFF, 15, 0, 0, 0, 7, 0x7F, 15, 10, 0, 15, 5, 0, 33, 3};
+    n = describir_atributos({reinterpret_cast<const char*>(armadura), sizeof armadura}, buf, sizeof buf);
+    CHECK(std::string_view(buf, n) ==
+          "AC 4\nMaterial: leather\nWeight 15\nUsable by: all classes\nMR +10\nSleep resistance +5");
+    // Sin identificar (vacío) y buffer chico: sin desbordar.
+    CHECK(describir_atributos({}, buf, sizeof buf) == 0);
+    n = describir_atributos({reinterpret_cast<const char*>(arma), sizeof arma}, buf, 8);
+    CHECK(n < 8);
+}
+
+TEST_CASE("Puertas y estructuras de castillo: acciones que se quedan en su último frame") {
+    CHECK(accion_fija(TIPO_PUERTA, ACC_ABRIR));
+    CHECK(accion_fija(TIPO_ESTRUCTURA, 35));  // torre destruida
+    CHECK(accion_fija(TIPO_ESTRUCTURA, 37));  // portón destruido
+    CHECK_FALSE(accion_fija(TIPO_ESTRUCTURA, 0));
+    CHECK_FALSE(accion_fija(TIPO_ESTRUCTURA, 38));
+    CHECK_FALSE(accion_fija(0, ACC_ABRIR));  // un personaje no se queda quieto al "abrir"
 }

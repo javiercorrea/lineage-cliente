@@ -134,7 +134,43 @@ bool TablaSprites::cargar(const std::vector<u8>& texto) {
         }
         p = fin_reg + 1;
     }
+    copiar_filas_faltantes();
     return !rangos_.empty();
+}
+
+// TODO(PARCHE PROVISIONAL): NO son los datos reales. Esta tabla (l1j-client) llega al gfx 8682 y la del
+// juego va cifrada en list.spz (Text.pak). Estos gfx se dibujan con la fila de la forma anterior de su
+// serie, así que sus tiempos y su aspecto pueden ser incorrectos. Hay que conseguir la tabla real (gfx
+// y tiempos) y borrar esto. Ver docs/DESCUBRIMIENTOS.md, "Gfx sin fila en la tabla".
+// shortcut: copia la fila de la forma nivel 70, hasta tener list.spz descifrado.
+void TablaSprites::copiar_filas_faltantes() {
+    // Polymorphs 75 y 80: las formas de 52 a 70 de cada serie usan los mismos archivos.
+    static constexpr std::pair<GfxId, GfxId> FILAS[] = {
+        {9225, 6160}, {9226, 6160},  // darkelf 75 y 80 -> darkelf 70
+        {9205, 6157}, {9206, 6157},  // death 75 y 80 -> death 70
+        {9011, 7341}, {9012, 7341},  // spearm 75 y 80 -> spearm 70
+    };
+    for (const auto& [nuevo, origen] : FILAS) {
+        if (origen >= alias_.size()) continue;  // tabla reducida (tests)
+        if (nuevo >= alias_.size()) {
+            const size_t n = nuevo + 1u;
+            for (size_t g = alias_.size(); g < n; ++g) alias_.push_back(static_cast<GfxId>(g));
+            sombra_.resize(n, -1);
+            tipo_.resize(n, 0);
+            atributos_.resize(n, 0);
+            siguiente_.resize(n, 0);
+        }
+        alias_[nuevo] = alias_[origen];
+        sombra_[nuevo] = sombra_[origen];
+        tipo_[nuevo] = tipo_[origen];
+        atributos_[nuevo] = atributos_[origen];
+        siguiente_[nuevo] = siguiente_[origen];
+        for (u64 a = 0; a < 256; ++a)
+            if (const u32* i = indice_.buscar((static_cast<u64>(origen) << 8) | a)) {
+                const u32 rango = *i;  // poner() puede mover la tabla
+                indice_.poner((static_cast<u64>(nuevo) << 8) | a, rango);
+            }
+    }
 }
 
 bool TablaSprites::cargar_archivo(const std::string& ruta) {

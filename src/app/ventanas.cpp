@@ -7,6 +7,7 @@
 //    línea de entrada del chat.
 #include <algorithm>
 #include <charconv>
+#include <cstring>
 #include <filesystem>
 #include "app/app.h"
 
@@ -17,7 +18,8 @@ namespace {
 constexpr std::string_view NOMBRES[] = {"estado", "inventario", "hechizos", "npc", "opciones", "salida", "social", "intercambio"};
 static_assert(std::size(NOMBRES) == static_cast<size_t>(IdVentana::CANTIDAD));
 static_assert(static_cast<int>(IdVentana::CANTIDAD) == 8, "App::orden_ventanas se inicializa con 0..7");
-constexpr int ANCHO_OPCIONES = ui::VENTANA_ANCHO, ALTO_OPCIONES = 276;
+// Doce filas de ALTO_GLIFO + 12 px, más el título y el margen: 352 px. Con 276 (y luego 300) la última quedaba afuera.
+constexpr int ANCHO_OPCIONES = 320, ALTO_OPCIONES = 300;  // 10 filas a la vista; el resto, con scroll
 constexpr int ANCHO_SALIDA = 200, ALTO_SALIDA = 120;
 constexpr int SEPARACION = 4, MARGEN = 7;
 constexpr int PASO_LUGAR = 8;  // px entre los lugares que se prueban para una ventana que se abre
@@ -61,7 +63,7 @@ Rect por_defecto(const App& a, IdVentana v) {
     case IdVentana::ESTADO: return {x_estado, y, w, h};
     case IdVentana::HECHIZOS: return {x_estado - ocupa(a.ventana_estado, IdVentana::ESTADO), y, w, h};
     case IdVentana::NPC: return {MARGEN, y, w, h};
-    case IdVentana::OPCIONES: return {(a.gpu.ancho() - ANCHO_OPCIONES) / 2, y + 40, ANCHO_OPCIONES, ALTO_OPCIONES};
+    case IdVentana::OPCIONES: return {(a.gpu.ancho() - ANCHO_OPCIONES) / 2, y + 28, ANCHO_OPCIONES, ALTO_OPCIONES};
     case IdVentana::SALIDA: return {(a.gpu.ancho() - ANCHO_SALIDA) / 2, a.gpu.alto() / 3, ANCHO_SALIDA, ALTO_SALIDA};
     case IdVentana::SOCIAL: return rect_social(a);
     case IdVentana::INTERCAMBIO: return rect_intercambio(a);
@@ -164,6 +166,12 @@ Rect rect_ventana(const App& a, IdVentana v) {
 
 bool sobre_ventana(const App& a, IdVentana v) { return ventana_bajo_puntero(a) == indice(v); }
 
+void barra_scroll_ventana(App& a, ui::BarraScroll& st, int x, int y, int alto, u32 total, u32 visibles, u32& pos,
+                          u64 clave, bool sobre_lista) {
+    ui::barra_scroll(*a.g, a.entrada, st, x, y, 10, alto, total, visibles, pos, clave, sobre_lista);
+    if (st.presionada) a.clic_consumido = true;  // igual que al arrastrar una ventana: no camina
+}
+
 bool sobre_alguna_ventana(const App& a) { return ventana_bajo_puntero(a) >= 0; }
 
 void arrastrar_ventana(App& a, IdVentana v) {
@@ -227,21 +235,38 @@ void dibujar_botones_panel(App& a, int x, int y) {
     if (boton_panel(a, 1015, x + 94, y, "Party, trade, clan")) a.ventana_social = !a.ventana_social;
 }
 
-int dibujar_botones_texto(App& a, int x_derecha, int y) {
-    // UI simple: [Magic] [Status] [Items] [Options], alineados a la derecha.
-    struct B {
-        std::string_view t;
-        bool* abierta;
-    } botones[] = {{"Exit", &a.ventana_salida}, {"Options", &a.ventana_opciones}, {"Social", &a.ventana_social}, {"Items", &a.ventana_inventario},
-                   {"Status", &a.ventana_estado}, {"Magic", &a.ventana_hechizos}};
-    int x = x_derecha;
-    for (const B& b : botones) {
-        int w = ancho_texto(b.t.data(), b.t.size()) + 10;
-        x -= w;
-        if (ui::boton_texto(*a.g, a.entrada, b.t, x, y, w, ALTO_GLIFO + 4)) *b.abierta = !*b.abierta;
-        x -= 4;
+// UI simple: 6 botones en 2 columnas × 3 filas, a la izquierda del minimapa.
+static constexpr std::string_view BOTONES_INF[6] = {"Magic", "Status", "Items", "Social", "Options", "Exit"};
+static bool* boton_inf_abierta(App& a, int i) {
+    switch (i) {
+    case 0: return &a.ventana_hechizos;
+    case 1: return &a.ventana_estado;
+    case 2: return &a.ventana_inventario;
+    case 3: return &a.ventana_social;
+    case 4: return &a.ventana_opciones;
+    default: return &a.ventana_salida;
     }
-    return x;
+}
+static int col_botones_inf() {
+    int w = 0;
+    for (std::string_view t : BOTONES_INF) w = std::max(w, ancho_texto(t.data(), t.size()) + 10);
+    return w;
+}
+
+int ancho_botones_texto() { return 2 * col_botones_inf() + 4; }  // ancho del bloque de 2 columnas
+
+// Dibuja el bloque de botones con su borde derecho en x_der y su tope en y_top. Devuelve el borde izq.
+int dibujar_botones_texto(App& a, int x_der, int y_top) {
+    const int cw = col_botones_inf(), fh = ALTO_GLIFO + 4;
+    const int x0 = x_der - (2 * cw + 4);
+    for (int i = 0; i < 6; ++i) {
+        const int bx = x0 + (i / 3) * (cw + 4), by = y_top + (i % 3) * (fh + 2);
+        if (ui::boton_texto(*a.g, a.entrada, BOTONES_INF[i], bx, by, cw, fh)) {
+            bool* abierta = boton_inf_abierta(a, i);
+            *abierta = !*abierta;
+        }
+    }
+    return x0;
 }
 
 // Recuadro con título y "[x]" para las ventanas chicas (opciones, salida). Devuelve true al cerrar.
@@ -267,20 +292,29 @@ void dibujar_opciones(App& a) {
     if (recuadro(a, r, "Options")) a.ventana_opciones = false;
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
 
-    // Una fila por opción: el nombre y un botón con el valor (clic lo cambia).
+    // Una fila por opción: el nombre y un botón con el valor (clic lo cambia). Las filas fuera de la
+    // parte visible no se dibujan ni reciben clics; la barra y la rueda recorren la lista.
     char t[48];
-    int y = r.y + ui::ALTO_TITULO + 8;
+    const int paso = ALTO_GLIFO + 12, top = r.y + ui::ALTO_TITULO + 8;
+    const u32 visibles = static_cast<u32>((r.h - ui::ALTO_TITULO - 8 - 6) / paso);
+    u32& primera = a.scroll.opciones_pos;
+    barra_scroll_ventana(a, a.scroll.opciones, r.x + r.w - 14, top, static_cast<int>(visibles) * paso, a.scroll.opciones_filas,
+                         visibles, primera, clave_orden(CAPA_UI, 14), sobre_ventana(a, IdVentana::OPCIONES));
+    u32 contador = 0;
     auto fila = [&](std::string_view nombre, std::string_view valor) {
+        const u32 k = contador++;
+        if (k < primera || k >= primera + visibles) return false;
+        const int y = top + static_cast<int>(k - primera) * paso;
         g.texto(nombre, static_cast<float>(r.x + 10), static_cast<float>(y + 3), kt, rgba(230, 220, 190));
-        bool clic = ui::boton_texto(g, e, valor, r.x + r.w - 100, y, 90, ALTO_GLIFO + 6);
-        y += ALTO_GLIFO + 12;
-        return clic;
+        // El botón de valor tiene 120 px: "Enter to type" y sus parecidos no se salen; la etiqueta, a la izquierda.
+        return ui::boton_texto(g, e, valor, r.x + r.w - 140, y, 120, ALTO_GLIFO + 6);
     };
     bool cambio = false;
     if (fila("Interface (F2)", a.cfg.ui_simple ? "Simple" : "Original")) a.cfg.ui_simple = !a.cfg.ui_simple, cambio = true;
     if (fila("Camera (F4)", a.cfg.camara_a_saltos ? "Steps" : "Smooth")) a.cfg.camara_a_saltos = !a.cfg.camara_a_saltos, cambio = true;
     if (fila("Shade in shadows", a.cfg.sombra_personajes ? "On" : "Off"))
         a.cfg.sombra_personajes = !a.cfg.sombra_personajes, cambio = true;
+    if (fila("FPS (Shift+F3)", a.cfg.mostrar_fps ? "On" : "Off")) a.cfg.mostrar_fps = !a.cfg.mostrar_fps, cambio = true;
     const int opacidad = std::clamp(a.cfg.opacidad_ventanas, 60, 255);  // la configurada, no la de esta ventana
     std::snprintf(t, sizeof t, "%d%%", opacidad * 100 / 255);
     if (fila("Window opacity", t)) {  // 40 % -> 55 % -> 70 % -> 85 % -> 100 % -> 40 %
@@ -293,6 +327,48 @@ void dibujar_opciones(App& a) {
         a.escribiendo_chat = false;
         cambio = true;
     }
+    std::snprintf(t, sizeof t, "%d", a.cfg.paginas_barra);
+    if (fila("Hotbar pages", t)) {  // 1 -> 2 ... -> 9 -> 1; las que dejan de verse se conservan
+        a.cfg.paginas_barra = a.cfg.paginas_barra % PAGINAS_BARRA_MAX + 1;
+        cambio = true;
+    }
+    std::snprintf(t, sizeof t, "%d ms", a.cfg.ms_mantener_tecla);
+    if (fila("Hold 1-0 to self-cast", t)) {  // 150 -> 200 -> 300 -> 400 -> 500 -> 700 -> 1000 -> 150
+        static constexpr int VALORES[] = {150, 200, 300, 400, 500, 700, 1000};
+        int sig = VALORES[0];
+        for (int v : VALORES)
+            if (v > a.cfg.ms_mantener_tecla) { sig = v; break; }
+        a.cfg.ms_mantener_tecla = sig;
+        cambio = true;
+    }
+    // Auto-poción del personaje con el que se juega (la carga procesar_autopocion).
+    if (a.cfg.usar_autopocion && !a.autopocion.de.empty()) {
+        char n[64];
+        std::snprintf(n, sizeof n, "Auto potion (%s)", a.autopocion.de.c_str());
+        if (fila(n, a.autopocion.op.encendida ? "On" : "Off")) {
+            a.autopocion.op.encendida = !a.autopocion.op.encendida;
+            guardar_autopocion(a);
+        }
+        std::snprintf(t, sizeof t, "below %d%% HP", a.autopocion.op.umbral);
+        if (fila("Auto potion when", t)) {  // 10 -> 15 ... -> 95 -> 10
+            int& u = a.autopocion.op.umbral;
+            u = u >= UMBRAL_POCION_MAX ? UMBRAL_POCION_MIN : u + 5;
+            guardar_autopocion(a);
+        }
+    }
+    if (fila("HP/MP bar over char", a.cfg.barra_personaje ? "On" : "Off"))
+        a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
+    if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))
+        a.cfg.texto_dano = !a.cfg.texto_dano, cambio = true;
+    if (fila("Speech balloons", a.cfg.globos_comic ? "Comic" : "Text"))
+        a.cfg.globos_comic = !a.cfg.globos_comic, cambio = true;
+    if (fila("Attack compensation", a.cfg.compensar_ataque ? "On" : "Off"))
+        a.cfg.compensar_ataque = !a.cfg.compensar_ataque, cambio = true;
+    if (fila("Night and dungeons",a.cfg.efecto_luz ? "On" : "Off")) a.cfg.efecto_luz = !a.cfg.efecto_luz, cambio = true;
+    if (fila("Underwater tint", a.cfg.efecto_agua_tinte ? "On" : "Off")) a.cfg.efecto_agua_tinte = !a.cfg.efecto_agua_tinte, cambio = true;
+    if (fila("Underwater wave", a.cfg.efecto_agua_ola ? "On" : "Off")) a.cfg.efecto_agua_ola = !a.cfg.efecto_agua_ola, cambio = true;
+    if (fila("Elf vision", a.cfg.efecto_infravision ? "On" : "Off")) a.cfg.efecto_infravision = !a.cfg.efecto_infravision, cambio = true;
+    if (fila("Full screen (Alt+Enter)", a.cfg.pantalla_completa ? "On" : "Off")) alternar_pantalla_completa(a), cambio = true;
     std::snprintf(t, sizeof t, a.cfg.zoom ? "x%d" : "Auto", a.cfg.zoom);
     if (fila("Zoom (Ctrl +/-)", t)) {  // Auto -> x1 -> x2 ... -> máxima -> Auto
         a.cfg.zoom = a.cfg.zoom >= a.gpu.escala_maxima() ? 0 : a.cfg.zoom + 1;
@@ -314,6 +390,7 @@ void dibujar_opciones(App& a) {
         a.cfg.ventanas.clear();
         cambio = true;
     }
+    a.scroll.opciones_filas = contador;
     if (cambio) guardar_config(a.cfg);
 }
 
@@ -322,16 +399,19 @@ void dibujar_ayuda_teclas(App& a) {
     static constexpr const char* FILAS[][2] = {
         {"F1", "This help"},
         {"F2", "Simple / original interface"},
-        {"F3", "Debug overlay (fps, CPU)"},
+        {"F3 / Shift+F3", "Debug overlay / FPS counter"},
         {"F4 / Shift+F4", "Camera / shade in shadows"},
         {"F5-F12", "Cast the assigned spell"},
         {"Shift+F12", "Screenshot (captura.bmp)"},
+        {"Shift+click", "Turn that way (to face someone)"},
         {"1..0 / Alt+1..0", "Shortcut bar (spells, items)"},
         {"Enter", "Open chat / send (Esc: cancel)"},
         {"A", "Keep attacking the target (until it dies or you walk)"},
         {"Ctrl+click", "Force attack (NPCs, other players)"},
         {"/pk", "PK mode: clicking a player attacks"},
         {"Shift+F2", "3D models / sprites (if models= is set)"},
+        {"/exclude Name", "Block / unblock a player (no name: list)"},
+        {"/buddy, /addbuddy, /delbuddy", "Buddy list"},
         {"Middle click", "Select bar slot / use it on target"},
         {"Alt+I / Alt+C / Alt+S", "Inventory / status / magic"},
         {"Ctrl +/- / Ctrl 0", "Zoom in / out / auto"},
@@ -340,16 +420,49 @@ void dibujar_ayuda_teclas(App& a) {
         {"Enter / Esc", "Send chat / close window"},
     };
     const int n = static_cast<int>(sizeof FILAS / sizeof FILAS[0]);
-    Rect r{(a.gpu.ancho() - 360) / 2, 60, 360, ui::ALTO_TITULO + 14 + n * (ALTO_GLIFO + 6)};
+    // Columnas a medida del texto: la de la tecla mide lo que su entrada más larga; la descripción ocupa el
+    // resto (entre 160 y 300 px) y lo que no cabe se parte en renglones. Con la fuente nueva se salían.
+    auto partir = [](std::string_view t, int ancho, auto&& f) {
+        while (!t.empty()) {
+            size_t k = bytes_que_caben(t.data(), t.size(), ancho);
+            if (k == 0) k = t.size();
+            f(t.substr(0, k));
+            t = t.substr(k);
+            while (!t.empty() && t.front() == ' ') t.remove_prefix(1);
+        }
+    };
+    int col_tecla = 0, col_desc = 0;
+    for (int i = 0; i < n; ++i) {
+        col_tecla = std::max(col_tecla, ancho_texto(FILAS[i][0], std::strlen(FILAS[i][0])));
+        col_desc = std::max(col_desc, ancho_texto(FILAS[i][1], std::strlen(FILAS[i][1])));
+    }
+    col_tecla += 16;
+    const int ancho_desc = std::clamp(std::min(col_desc, a.gpu.ancho() - 20 - col_tecla - 24), 160, 300);
+    const int ancho_total = col_tecla + ancho_desc + 24;
+    constexpr int ALTO_LINEA = ALTO_GLIFO + 4, SEPARACION = 4;
+    int renglones_total = 0;
+    for (int i = 0; i < n; ++i) {
+        int lineas = 0;
+        partir(FILAS[i][1], ancho_desc, [&](std::string_view) { ++lineas; });
+        renglones_total += std::max(1, lineas);
+    }
+    Rect r{(a.gpu.ancho() - ancho_total) / 2, 60, ancho_total,
+           ui::ALTO_TITULO + 14 + renglones_total * ALTO_LINEA + n * SEPARACION};
     if (recuadro(a, r, "Keys (F1)") || a.entrada.escape) {
         a.ayuda_teclas = false;
         return;
     }
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 10);
+    int linea = 0;
     for (int i = 0; i < n; ++i) {
-        const float y = static_cast<float>(r.y + ui::ALTO_TITULO + 8 + i * (ALTO_GLIFO + 6));
-        a.g->texto(FILAS[i][0], static_cast<float>(r.x + 12), y, kt, rgba(255, 230, 120));
-        a.g->texto(FILAS[i][1], static_cast<float>(r.x + 150), y, kt, rgba(230, 220, 190));
+        const int primera = linea;
+        partir(FILAS[i][1], ancho_desc, [&](std::string_view t) {
+            const float y = static_cast<float>(r.y + ui::ALTO_TITULO + 8 + linea * ALTO_LINEA + i * SEPARACION);
+            if (linea == primera) a.g->texto(FILAS[i][0], static_cast<float>(r.x + 12), y, kt, rgba(255, 230, 120));
+            a.g->texto(t, static_cast<float>(r.x + 12 + col_tecla), y, kt, rgba(230, 220, 190));
+            ++linea;
+        });
+        if (linea == primera) ++linea;  // fila vacía: ocupa su renglón igual que en el cálculo
     }
 }
 

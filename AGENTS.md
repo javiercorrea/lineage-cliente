@@ -44,12 +44,17 @@ cmake --preset debug && cmake --build --preset debug        # también: release,
 servidor_local/instalar.sh                                   # una vez (OpenJDK, MariaDB en 3307, base, parches)
 servidor_local/arrancar.sh                                   # deja el servidor en primer plano; servidor.log
 export LINEAGE_DIR="/ruta/a/la/instalación/del/juego"        # la carpeta con Sprite*.pak, Text.pak, map/
-LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 61 casos; sin LINEAGE_DIR se saltan 7
+LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 62 casos; sin LINEAGE_DIR se saltan 7
 ```
 
-- **Ejecutable:** `build/<preset>/lineage --juego="$LINEAGE_DIR"`. La configuración del usuario está en
+- **Ejecutable:** `build/<preset>/lineage`, sin parámetros (la carpeta del juego y los servidores
+  salen de `settings.ini`). La configuración del usuario está en
   `~/Library/Application Support/Lineage/LineageCliente/settings.ini`.
-- **No pisar esa configuración en las pruebas:** usar `LIN_CONFIG=/ruta/propia.ini` (sección 5).
+- **Servidor 3.80C** (protocolo `tw380`): `servidor_380/instalar.sh` y `arrancar.sh` (L1JGO-Whale, puerto
+  7001; ver ENTREGABLES.md, "Servidor 3.80C"). Solo local, como el de 3.63.
+- **No pisar esa configuración en las pruebas:** usar `LIN_CONFIG=/ruta/propia.ini` (sección 5; solo
+  en `debug`). Ese `.ini` necesita `juego=` y, para el servidor local, nada más: sin `servidor=` se
+  usa `127.0.0.1:2000 jp363`.
 - **Cuentas:** se crean solas en el primer login (usuario = clave).
 - **Personajes de prueba existentes** (en la base local de la máquina original, no en el repo):
   - cuenta `prueba`: Prueba (príncipe nivel 1), Maga (maga), Caballero (caballero), Exploradora;
@@ -59,10 +64,13 @@ LINEAGE_DIR="$LINEAGE_DIR" build/debug/lin_tests             # 61 casos; sin LIN
 
   ```sh
   "$(brew --prefix mariadb)/bin/mariadb" --socket=servidor_local/datos/mysql.sock -uroot l1jdb_363 \
-    -e "UPDATE accounts SET access_level=200 WHERE login='micuenta'"
+    -e "UPDATE accounts SET access_level=200 WHERE name='micuenta';
+        UPDATE characters c JOIN accounts a ON a.id = c.account_id SET c.access_level=200 WHERE a.name='micuenta'"
   ```
 
-  El cambio vale en el próximo login.
+  Los comandos "." miran el `access_level` del personaje, no el de la cuenta: por eso van los dos. El
+  cambio vale en el próximo login. El socket de la base está en el checkout principal
+  (`servidor_local/datos/`), no en los worktrees.
 
 ## 3. Arquitectura en una página
 
@@ -111,7 +119,7 @@ Hechos que conviene saber:
    de `TABLA[]`**, en la misma posición que en el enum.
 3. `eventos.h`: el valor de `Ev` y los índices de `v[]` que haga falta.
 4. Aplicarlo en `mundo.cpp` (estado del juego) o en el manejador de la app que corresponda.
-5. Test de decodificación en `tests/test_proto.cpp`, con bytes reales, que se pueden sacar con `LIN_TRAZA=1`.
+5. Test de decodificación en `tests/test_proto.cpp`, con bytes reales, que se pueden sacar con el comando `traza on` del control en vivo.
 
 ### Receta: agregar un comando del cliente
 
@@ -133,18 +141,30 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 
 - **Tests:** `cmake --build --preset debug && LINEAGE_DIR=... build/debug/lin_tests`. Antes de un push
   grande, también `debug-asan`.
-- **Probar contra el servidor:** el cliente tiene automatización completa (tabla en el README):
-  - `--auto --usuario= --clave= --personaje=` entran solos;
-  - `--decir`, `--ruta`, `--atacar`, `--usar`, `--hablar`, `--lanzar`, `--ofrecer`... actúan;
-  - `--captura=x.bmp --captura-espera=N --salir` sacan una captura y salen;
-  - `--mudo` es obligatorio en las pruebas automáticas: si no, se escucha en la máquina del usuario.
-  - **Siempre poner `--salir`**, o el proceso queda colgado.
-- **Trazas:**
-  - `LIN_TRAZA=1`: cada paquete enviado y recibido, con sus primeros 16 bytes;
-  - `LIN_HTML=1`: las páginas HTML con sus datos;
-  - `--perf`: rendimiento.
-- **Dos clientes a la vez** (grupo, intercambio, clan): uno en segundo plano y otro en primer plano,
-  con `--girar=` para que queden frente a frente. Ejemplo en ENTREGABLES.md, entregable 9.
+- **Probar contra el servidor: control en vivo.** El cliente no tiene parámetros. En `debug` abre un
+  socket (`LIN_CONTROL=/ruta` o `$TMPDIR/lineage-control-<pid>.sock`) y recibe comandos de a una
+  línea (`ayuda` los lista; tabla en el README).
+  - **Desde Python:** `herramientas/lin_ctl.py`: `c = Control.arrancar(config=...)`, después
+    `c("login ...")`, `c("personaje ...")`, `c("esperar ...")`, `c("captura ...")`, `c.cerrar()`.
+    Las pruebas en vivo ya escritas están en `herramientas/pruebas/` (`comun.py` arranca, entra,
+    devuelve a los personajes a su lugar y cierra; `servidor.py` reinicia el servidor y restaura la
+    base para las que lo modifican). `todas.py` las corre todas; con `--servidor`, también casas,
+    castillos y guerra. **Antes de un push grande, `todas.py` (y `--servidor` si se tocó algo de
+    eso).** Una prueba nueva: copiar la más parecida.
+  - **Desde la terminal:** `herramientas/lin_ctl.py <socket> estado`, o interactivo.
+  - **Empezar siempre con `mudo on`:** si no, se escucha en la máquina del usuario.
+  - **Terminar siempre con `c.cerrar()`** (o el comando `salir`), o el proceso queda abierto.
+  - **Usar `esperar`** (pantalla, paquete, html, ventana, diálogo, chat) en lugar de contar frames.
+  - **Para hacer clic sobre algo,** consultar primero dónde está: `objetos` da la posición en
+    pantalla; `clic-objeto` la usa directo.
+  - **`release` no lo compila:** un paso de CMake (`cmake/sin_control.cmake`) falla si se cuela.
+- **Trazas** (comandos del control):
+  - `traza on`: cada paquete enviado y recibido, con sus primeros 16 bytes;
+  - `traza-html on`: las páginas HTML con sus datos;
+  - `perf on`: rendimiento;
+  - `paquetes`: los últimos recibidos, sin traza.
+- **Dos clientes a la vez** (grupo, intercambio, clan): dos `Control.arrancar` con distinto `config`.
+  Con `girar <0-7>` quedan frente a frente.
 - **Base de datos:** para verificar el efecto real (ítems, adena), consultar por el socket de arriba.
 - **Evidencia:** cada entregable deja capturas en `docs/capturas/<n>_<tema>.png` (PNG, convertidas con
   `sips -s format png x.bmp --out y.png`) y una sección en ENTREGABLES.md con: qué hace, cómo se
@@ -159,10 +179,19 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 - Integrar seguido: `git fetch && git rebase origin/main`. Al terminar, PR a `main` con `gh pr create`
   (descripción: qué, cómo se verificó y qué queda pendiente). Si nadie revisa, el mismo agente puede
   mergear después de rebasear y volver a correr los tests.
-- **Credenciales:** el repo es privado de la cuenta `javiercorrea`. El llavero de macOS y la cuenta activa
-  de `gh` pueden ser otras (si `git push` dice "Repository not found", es eso). Hacer push con el token
-  de esa cuenta, sin cambiar la configuración del usuario:
-  `git -c credential.helper= -c 'credential.helper=!f() { echo username=javiercorrea; echo "password=$(gh auth token -u javiercorrea)"; }; f' push`.
+- **Cuenta: siempre `javiercorrea`.** El repo es privado de esa cuenta y todo lo que se hace en él va a
+  su nombre: commits, push, PRs e issues. En esta máquina hay otras identidades (la de git global, el
+  llavero de macOS, la cuenta activa de `gh`), que no se usan aquí.
+  - **Commits:** autor `javiercorrea <58250+javiercorrea@users.noreply.github.com>` (el email noreply de
+    GitHub de la cuenta). La config global puede tener otro: comprobar con `git config user.email` y, si no
+    es ese, commitear con
+    `git -c user.name=javiercorrea -c user.email=58250+javiercorrea@users.noreply.github.com commit ...`.
+  - **Push:** por SSH con la llave exclusiva del repo: el remoto `origin` es
+    `git@github-personal:javiercorrea/lineage-cliente.git` (el host `github-personal` de `~/.ssh/config`).
+    No cambiar el remoto a HTTPS ni a `github.com`.
+  - **`gh` (PRs, issues):** la cuenta activa puede ser otra (si dice "must be a collaborator" o
+    "Repository not found", es eso). Usar el token de `javiercorrea` sin cambiar la cuenta activa:
+    `GH_TOKEN="$(gh auth token -u javiercorrea)" gh pr create ...`.
 - Para trabajar en la misma máquina sin pisarse:
   - `git worktree add ../cliente-<tema> -b agente/<tema>`;
   - cada worktree con su propio `build/`.
@@ -216,6 +245,7 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
   versiones fijas). No agregar otras sin una razón fuerte.
 - **Portabilidad:** lo específico de una plataforma queda en `plataforma/` y `render/`. Lo que falta para
   otra plataforma se marca con `// MULTIPLATAFORMA: ...`.
+- Antes de realizar algún cambio, lista los archivos que necesitas y leelos en un paso. Has las ediciones para luego ejecutar los tests.
 
 ## 7. Mapa de documentos
 
@@ -229,3 +259,17 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
 | `docs/analisis/scripts/` | análisis del protocolo y del cliente original (Python; `requirements.txt`) |
 | `servidor_local/` | instalar, arrancar y parchar el servidor de pruebas |
 | `herramientas/prueba_login.py` | cliente mínimo en Python para depurar el protocolo |
+
+## Agent skills
+
+### Issue tracker
+
+Issues de GitHub en `javiercorrea/lineage-cliente`, con `gh`. Ver `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Los cinco roles por defecto (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). Ver `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` y `docs/adr/` en la raíz del repo. Ver `docs/agents/domain.md`.

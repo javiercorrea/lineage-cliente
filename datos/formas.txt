@@ -1,0 +1,298 @@
+0	bear A
+0	bear B
+0	bear C
+0	bear D
+0	darkelf thief A
+0	darkelf thief B
+0	darkelf thief C
+0	darkelf thief D
+0	dillo A
+0	dillo B
+0	dillo C
+0	dillo D
+0	dofleganger boss A
+0	dofleganger boss B
+0	dofleganger boss C
+0	dofleganger boss D
+0	kelenis A
+0	kelenis B
+0	kelenis C
+0	kelenis D
+0	ken lauhel A
+0	ken lauhel B
+0	ken lauhel C
+0	ken lauhel D
+0	lich A
+0	lich B
+0	lich C
+0	lich D
+0	mini white dog A
+0	mini white dog B
+0	mini white dog C
+0	mini white dog D
+0	mole A
+0	mole B
+0	mole C
+0	mole D
+0	noblewoman A
+0	noblewoman B
+0	pet tiger A
+0	pet tiger B
+0	pet tiger C
+0	pet tiger D
+0	ratman A
+0	ratman B
+0	ratman C
+0	ratman D
+0	slave A
+0	slave B
+0	slave C
+0	slave D
+0	unicorn A
+0	unicorn B
+0	unicorn C
+0	unicorn D
+0	woman1 A
+0	woman1 B
+0	woman2 A
+0	woman2 B
+0	woman3 A
+0	woman3 B
+0	woman4 A
+0	woman4 B
+0	woman5 A
+0	woman5 B
+1	Halloween Pumpkin
+1	Halloween jack o lantern
+1	Haunted House jack o lantern
+1	Kelenis Morph
+1	Ken Lauhel Morph
+1	Rabor Born Head
+1	Rabor Born archer
+1	Rabor Born knife
+1	awake antharas
+1	awake fafurion
+1	awake valakas
+1	baranka
+1	beagle
+1	blue uniform
+1	bow orc
+1	carrot rabbit
+1	death
+1	deer
+1	drake morph
+1	floating eye
+1	giant ant
+1	giant ant soldier
+1	goblin
+1	hakama
+1	haregi
+1	high bear
+1	high collie
+1	high raccoon
+1	iris morph
+1	jack o lantern
+1	knight vald morph
+1	kobolds
+1	manekineko
+1	milkcow
+1	orc fighter
+1	paperman morph
+1	prince horse
+1	princess horse
+1	rabbit
+1	re bugbear
+1	re dragon fly
+1	re dwarf
+1	re ghast
+1	re giant ant
+1	re giant ant soldier
+1	re kiwi parrot
+1	re lizardman
+1	re orc
+1	re orc scout
+1	re owlbear
+1	re raccoon
+1	re ratman
+1	re succubus
+1	re werewolf
+1	re wild fang
+1	red orc
+1	red uniform
+1	robber bone
+1	robber bone head
+1	robber bone soldier
+1	snowman
+1	spirit of earth boss
+1	stone golem
+1	succubus queen morph
+1	vampire
+1	wild boar
+10	atuba orc
+10	bugbear
+10	dudamara orc
+10	gandi orc
+10	ghast
+10	neruga orc
+10	re ghoul
+10	re lycanthrope
+10	re skeleton
+10	re skeleton archer
+10	re ungoliant
+10	rova orc
+10	shelob
+10	skeleton axeman polymorph
+10	skeleton pike polymorph
+10	spartoi polymorph
+10	zombie
+15	cerberus
+15	elder
+15	giant a morph
+15	king bugbear
+15	minotaur i morph
+15	ogre
+15	orc scout polymorph
+15	re gelatincube
+15	re middle oum
+15	scorpion
+15	troll
+15	yeti morph
+30	re bandit bow
+30	re darkelf assassin
+30	re darkelf carrier
+30	re elder
+30	re guard sword
+30	re orc axe
+40	bandit bow morph
+40	cyclops
+40	elmor soldier morph
+40	ettin
+40	griffon
+40	re bandit axe
+40	re cockatrice
+40	re dark elder
+40	re darkelf ranger
+40	re guard chief
+40	re guard spear
+40	re hose
+40	succubus morph
+45	assassin
+45	dark elder
+45	darkelf carrier
+45	darkelf ranger morph
+45	elmor general morph
+45	lesser demon
+45	necromancer1
+45	necromancer2
+45	necromancer3
+45	necromancer4
+45	priest of corruption
+45	quest lesser demon
+45	re black wizard
+45	re blaze
+45	re cargo
+45	re darkelf spear
+45	re darkelf thief
+45	re dwarf boss
+50	baphomet
+50	beleth
+50	darkelf guard morph
+50	darkelf spear morph
+50	darkelf wizard morph
+50	great minotaur morph
+50	guardian armor morph
+50	re assassin master
+50	re baphomet
+50	re black knight
+50	re black knight chief
+50	re darkelf guard
+50	re minotaur
+50	spearm 52
+51	black knight chief morph
+51	black knight morph
+51	demon
+51	fire bowman morph
+52	assassin 52
+52	assassin master morph
+52	barlog 52
+52	barlog morph
+52	dark elf polymorph
+52	darkelf 52
+52	darkelf general morph
+52	death 52
+52	death knight
+52	general 52
+52	re darkelf bow
+52	re dreik
+52	re great minotaur
+52	re xinclair
+55	ancient black assassin morph
+55	ancient black knight morph
+55	ancient black mage morph
+55	ancient black scouter morph
+55	assassin 55
+55	barlog 55
+55	darkelf 55
+55	death 55
+55	general 55
+55	neo black assassin
+55	neo black knight
+55	neo black mage
+55	neo black scouter
+55	spearm 55
+60	ancient silver assassin morph
+60	ancient silver knight morph
+60	ancient silver mage morph
+60	ancient silver scouter morph
+60	assassin 60
+60	barlog 60
+60	darkelf 60
+60	death 60
+60	general 60
+60	neo silver assassin
+60	neo silver knight
+60	neo silver mage
+60	neo silver scouter
+60	spearm 60
+65	ancient gold assassin morph
+65	ancient gold knight morph
+65	ancient gold mage morph
+65	ancient gold scouter morph
+65	assassin 65
+65	barlog 65
+65	darkelf 65
+65	death 65
+65	general 65
+65	neo gold assassin
+65	neo gold knight
+65	neo gold mage
+65	neo gold scouter
+65	spearm 65
+70	ancient platinum assassin morph
+70	ancient platinum knight morph
+70	ancient platinum mage morph
+70	ancient platinum scouter morph
+70	assassin 70
+70	barlog 70
+70	darkelf 70
+70	death 70
+70	general 70
+70	neo platinum assassin
+70	neo platinum knight
+70	neo platinum mage
+70	neo platinum scouter
+70	spearm 70
+75	darkelf 75
+75	death 75
+75	spearm 75
+75	young dantes
+75	young helvine
+75	young kelenis
+75	young ken lauel
+80	darkelf 80
+80	death 80
+80	spearm 80
+80	young bluedica
+80	young gilian
+80	young gunter
+80	young joewoo

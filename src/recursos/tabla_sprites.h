@@ -73,6 +73,7 @@ public:
     size_t cantidad_gfx() const { return alias_.size(); }
 
 private:
+    void copiar_filas_faltantes();
     std::vector<FrameAccion> frames_;
     std::vector<RangoAccion> rangos_;
     MapaHash indice_;              // (gfx << 8 | accion) -> índice en rangos_

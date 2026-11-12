@@ -13,7 +13,10 @@ namespace lin {
 
 constexpr int ANCHO_GLIFO_ASCII = 6;
 constexpr int ANCHO_GLIFO_KOR = 12;
-constexpr int ALTO_GLIFO = 12;
+// Alto de línea del texto de la interfaz (TTF). Lo usa todo el layout.
+constexpr int ALTO_GLIFO = 14;
+// Alto de las fuentes bitmap del juego (eng.fnt y kor.fnt): sus glifos siempre son de 12 filas.
+constexpr int ALTO_GLIFO_BITMAP = 12;
 
 struct FuenteBitmap {
     std::vector<u8> ascii;   // eng.fnt
@@ -25,11 +28,15 @@ struct FuenteBitmap {
     bool rasterizar(u32 glifo, ImagenRGBA& salida) const;
 };
 
-// Recorre un texto CP949 y devuelve glifos y anchos. Los bytes no representables se omiten.
+// Texto UTF-8 válido: se dibuja con la fuente TTF (recursos/fuente_ttf.h), proporcional. Cualquier
+// otro (CP949 del servidor): fuente bitmap. Los bytes no representables se omiten.
 struct GlifoTexto {
     u32 glifo;
     u8 ancho;
 };
+// Carácter UTF-8 que empieza en t[i]: devuelve sus bytes (0 si no es UTF-8 válido) y su punto en cp.
+size_t largo_utf8(const char* t, size_t n, size_t i, u32& cp);
+bool es_utf8(const char* t, size_t n);
 void glifos_de_texto(const char* texto, size_t n, std::vector<GlifoTexto>& salida);
 int ancho_texto(const char* texto, size_t n);
 // Bytes del comienzo del texto que entran en `ancho_max` píxeles, sin partir caracteres CP949 y

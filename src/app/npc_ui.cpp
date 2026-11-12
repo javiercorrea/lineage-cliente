@@ -25,7 +25,6 @@ constexpr int ALTO_PAGINA = ui::VENTANA_ALTO - ARRIBA - 12;
 constexpr int FILA_TIENDA = 34, FILAS_TIENDA = 6;
 constexpr int DISTANCIA_CIERRE = 6;  // al alejarse más, el diálogo se cierra
 constexpr u32 PRECIO_RETIRO = 30;    // adena por ítem retirado (C_Result del servidor)
-constexpr u64 MS_ENTRE_AUTOMATICOS = 2000;
 
 bool medir_imagen(void* ctx, u32 n, int& w, int& h) {
     const RegionAtlas& r = static_cast<App*>(ctx)->g->img(n);
@@ -45,12 +44,21 @@ void abrir_pagina(App& a, ObjId npc, std::string_view id, std::string_view datos
             html.assign(aviso.begin(), aviso.end());
         }
     }
-    if (std::getenv("LIN_HTML"))
+    if (g_traza_html)
         std::fprintf(stderr, "[html %.*s] datos=\"%.*s\"\n%.*s\n", static_cast<int>(id.size()), id.data(), static_cast<int>(datos.size()),
                      datos.data(), static_cast<int>(html.size()), reinterpret_cast<const char*>(html.data()));
     a.npc = npc;
     a.npc_pagina = id;
-    a.npc_datos = datos;
+    // Los datos que son un "$N" (el nombre del mayordomo en "agpay", por ejemplo) van traducidos.
+    // (`datos` puede ser a.npc_datos: los vínculos locales vuelven a pasar los mismos.)
+    std::string traducidos;
+    for (size_t i = 0; i <= datos.size();) {
+        const size_t fin = std::min(datos.find(SEPARADOR_DATOS, i), datos.size());
+        if (i) traducidos += SEPARADOR_DATOS;
+        traducidos += a.desc.resolver(datos.substr(i, fin - i));
+        i = fin + 1;
+    }
+    a.npc_datos = std::move(traducidos);
     a.npc_desplazamiento = 0;
     a.tienda = TipoTienda::NINGUNA;
     maquetar_html({reinterpret_cast<const char*>(html.data()), html.size()}, a.npc_datos, SEPARADOR_DATOS,
@@ -63,8 +71,10 @@ void cerrar(App& a) {
     a.tienda_filas.clear();
 }
 
-// Adena en el inventario (el ítem "$4").
-u32 adena(const App& a) {
+}  // namespace
+
+// Adena en el inventario (el ítem "$4"; no "$40...").
+u32 adena_inventario(const App& a) {
     const TablaItems& t = a.mundo.inventario.items;
     for (Slot s = 0; s < t.tamano(); ++s) {
         std::string_view n = nombre_item(a.mundo.inventario, s);
@@ -73,12 +83,13 @@ u32 adena(const App& a) {
     return 0;
 }
 
+namespace {
+
 void abrir_tienda(App& a, ObjId npc, TipoTienda tipo) {
     a.tienda = tipo;
     a.tienda_npc = npc;
     a.tienda_filas.clear();
     a.tienda_desplazamiento = 0;
-    a.aut_tienda_pendiente = !a.aut.tienda.empty();
     if (tipo == TipoTienda::DEPOSITO) {  // del propio inventario, sin lo equipado
         const TablaItems& t = a.mundo.inventario.items;
         for (Slot s = 0; s < t.tamano(); ++s) {
@@ -95,6 +106,8 @@ void abrir_tienda(App& a, ObjId npc, TipoTienda tipo) {
     }
 }
 
+}  // namespace
+
 // Un vínculo de la página: otra página local, el almacén o una acción para el servidor.
 void activar(App& a, std::string_view vinculo, bool es_enlace) {
     if (vinculo.empty()) return;
@@ -109,10 +122,16 @@ void activar(App& a, std::string_view vinculo, bool es_enlace) {
     } else if (vinculo.substr(0, 6) == "raise-") {  // RaiseAttr: subir un atributo (C_Attr 479)
         enviar(a, cmd::subir_atributo(a.op, vinculo.substr(6)));
         cerrar(a);
+    } else if (vinculo == "asktime") {  // chambelán: la fecha del próximo asedio (castillos_ui.cpp)
+        enviar(a, cmd::fecha_asedio(a.op));
+    } else if (a.npc_casa && (vinculo == "map" || vinculo == "apply")) {  // tablón de subastas: con la casa
+        enviar(a, cmd::accion_npc(a.op, a.npc, vinculo, std::to_string(a.npc_casa)));
     } else {
         enviar(a, cmd::accion_npc(a.op, a.npc, vinculo));
     }
 }
+
+namespace {
 
 // Total de la selección: lo que se paga (compra, retiro) o se cobra (venta).
 u64 total(const App& a) {
@@ -157,70 +176,6 @@ int distancia_npc(const App& a) {
     Slot yo = o.buscar(a.mundo.jugador.id), n = o.buscar(a.tienda != TipoTienda::NINGUNA ? a.tienda_npc : a.npc);
     if (yo == SIN_SLOT || n == SIN_SLOT) return 1 << 20;
     return std::max(std::abs(o.col<O_X>()[yo] - o.col<O_X>()[n]), std::abs(o.col<O_Y>()[yo] - o.col<O_Y>()[n]));
-}
-
-// Prueba automática: --hablar (caminar hasta el NPC y hablar), --npc-accion (un vínculo de la
-// página, o la acción tal cual) y --tienda (elegir y confirmar).
-void npc_automatico(App& a, u64 ahora) {
-    Automatizacion& au = a.aut;
-    if (!au.hablar.empty() && a.frames_en_pantalla > 240 && a.objetivo == 0) {
-        const TablaObjetos& o = a.mundo.objetos;
-        Slot yo = o.buscar(a.mundo.jugador.id);
-        ObjId mejor = 0;
-        int mejor_d = 1 << 30;
-        for (Slot s = 0; yo != SIN_SLOT && s < o.tamano(); ++s) {
-            if (!es_npc(a, s) || a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(au.hablar) == std::string_view::npos) continue;
-            int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-            if (d < mejor_d) {
-                mejor_d = d;
-                mejor = o.ids()[s];
-            }
-        }
-        if (mejor) {
-            a.objetivo = mejor;
-            a.hablar_objetivo = true;
-            au.hablar.clear();
-            au.t_npc = ahora;
-        }
-    }
-    if (!au.subir.empty() && a.npc && a.npc_pagina == "RaiseAttr" && a.frames_en_pantalla > 120) {
-        activar(a, "raise-" + au.subir, false);
-        au.subir.clear();
-    }
-    // Solo en la página del NPC pedido (no en la que el servidor muestra al entrar, como RaiseAttr).
-    if (a.npc && a.npc != a.mundo.jugador.id && au.hablar.empty() && a.tienda == TipoTienda::NINGUNA &&
-        au.npc_hechas < au.npc_acciones.size() &&
-        ahora > au.t_npc + MS_ENTRE_AUTOMATICOS) {
-        const std::string& acc = au.npc_acciones[au.npc_hechas++];
-        au.t_npc = ahora;
-        for (const ElementoHtml& el : a.npc_html.elementos) {
-            if (a.npc_html.vinculo(el) == acc) {
-                activar(a, acc, el.es_enlace);
-                return;
-            }
-        }
-        activar(a, acc, false);
-    }
-    if (a.tienda != TipoTienda::NINGUNA && a.aut_tienda_pendiente && !a.tienda_filas.empty()) {
-        a.aut_tienda_pendiente = false;
-        char buf[256];
-        for (const std::string& pedido : au.tienda) {
-            size_t dos = pedido.rfind(':');
-            std::string_view quien = std::string_view(pedido).substr(0, dos);
-            u32 n = dos == std::string::npos ? 1 : static_cast<u32>(std::atoi(pedido.c_str() + dos + 1));
-            if (!quien.empty() && quien[0] == '#') {  // por número de fila
-                size_t i = static_cast<size_t>(std::atoi(pedido.c_str() + 1));
-                if (i < a.tienda_filas.size()) a.tienda_filas[i].elegido = std::min(n, a.tienda_filas[i].maximo);
-                continue;
-            }
-            for (FilaTienda& f : a.tienda_filas) {
-                if (std::string_view(buf, nombre_fila(a, f, buf, sizeof buf)).find(quien) == std::string_view::npos) continue;
-                f.elegido = std::min(n, f.maximo);
-                break;
-            }
-        }
-        confirmar(a);
-    }
 }
 
 void dibujar_pagina(App& a, int x0, int y0) {
@@ -269,12 +224,8 @@ void dibujar_tienda(App& a, int x0, int y0) {
     const EntradaFrame& e = a.entrada;
     const u64 kt = clave_orden(CAPA_UI_TEXTO, 12), kf = clave_orden(CAPA_UI, 12), ki = clave_orden(CAPA_UI, 13);
     const int n = static_cast<int>(a.tienda_filas.size());
-    const u32 max_desp = n > FILAS_TIENDA ? static_cast<u32>(n - FILAS_TIENDA) : 0;
-    if (sobre_npc(a) && e.rueda) {
-        i64 d = static_cast<i64>(a.tienda_desplazamiento) - e.rueda;
-        a.tienda_desplazamiento = static_cast<u32>(std::clamp<i64>(d, 0, max_desp));
-    }
-    a.tienda_desplazamiento = std::min(a.tienda_desplazamiento, max_desp);
+    barra_scroll_ventana(a, a.scroll.tienda, x0 + ui::VENTANA_ANCHO - 12, y0 + ARRIBA, FILAS_TIENDA * FILA_TIENDA,
+                         static_cast<u32>(n), FILAS_TIENDA, a.tienda_desplazamiento, clave_orden(CAPA_UI, 14), sobre_npc(a));
     char buf[256];
     for (int k = 0; k < FILAS_TIENDA; ++k) {
         int i = static_cast<int>(a.tienda_desplazamiento) + k;
@@ -289,13 +240,13 @@ void dibujar_tienda(App& a, int x0, int y0) {
         // El nombre en una línea (cortado si no entra) y debajo precio y cantidad elegida.
         while (m > 0 && ancho_texto(buf, m) > w - 40) --m;
         g.texto({buf, m}, static_cast<float>(x + 38), static_cast<float>(y + 3), kt, color);
-        char linea[64];
+        char linea[64], m1[32];
         if (a.tienda == TipoTienda::DEPOSITO || a.tienda == TipoTienda::RETIRO || a.tienda == TipoTienda::MASCOTA)
             std::snprintf(linea, sizeof linea, "x%u", f.maximo);
         else if (a.tienda == TipoTienda::REPARAR)
-            std::snprintf(linea, sizeof linea, "Damage %u: %u adena", f.maximo, f.precio);
+            std::snprintf(linea, sizeof linea, "Damage %u: %s adena", f.maximo, con_miles(f.precio, m1, sizeof m1));
         else
-            std::snprintf(linea, sizeof linea, "%u adena", f.precio);
+            std::snprintf(linea, sizeof linea, "%s adena", con_miles(f.precio, m1, sizeof m1));
         g.texto(linea, static_cast<float>(x + 38), static_cast<float>(y + 17), kt, rgba(170, 160, 140));
         if (f.elegido) {
             std::snprintf(linea, sizeof linea, "%u", f.elegido);
@@ -319,7 +270,7 @@ void dibujar_tienda(App& a, int x0, int y0) {
         if (encima && e.clic_derecho) f.elegido = e.shift ? 0 : (f.elegido ? f.elegido - 1 : 0);
     }
     const int yp = y0 + ARRIBA + FILAS_TIENDA * FILA_TIENDA + 4;
-    char pie[96];
+    char pie[96], m1[32], m2[32];
     const u64 t = total(a);
     switch (a.tienda) {
     case TipoTienda::MAGIA:
@@ -328,9 +279,9 @@ void dibujar_tienda(App& a, int x0, int y0) {
             break;
         }
         [[fallthrough]];
-    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %llu / %u adena", static_cast<unsigned long long>(t), adena(a)); break;
-    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %llu adena", static_cast<unsigned long long>(t)); break;
-    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %llu adena (30 each)", static_cast<unsigned long long>(t)); break;
+    case TipoTienda::COMPRA: std::snprintf(pie, sizeof pie, "Total %s / %s adena", con_miles(t, m1, sizeof m1), con_miles(adena_inventario(a), m2, sizeof m2)); break;
+    case TipoTienda::VENTA: std::snprintf(pie, sizeof pie, "You get %s adena", con_miles(t, m1, sizeof m1)); break;
+    case TipoTienda::RETIRO: std::snprintf(pie, sizeof pie, "Fee %s adena (30 each)", con_miles(t, m1, sizeof m1)); break;
     case TipoTienda::MASCOTA: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "The pet carries nothing" : "Click: use or equip"); break;
     case TipoTienda::REPARAR: std::snprintf(pie, sizeof pie, a.tienda_filas.empty() ? "No damaged weapons" : "Click a weapon to repair it"); break;
     default: std::snprintf(pie, sizeof pie, "Click: +1  Shift: +10  Right: -1"); break;
@@ -345,13 +296,26 @@ void dibujar_tienda(App& a, int x0, int y0) {
 u8 tipo_objeto(const App& a, Slot s) {
     const GfxId gfx = a.mundo.objetos.col<O_GFX>()[s];
     const u8 tipo = a.sprites.tipo(gfx);
+    const bool sin_tabla = tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR);
+    // Otro jugador transformado o con un gfx que esta tabla no conoce: sigue siendo un personaje. Los
+    // jugadores traen su nombre tal cual y nivel 0; monstruos y NPCs, "$N" o su nivel.
+    if (sin_tabla || tipo == TIPO_MONSTRUO) {
+        const TablaObjetos& o = a.mundo.objetos;
+        const std::string_view crudo = texto(a.mundo, o.col<O_NOMBRE>()[s]);
+        if (!crudo.empty() && crudo[0] != '$' && crudo.find('^') == std::string_view::npos && o.col<O_NIVEL>()[s] == 0 &&
+            !o.col<O_MASCOTA>()[s])
+            return TIPO_PERSONAJE;
+    }
     // Sin el gfx en la tabla de sprites (se dibuja como un bloque magenta): un monstruo de una
     // versión más nueva que esta instalación, así se lo puede atacar; salvo los NPCs de los
     // pueblos, que se llaman "Oficio^Nombre" ("Storage^Dorin") y a los que se les habla.
-    if (tipo == 0 && !a.sprites.accion(gfx, ACC_QUIETO) && !a.sprites.accion(gfx, ACC_CAMINAR) &&
-        s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
+    if (sin_tabla && s != a.mundo.objetos.buscar(a.mundo.jugador.id) &&
         a.desc.resolver(texto(a.mundo, a.mundo.objetos.col<O_NOMBRE>()[s])).find('^') == std::string_view::npos)
         return TIPO_MONSTRUO;
+    // Asedio: los portones son puertas; la torre de guardia y la corona se atacan con un clic (la
+    // corona se toma "atacándola": C_Attack y el servidor llama a su onAction).
+    if (tipo == TIPO_ESTRUCTURA) return a.sprites.accion(gfx, ACC_ABRIR) ? TIPO_PUERTA : TIPO_MONSTRUO;
+    if (gfx == GFX_CORONA) return TIPO_MONSTRUO;
     return tipo;
 }
 
@@ -369,6 +333,7 @@ void eventos_npc(App& a, const Evento& e) {
             break;
         }
         abrir_pagina(a, e.id, e.s[0], e.s[1]);
+        a.npc_casa = static_cast<u32>(e.v[HT_CASA]);
         break;
     case Ev::TELETRANSPORTE:
         if (e.id == a.mundo.jugador.id) {
@@ -429,7 +394,6 @@ void eventos_npc(App& a, const Evento& e) {
 bool sobre_npc(const App& a) { return sobre_ventana(a, IdVentana::NPC); }
 
 void procesar_npc(App& a, u64 ahora) {
-    npc_automatico(a, ahora);
     if ((a.npc || a.tienda != TipoTienda::NINGUNA) && distancia_npc(a) > DISTANCIA_CIERRE) cerrar(a);
 }
 

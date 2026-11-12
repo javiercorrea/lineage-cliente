@@ -40,7 +40,7 @@ void CargadorSegmentos::bucle() {
             pedidos_.erase(pedidos_.begin());
         }
         Hecho h{p.clave, false, {}};
-        h.ok = leer_archivo(p.ruta, datos) && decodificar_s32(datos, p.base_x, p.base_y, h.s);
+        h.ok = leer_archivo(p.ruta, datos) && decodificar_segmento(p.ruta, datos, p.base_x, p.base_y, h.s);
         std::lock_guard l(mu_);
         hechos_.push_back(std::move(h));
     }

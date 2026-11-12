@@ -37,12 +37,20 @@ ObjId buscar_por_nombre(const App& a, std::string_view nombre) {
 
 void aviso(App& a, std::string_view t) { a.chat.agregar(t, rgba(255, 230, 120), CHAT_SISTEMA); }
 
+}  // namespace
+
 void responder_pregunta(App& a, bool si) {
     if (a.preguntas.empty()) return;
     const Pregunta& p = a.preguntas.front();
-    enviar(a, cmd::responder(a.op, p.numero, p.tipo, si));
+    if (p.tipo == PREGUNTA_NOMBRE_CASA) {  // se responde con el texto (o no se responde: el servidor no lo espera)
+        if (si && !p.respuesta.empty()) enviar(a, cmd::responder_texto(a.op, p.numero, p.tipo, p.respuesta));
+    } else {
+        enviar(a, cmd::responder(a.op, p.numero, p.tipo, si));
+    }
     a.preguntas.erase(a.preguntas.begin());
 }
+
+namespace {
 
 // Recuadro con título para las ventanas de este módulo; true al cerrar.
 bool marco(App& a, Rect r, std::string_view titulo, bool con_cierre = true) {
@@ -77,6 +85,36 @@ int grilla(App& a, const std::vector<ItemIntercambio>& items, int x0, int y0) {
 
 void eventos_social(App& a, const Evento& e) {
     switch (e.tipo) {
+    case Ev::GRUPO:
+        if (e.v[GR_TIPO] == GR_VACIAR) {
+            a.grupo.clear();
+        } else if (e.v[GR_TIPO] == GR_MIEMBRO) {
+            auto it = std::find_if(a.grupo.begin(), a.grupo.end(), [&](const MiembroGrupo& m) { return m.id == e.id; });
+            if (it == a.grupo.end()) it = a.grupo.insert(a.grupo.end(), MiembroGrupo{e.id, std::string(e.s[0])});
+            if (e.v[GR_HP] != 0xFF) it->hp = static_cast<u8>(e.v[GR_HP]);
+            if (e.v[GR_LIDER]) it->lider = true;
+        } else {
+            for (MiembroGrupo& m : a.grupo) m.lider = m.id == e.id;
+        }
+        break;
+    case Ev::HP_OBJETO:  // S_HpMeter: el servidor se la manda a los del grupo, aunque estén lejos
+        for (MiembroGrupo& m : a.grupo)
+            if (m.id == e.id) m.hp = static_cast<u8>(e.v[0]);
+        break;
+    case Ev::MENSAJE_SERVIDOR:
+        // 418 el grupo se disolvió, 419 lo echaron, 420 "%0 dejó el grupo" (también a quien se va).
+        if (e.v[MS_ID] == 418 || e.v[MS_ID] == 419 || (e.v[MS_ID] == 420 && e.s[0] == nombre_personaje(a))) {
+            a.grupo.clear();
+        } else if (e.v[MS_ID] == 420) {
+            std::erase_if(a.grupo, [&](const MiembroGrupo& m) { return m.nombre == e.s[0]; });
+        }
+        break;
+    case Ev::BLOQUEADO: {
+        const std::string nombre(e.s[0]);
+        std::erase(a.bloqueados, nombre);
+        if (e.v[0]) a.bloqueados.push_back(nombre);
+        break;
+    }
     case Ev::PREGUNTA: {
         Pregunta p;
         p.numero = static_cast<u32>(e.v[PR_NUMERO]);
@@ -90,7 +128,6 @@ void eventos_social(App& a, const Evento& e) {
         size_t n = formatear_mensaje(a.mensajes, a.desc, m, buf, sizeof buf, color);
         p.texto.assign(buf, n);
         a.preguntas.push_back(std::move(p));
-        if (a.aut.aceptar) responder_pregunta(a, true);  // prueba automática
         break;
     }
     case Ev::INTERCAMBIO_ABRIR:
@@ -128,10 +165,45 @@ bool comando_social(App& a, std::string_view linea) {
     std::string_view arg = orden.size() < resto.size() ? resto.substr(orden.size() + 1) : std::string_view{};
     while (!arg.empty() && arg.front() == ' ') arg.remove_prefix(1);
     if (comando_marcador(a, orden, arg)) return true;
+    if (comando_tienda(a, orden, arg)) return true;
+    if (comando_correo(a, orden)) return true;
+    if (comando_castillos(a, orden, arg)) return true;
     if (igual_sin_mayusculas(orden, "pk")) {  // modo PK (del cliente): atacar jugadores con un clic
         a.modo_pk = !a.modo_pk;
         aviso(a, a.modo_pk ? "PK mode ON: clicking another player attacks them. /pk to turn it off."
                            : "PK mode OFF: Ctrl+click to attack another player.");
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "exclude") || igual_sin_mayusculas(orden, "block")) {
+        // Bloquear (o desbloquear, si ya estaba) a un personaje; sin nombre, la lista.
+        if (!arg.empty()) {
+            enviar(a, cmd::bloquear(a.op, arg));
+        } else {
+            std::string lista = a.bloqueados.empty() ? "nobody" : "";
+            for (const std::string& n : a.bloqueados) lista += (lista.empty() ? "" : ", ") + n;
+            aviso(a, ("Blocked: " + lista + ". /exclude <name> blocks or unblocks.").c_str());
+        }
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "buddy")) {
+        enviar(a, cmd::amigos(a.op));  // la página "buddy" con la lista y quién está conectado
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "addbuddy") || igual_sin_mayusculas(orden, "delbuddy")) {
+        if (arg.empty()) aviso(a, "/addbuddy <name>, /delbuddy <name>; /buddy shows the list.");
+        else enviar(a, cmd::amigo(a.op, igual_sin_mayusculas(orden, "addbuddy"), arg));
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "chatparty")) {
+        enviar(a, cmd::grupo_chat(a.op, 2));
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "chatoutparty")) {
+        enviar(a, cmd::grupo_chat(a.op, 1));
+        return true;
+    }
+    if (igual_sin_mayusculas(orden, "chatbanish")) {
+        enviar(a, cmd::grupo_chat(a.op, 0, arg));
         return true;
     }
     if (igual_sin_mayusculas(orden, "invite")) {
@@ -206,11 +278,18 @@ void dibujar_pregunta(App& a) {
         n[linea] += m;
         i = fin == std::string::npos ? t.size() : fin + 1;
     }
-    for (int k = 0; k < 2; ++k)
+    Pregunta& p = a.preguntas.front();
+    const bool con_texto = p.tipo == PREGUNTA_NOMBRE_CASA;
+    for (int k = 0; k < (con_texto ? 1 : 2); ++k)
         g.texto({lineas[k], n[k]}, static_cast<float>(r.x + 10), static_cast<float>(r.y + 28 + k * 15),
                 clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
-    bool si = ui::boton_texto(g, e, "Yes", r.x + r.w / 2 - 90, r.y + r.h - 26, 80, 18) || e.enter;
-    bool no = ui::boton_texto(g, e, "No", r.x + r.w / 2 + 10, r.y + r.h - 26, 80, 18) || e.escape;
+    if (con_texto) {  // el nombre: hasta 16 caracteres (C_Attr 512)
+        g.gpu().rectangulo(r.x + 10, r.y + 42, r.w - 20, 18, clave_orden(CAPA_UI, 11), rgba(40, 32, 25, 255));
+        ui::caja_texto(g, e, p.respuesta, r.x + 13, r.y + 45, r.w - 26, true, false, 16);
+        e.ntexto = 0;
+    }
+    bool si = ui::boton_texto(g, e, con_texto ? "OK" : "Yes", r.x + r.w / 2 - 90, r.y + r.h - 26, 80, 18) || e.enter;
+    bool no = ui::boton_texto(g, e, con_texto ? "Cancel" : "No", r.x + r.w / 2 + 10, r.y + r.h - 26, 80, 18) || e.escape;
     if (si || no) {
         responder_pregunta(a, si);
         e.enter = e.escape = false;  // no van al chat
@@ -253,6 +332,28 @@ void dibujar_intercambio(App& a) {
     if (ui::boton_texto(g, e, "Cancel", r.x + r.w - 102, yb, 90, 18)) enviar(a, cmd::cancelar_intercambio(a.op));
 }
 
+// Grupo: la lista de miembros (sin el propio personaje) a la izquierda, a media altura, con su vida;
+// el líder con una corona ("*").
+void dibujar_grupo(App& a) {
+    const std::string_view yo = nombre_personaje(a);
+    // Al líder solo le llegan los que se unen (105); a los demás, la lista con él (104).
+    if (std::none_of(a.grupo.begin(), a.grupo.end(), [&](const MiembroGrupo& m) { return m.nombre != yo; })) return;
+    Graficos& g = *a.g;
+    const u64 kf = clave_orden(CAPA_UI, 4), kt = clave_orden(CAPA_UI_TEXTO, 4);
+    constexpr int ANCHO = 122, FILA = ALTO_GLIFO + 8;
+    int y = a.gpu.alto() / 3;
+    g.texto_sombra("Party", 6.0f, static_cast<float>(y - ALTO_GLIFO - 4), kt, ui::COLOR_TITULO);
+    for (const MiembroGrupo& m : a.grupo) {
+        if (m.nombre == yo) continue;
+        g.gpu().rectangulo(4, y, ANCHO, FILA - 2, kf, rgba(20, 18, 15, 190));
+        if (m.hp <= 100) g.gpu().rectangulo(4, y + FILA - 4, ANCHO * m.hp / 100, 2, kf + (1ull << 24), rgba(220, 50, 40));
+        char t[64];
+        std::snprintf(t, sizeof t, "%s%s", m.lider ? "* " : "", m.nombre.c_str());
+        g.texto(t, 9.0f, static_cast<float>(y + 3), kt, m.lider ? rgba(255, 220, 120) : ui::COLOR_TEXTO);
+        y += FILA;
+    }
+}
+
 void dibujar_social(App& a) {
     if (!a.ventana_social) return;
     Graficos& g = *a.g;
@@ -281,35 +382,6 @@ void dibujar_social(App& a) {
     for (const char* t : ayuda) {
         g.texto(t, static_cast<float>(r.x + 10), static_cast<float>(y + 4), kt, rgba(170, 160, 140));
         y += 15;
-    }
-}
-
-void procesar_social(App& a, u64 ahora) {
-    Automatizacion& au = a.aut;
-    // Prueba automática: mirar hacia un lado (para quedar frente a frente con otro personaje).
-    if (au.girar >= 0 && a.frames_en_pantalla == 200) {
-        Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
-        if (s != SIN_SLOT) a.mundo.objetos.col<O_DIR>()[s] = static_cast<u8>(au.girar);
-        enviar(a, cmd::girar(a.op, static_cast<u8>(au.girar)));
-    }
-    if (!a.intercambio.abierto) return;
-    if (!au.ofrecer.empty() && !au.ofrecido) {  // ofrecer y, un poco después, aceptar
-        const TablaItems& t = a.mundo.inventario.items;
-        char buf[256];
-        for (Slot s = 0; s < t.tamano(); ++s) {
-            size_t n = expandir_desc(a.desc, nombre_item(a.mundo.inventario, s), buf, sizeof buf);
-            if (std::string_view(buf, n).find(au.ofrecer) == std::string_view::npos) continue;
-            ofrecer_en_intercambio(a, t.ids()[s]);
-            break;
-        }
-        au.ofrecido = true;
-        au.t_intercambio = ahora;
-    }
-    // Quien ofrece acepta 1,5 s después; quien solo acepta (--aceptar), cuando ya ve lo ofrecido.
-    bool listo = au.ofrecido ? ahora > au.t_intercambio + 1500 : (au.aceptar && !a.intercambio.otro.empty());
-    if (listo && !a.intercambio.ok) {
-        enviar(a, cmd::aceptar_intercambio(a.op));
-        a.intercambio.ok = true;
     }
 }
 

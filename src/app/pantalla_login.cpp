@@ -1,12 +1,42 @@
 // Entregable 1: pantalla de login. Posiciones e imágenes de drawmode/draw_login.cpp de
 // l1j-client: fondo 814.png, recuadro 59.img, botones 53/65/55/57 (+1 = resaltado). Con la UI
 // simple (F2), un recuadro de texto bajo el logo propio (opción "logo" de settings.ini).
+// Arriba de la cuenta, el menú de servidores de settings.ini ("servidor="); la tabla de opcodes se
+// elige al conectar, con el protocolo del elegido. La cuenta se recuerda por servidor; la clave no.
 #include <algorithm>
 #include "app/app.h"
+#include "i18n/textos.h"
 
 namespace lin {
 
 namespace {
+
+// Parte `t` en renglones que caben en `ancho` píxeles (corta entre palabras; un carácter no se parte)
+// y llama a `f` con cada uno. Los '\n' son renglones aparte; una línea vacía da un renglón vacío.
+template <class F>
+void renglones(std::string_view t, int ancho, F&& f) {
+    while (true) {
+        const size_t fin = t.find('\n');
+        std::string_view linea = t.substr(0, fin);
+        do {
+            size_t k = linea.empty() ? 0 : bytes_que_caben(linea.data(), linea.size(), ancho);
+            if (k == 0) k = linea.size();
+            f(linea.substr(0, k));
+            linea = linea.substr(k);
+            while (!linea.empty() && linea.front() == ' ') linea.remove_prefix(1);
+        } while (!linea.empty());
+        if (fin == std::string_view::npos) return;
+        t = t.substr(fin + 1);
+    }
+}
+
+// Renglón de arriba tras aplicar la rueda y Re/Av Pág, acotado a [0, total - visibles].
+int desplazar(const EntradaFrame& e, int actual, int total, int visibles) {
+    int s = actual - e.rueda * 2;
+    if (e.pagina_arriba) s -= visibles;
+    if (e.pagina_abajo) s += visibles;
+    return std::clamp(s, 0, std::max(0, total - visibles));
+}
 
 // Las cajas del 59.img de esta instalación están unos píxeles más abajo que en l1j-client.
 constexpr int X_CAJAS = 520, Y_USUARIO = 340, Y_CLAVE = 362, ANCHO_CAJA = 100;
@@ -14,20 +44,29 @@ constexpr int X_BOTONES = 0x213;
 
 const char* motivo_login(int codigo) {
     switch (codigo) {
-    case 7: return "La cuenta ya existe.";
-    case 8: return "Usuario o clave incorrectos.";
-    case 22: return "La cuenta ya está en uso.";
-    default: return "El servidor rechazó el ingreso.";
+    case 7: return tr(Tx::LOGIN_ERR_CUENTA_EXISTE);
+    case 8: return tr(Tx::LOGIN_ERR_CLAVE);
+    case 22: return tr(Tx::LOGIN_ERR_EN_USO);
+    default: return tr(Tx::LOGIN_ERR_RECHAZO);
     }
 }
 
+}  // namespace
+
 void iniciar_login(App& a) {
     if (a.usuario.empty() || a.clave.empty() || a.esperando) return;
+    const Servidor& sv = servidor_elegido(a.cfg);
+    if (!tabla_opcodes(sv.protocolo, a.op)) {
+        a.aviso = std::string(tr(Tx::LOGIN_ERR_PROTOCOLO)) + sv.protocolo;
+        return;
+    }
     a.aviso.clear();
     a.esperando = true;
-    a.red.iniciar(a.cfg.host, a.cfg.puerto, a.op);  // al conectar se envían versión y login
+    a.red.iniciar(sv.host, sv.puerto, a.op);  // al conectar se envían versión y login
     a.estado_red_previo = EstadoRed::CONECTANDO;
 }
+
+namespace {
 
 // Logo de la UI simple: el PNG de la opción "logo" achicado para entrar en el recuadro, o el
 // título en texto.
@@ -52,6 +91,10 @@ void dibujar_logo(App& a, int x, int y, int w, int h) {
 void eventos_login(App& a, const Evento& e) {
     switch (e.tipo) {
     case Ev::RESULTADO_LOGIN:
+        if (e.v[0] == 0 && servidor_elegido(a.cfg).usuario != a.usuario) {  // la cuenta queda para la próxima vez
+            servidor_elegido(a.cfg).usuario = a.usuario;
+            guardar_config(a.cfg);
+        }
         if (e.v[0] != 0) {
             a.aviso = motivo_login(e.v[0]);
             a.esperando = false;
@@ -62,10 +105,7 @@ void eventos_login(App& a, const Evento& e) {
     case Ev::NOTICIAS:
         a.noticias.assign(e.s[0]);
         a.mostrando_noticias = true;
-        if (a.aut.activa) {
-            a.mostrando_noticias = false;
-            enviar(a, cmd::lista_personajes(a.op));
-        }
+        a.scroll_texto = 0;
         break;
     default: break;
     }
@@ -78,27 +118,61 @@ void frame_login(App& a) {
     // Cajas de usuario y clave: las del recuadro 59.img o las de la UI simple.
     const int x_cajas = simple ? 290 : X_CAJAS, y_usuario = simple ? 266 : Y_USUARIO, y_clave = simple ? 294 : Y_CLAVE;
     const int ancho_caja = simple ? 130 : ANCHO_CAJA;
+    const int y_servidor = simple ? 238 : Y_USUARIO - 58, x_servidor = simple ? x_cajas : X_CAJAS - 30;
+    const Servidor& sv = servidor_elegido(a.cfg);
+    char pie[160];
+    std::snprintf(pie, sizeof pie, "%s:%u  %s", sv.host.c_str(), sv.puerto, sv.protocolo.c_str());
     if (simple) {
         g.gpu().rectangulo(0, 0, g.gpu().ancho(), g.gpu().alto(), clave_orden(CAPA_FONDO, 0), ui::COLOR_FONDO_SIMPLE);
         dibujar_logo(a, 40, 24, 560, 190);
-        ui::recuadro(g, 190, 240, 260, 120);
-        g.texto("Account", 206, y_usuario, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        g.texto("Password", 206, y_clave, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
-        char pie[96];
-        std::snprintf(pie, sizeof pie, "%s:%u  -  F2: original interface", a.cfg.host.c_str(), a.cfg.puerto);
-        ui::texto_centrado(g, pie, 0, 456, 640, rgba(120, 110, 90));
+        ui::recuadro(g, 190, 222, 260, 138);
+        // Etiquetas pegadas a la izquierda de su caja (no en un x fijo): "Mot de passe" no toca el campo.
+        auto etiqueta = [&](Tx clave, int y) {
+            const std::string_view t = tr(clave);
+            g.texto(t, x_cajas - 10 - ancho_texto(t.data(), t.size()), y, clave_orden(CAPA_UI_TEXTO, 0), ui::COLOR_TITULO);
+        };
+        etiqueta(Tx::LOGIN_SERVIDOR, y_servidor);
+        etiqueta(Tx::LOGIN_CUENTA, y_usuario);
+        etiqueta(Tx::LOGIN_CLAVE, y_clave);
+        ui::texto_centrado(g, pie, 0, 440, 640, rgba(120, 110, 90));
+        ui::texto_centrado(g, tr(Tx::UI_F2_ORIGINAL), 0, 456, 640, rgba(120, 110, 90));
     } else {
         g.gpu().dibujar(g.png(814), 0, 0, clave_orden(CAPA_FONDO, 0));
-        // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda.
-        for (size_t i = 0; i < a.intro.cantidad() && i < 18; ++i)
-            g.texto(a.intro.linea(i), 34, 59 + 12 * static_cast<int>(i), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
+        // Texto de bienvenida (intro-e.tbl) sobre el pergamino de la izquierda: se parte en renglones que
+        // caben en el pergamino y se desplaza con la rueda o Re/Av Pág (si no, las últimas líneas se salen).
+        constexpr int X = 34, Y = 59, ANCHO = 190, VISIBLES = 16;
+        int total = 0;
+        for (size_t i = 0; i < a.intro.cantidad(); ++i) renglones(a.intro.linea(i), ANCHO, [&](std::string_view) { ++total; });
+        if (!a.mostrando_noticias) a.scroll_texto = desplazar(e, a.scroll_texto, total, VISIBLES);
+        int n = 0;
+        for (size_t i = 0; i < a.intro.cantidad(); ++i)
+            renglones(a.intro.linea(i), ANCHO, [&](std::string_view r) {
+                if (n >= a.scroll_texto && n < a.scroll_texto + VISIBLES)
+                    g.texto(r, X, Y + ALTO_GLIFO * (n - a.scroll_texto), clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
+                ++n;
+            });
         ui::imagen(g, 59, 0x1a9, 0x138);
+        g.texto_sombra(tr(Tx::LOGIN_SERVIDOR), static_cast<float>(x_servidor - 46), static_cast<float>(y_servidor), clave_orden(CAPA_UI_TEXTO, 0),
+                       rgba(214, 190, 140));
+        g.texto_sombra(pie, static_cast<float>(x_servidor), static_cast<float>(y_servidor + 17), clave_orden(CAPA_UI_TEXTO, 0),
+                       rgba(200, 190, 160));
+    }
+    // El menú de servidores va primero: abierto, el clic y Escape son suyos.
+    bool bloqueado = a.esperando || a.mostrando_noticias;
+    if (!bloqueado) {
+        std::vector<std::string> nombres;
+        for (const Servidor& s : a.cfg.servidores) nombres.push_back(s.nombre);
+        if (ui::desplegable(g, e, nombres, a.cfg.servidor, a.menu_servidores, x_servidor, y_servidor, simple ? ancho_caja : ancho_caja + 30)) {
+            a.usuario = servidor_elegido(a.cfg).usuario;  // la cuenta de ese servidor
+            a.clave.clear();
+            a.aviso.clear();
+            guardar_config(a.cfg);
+        }
     }
 
     if (e.clic && ui::sobre(e, x_cajas - 4, y_usuario - 4, ancho_caja + 8, 20)) a.foco = 0;
     if (e.clic && ui::sobre(e, x_cajas - 4, y_clave - 4, ancho_caja + 8, 20)) a.foco = 1;
     if (e.tab) a.foco ^= 1;
-    bool bloqueado = a.esperando || a.mostrando_noticias;
     EntradaFrame sin_texto = e;
     sin_texto.ntexto = 0;
     sin_texto.retroceso = false;
@@ -109,8 +183,8 @@ void frame_login(App& a) {
 
     bool login = enter_clave;
     if (simple) {
-        login |= ui::boton_texto(g, e, "Login", 206, 326, 108, 20);
-        if (ui::boton_texto(g, e, "Quit", 326, 326, 108, 20)) a.salir = true;
+        login |= ui::boton_texto(g, e, tr(Tx::LOGIN_ENTRAR), 206, 326, 108, 20);
+        if (ui::boton_texto(g, e, tr(Tx::LOGIN_SALIR), 326, 326, 108, 20)) a.salir = true;
     } else {
         login |= ui::boton(g, e, 53, X_BOTONES, 0x183);
         ui::boton(g, e, 65, X_BOTONES, 0x195);  // nueva cuenta: L1J las crea solas al primer login
@@ -118,13 +192,13 @@ void frame_login(App& a) {
         if (ui::boton(g, e, 57, X_BOTONES, 0x1c2)) a.salir = true;
     }
     if (e.escape && !a.mostrando_noticias) a.salir = true;
-    if ((login || (a.aut.activa && a.frames_en_pantalla == 5)) && !bloqueado) iniciar_login(a);
+    if (login && !bloqueado) iniciar_login(a);
 
     if (simple) {
-        if (a.esperando && !a.mostrando_noticias) ui::texto_centrado(g, "Connecting...", 0, 372, 640, rgba(255, 230, 150));
+        if (a.esperando && !a.mostrando_noticias) ui::texto_centrado(g, tr(Tx::LOGIN_CONECTANDO), 0, 372, 640, rgba(255, 230, 150));
         if (!a.aviso.empty()) ui::texto_centrado(g, a.aviso, 0, 372, 640, rgba(255, 120, 100));
     } else {
-        if (a.esperando && !a.mostrando_noticias) g.texto("Conectando...", 0x1b8, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 230, 150));
+        if (a.esperando && !a.mostrando_noticias) g.texto(tr(Tx::LOGIN_CONECTANDO), 0x1b8, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 230, 150));
         if (!a.aviso.empty()) g.texto_sombra(a.aviso, 0x1a9, 0x128, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 120, 100));
     }
 
@@ -134,15 +208,17 @@ void frame_login(App& a) {
         const int x = 150, y = 120, w = 340, h = 220;
         g.gpu().nivel_ventana(31);
         ui::recuadro(g, x, y, w, h, 255);
-        std::string_view t = a.noticias;
-        int fila = 0;
-        while (!t.empty() && fila < 14) {
-            size_t fin = t.find('\n');
-            std::string_view l = t.substr(0, std::min<size_t>(fin, 54));
-            g.texto(l, x + 10, y + 10 + fila * 13, clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
-            t = (fin == std::string_view::npos) ? std::string_view{} : t.substr(fin + 1);
-            ++fila;
-        }
+        // Noticias: partidas en renglones que caben en el recuadro; el alto deja sitio para el botón OK.
+        const int ancho = w - 20, visibles = (h - 40) / ALTO_GLIFO;
+        int total = 0;
+        renglones(a.noticias, ancho, [&](std::string_view) { ++total; });
+        a.scroll_texto = desplazar(e, a.scroll_texto, total, visibles);
+        int n = 0;
+        renglones(a.noticias, ancho, [&](std::string_view r) {
+            if (n >= a.scroll_texto && n < a.scroll_texto + visibles)
+                g.texto(r, x + 10, y + 10 + ALTO_GLIFO * (n - a.scroll_texto), clave_orden(CAPA_UI_TEXTO, 10), rgba(255, 255, 254));
+            ++n;
+        });
         if (ui::boton_texto(g, e, "OK", x + w / 2 - 40, y + h - 26, 80, 18) || e.enter) {
             a.mostrando_noticias = false;
             enviar(a, cmd::lista_personajes(a.op));

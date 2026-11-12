@@ -5,12 +5,12 @@
 #include <cmath>
 #include <cstring>
 #include "app/app.h"
+#include "mundo/luz.h"
 
 namespace lin {
 
 namespace {
 
-constexpr u64 MS_MANTENER_VIVO = 20000;
 // Ataque: el anti-acelerador del servidor también controla el intervalo entre C_Attack (con la
 // duración de la animación de ataque del sprite). Como al caminar, se usa un 5 % más
 // (intervalo_propio, con haste y brave).
@@ -28,6 +28,7 @@ constexpr u32 IMG_PANEL_IZQ = 1028, IMG_PANEL_DER = 1019, IMG_CHAT = 1042, IMG_E
 constexpr u32 IMG_BARRA_EXP = 1029, IMG_BARRA_HP = 1030, IMG_BARRA_MP = 1031;
 constexpr int ROTULO_BARRA = 28;  // ancho del rótulo "Lev"/"Hp"/"Mp" pintado al principio de cada barra
 constexpr int CHAT_X = 124 + 20, CHAT_Y = 363 + 32, CHAT_ANCHO = 342, CHAT_FILAS = 5;
+constexpr u64 DUR_COMBATE = 900;  // ms que dura un texto de combate flotante (sube y se desvanece)
 constexpr int ENTRADA_X = 124 + 30, ENTRADA_Y = 363 + 102;
 constexpr size_t MAX_ENTRADA_CHAT = 60;
 
@@ -95,13 +96,21 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     const u8 accion = o.col<O_ACCION>()[s];
     u8 arma = muerto ? 0 : o.col<O_ESTADO>()[s];
     AccionVisible v;
-    // Puerta: la última de abrir o cerrar, detenida en su último frame (el estado la recuerda).
-    if (a.sprites.tipo(gfx) == TIPO_PUERTA && (o.col<O_ESTADO>()[s] == ACC_ABRIR || o.col<O_ESTADO>()[s] == ACC_CERRAR)) {
+    // Puerta o estructura de castillo: la última de abrir, cerrar o dañarse, detenida en su último
+    // frame (el estado la recuerda).
+    if (accion_fija(a.sprites.tipo(gfx), o.col<O_ESTADO>()[s]) && a.sprites.accion(gfx, o.col<O_ESTADO>()[s])) {
         v.rango = a.sprites.accion(gfx, o.col<O_ESTADO>()[s]);
         v.inicio = o.col<O_TACCION>()[s];
         v.bucle = false;
         return v;
     }
+    // Vendedor con la tienda abierta: sentado (el último cuadro de la acción 70).
+    if (!muerto && vendedor(a, o.ids()[s]))
+        if (const RangoAccion* r = a.sprites.accion(gfx, 70)) {
+            v.rango = r;
+            v.bucle = false;
+            return v;
+        }
     u8 base;
     if (muerto) {
         base = ACC_MORIR;
@@ -120,8 +129,26 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     }
     v.rango = a.sprites.accion(gfx, static_cast<u8>(base + arma));
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
+    // TODO(PARCHE PROVISIONAL): la tabla que tenemos no trae el "quieto" de estas formas; la real (list.spz,
+    // ver TablaSprites::copiar_filas_faltantes) diría qué cuadros y tiempos usar.
+    // Un personaje transformado en una forma sin "quieto" (los dark elf 52-80): el quieto de otra arma y,
+    // si no hay, parado en el primer cuadro de caminar, no dando pasos en el lugar. Los objetos sin
+    // quieto (los braseros, por ejemplo) sí se animan con caminar.
+    if (!v.rango && base == ACC_QUIETO && !muerto && tipo_objeto(a, s) == TIPO_PERSONAJE) {
+        for (u8 otra_arma : {4, 11, 20, 24, 40, 46, 50, 54, 58, 62})
+            if (!v.rango) v.rango = a.sprites.accion(gfx, static_cast<u8>(ACC_QUIETO + otra_arma));
+        if (!v.rango) {
+            v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
+            v.inicio = ahora;
+        }
+    }
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_QUIETO);
     if (!v.rango) v.rango = a.sprites.accion(gfx, ACC_CAMINAR);
+    // Sin quieto ni caminar (la torre de guardia sana, la corona): su primera acción, quieta.
+    for (int k = 0; !v.rango && k < 64; ++k) {
+        v.rango = a.sprites.accion(gfx, static_cast<u8>(k));
+        v.bucle = false;
+    }
     return v;
 }
 
@@ -266,6 +293,15 @@ void dibujar_objetos_mapa(App& a, double cam_x, double cam_y, double ox, double 
     }
 }
 
+// Título centrado en x, con sus códigos de color (\fX).
+void dibujar_titulo(Graficos& g, std::string_view t, float x, float y, u64 clave, u32 normal) {
+    const bool doble_byte = !es_utf8(t.data(), t.size());
+    int ancho = 0;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32) { ancho += ancho_texto(s.data(), s.size()); });
+    float cx = x - ancho / 2;
+    recorrer_codigos(t, normal, doble_byte, [&](std::string_view s, u32 c) { cx += g.texto_sombra(s, cx, y, clave, c); });
+}
+
 // Lo último que dijo el objeto, sobre su nombre (hasta 3 filas centradas). Se quita el
 // "Nombre: " / "<Nombre> " que agrega el servidor porque el nombre ya está debajo.
 void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
@@ -281,6 +317,26 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
         t.remove_prefix(c);
         while (!t.empty() && t[0] == ' ') t.remove_prefix(1);
     }
+    if (a.cfg.globos_comic) {  // sin relleno: contorno redondeado y cola; el texto queda con sombra
+        int ancho = 0;
+        for (int i = 0; i < n; ++i) ancho = std::max(ancho, ancho_texto(filas[i].data(), filas[i].size()));
+        const int x0 = static_cast<int>(centro_x) - ancho / 2 - 6, w = ancho + 12;
+        const int y0 = static_cast<int>(base_y) - 14 * n - 6, h = 14 * n + 8;
+        const int x1 = x0 + w - 1, y1 = y0 + h - 1, cx = static_cast<int>(centro_x);
+        const u64 k = clave_orden(CAPA_EFECTOS, 1);
+        const u32 borde = rgba(235, 235, 230, 230);
+        Gpu& gpu = a.g->gpu();
+        gpu.rectangulo(x0 + 3, y0, w - 6, 1, k, borde);  // lados
+        gpu.rectangulo(x0 + 3, y1, w - 6, 1, k, borde);
+        gpu.rectangulo(x0, y0 + 3, 1, h - 6, k, borde);
+        gpu.rectangulo(x1, y0 + 3, 1, h - 6, k, borde);
+        auto punto = [&](int x, int y) { gpu.rectangulo(x, y, 1, 1, k, borde); };
+        for (int d = 0; d < 3; ++d) {  // esquinas redondeadas
+            punto(x0 + 2 - d, y0 + d), punto(x1 - 2 + d, y0 + d);
+            punto(x0 + 2 - d, y1 - d), punto(x1 - 2 + d, y1 - d);
+        }
+        punto(cx - 2, y1 + 1), punto(cx + 2, y1 + 1), punto(cx - 1, y1 + 2), punto(cx + 1, y1 + 2), punto(cx, y1 + 3);
+    }
     for (int i = 0; i < n; ++i) {
         int w = ancho_texto(filas[i].data(), filas[i].size());
         a.g->texto_sombra(filas[i], centro_x - w / 2, base_y - 14 * (n - i), clave_orden(CAPA_EFECTOS, 2),
@@ -288,16 +344,9 @@ void dibujar_globo(App& a, std::string_view t, float centro_x, float base_y) {
     }
 }
 
-// Color del nombre según el alineamiento (S_CharPack / S_Lawful): legal (>= 500) azul, caótico
-// (<= -500) rojo, neutral blanco. Las graduaciones del original no están en los datos.
-u32 color_alineamiento(i32 legal) {
-    if (legal >= 500) return rgba(130, 190, 255);
-    if (legal <= -500) return rgba(255, 100, 90);
-    return rgba(240, 240, 240);
-}
-
 // Color con el que se dibuja un personaje: oscurecido en la sombra de un árbol, verdoso si está
-// envenenado y gris azulado si está congelado (S_Poison y los flags de S_CharPack).
+// envenenado, gris azulado si está congelado (S_Poison y los flags de S_CharPack) y translúcido si
+// es invisible (S_Invis; un GM también ve así a los demás).
 u32 color_personaje(App& a, Slot s, double vis_x, double vis_y) {
     const TablaObjetos& o = a.mundo.objetos;
     u32 color = BLANCO;
@@ -305,6 +354,7 @@ u32 color_personaje(App& a, Slot s, double vis_x, double vis_y) {
         color = rgba(LUZ_EN_SOMBRA, LUZ_EN_SOMBRA, LUZ_EN_SOMBRA);
     if (o.col<O_FLAGS>()[s] & FLAG_CONGELADO) color = rgba(150, 160, 185);
     else if (o.col<O_FLAGS>()[s] & FLAG_VENENO) color = rgba(140, 230, 120);
+    if (o.col<O_FLAGS>()[s] & FLAG_INVISIBLE) color = (color & 0x00FFFFFFu) | (110u << 24);
     return color;
 }
 
@@ -313,13 +363,18 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
     TablaObjetos& o = a.mundo.objetos;
     const Vista vi = vista(a);
     a.en_pantalla.clear();
+    a.luces.clear();
     for (Slot s = 0; s < o.tamano(); ++s) {
         // Posición continua (orden de dibujo, nombre, globo) y celda desde la que se dibuja el sprite:
         // la de origen del paso, porque los frames de caminar ya traen el avance (ver mundo.h).
         double fx, fy;
         posicion_interpolada(a.mundo, s, ahora, fx, fy);
         float sx = static_cast<float>(mundo_px(fx, fy) + ox), sy = static_cast<float>(mundo_py(fx, fy) + oy);
-        if (sx < -150 || sx > vi.w + 150 || sy < -150 || sy > vi.h + 150) continue;
+        const bool propio = o.ids()[s] == a.mundo.jugador.id;
+        const int radio_luz = radio_de_luz(propio, o.col<O_LUZ>()[s]);
+        auto fuera = [&](float mx, float my) { return sx < -mx || sx > vi.w + mx || sy < -my || sy > vi.h + my; };
+        // Una luz alcanza más lejos que el sprite: hasta ±312×±156 px (radio 14), desde los pies.
+        if (radio_luz > 0 ? fuera(360, 200) : fuera(150, 150)) continue;
         // El sprite se dibuja en (spr) y el frame suma el avance hasta (vis), donde se ve el cuerpo.
         double vis_x, vis_y;
         posicion_visible(a.mundo, s, ahora, vis_x, vis_y);
@@ -337,6 +392,13 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         float px = static_cast<float>(mundo_px(spr_x, spr_y) + ox), py = static_cast<float>(mundo_py(spr_x, spr_y) + oy);
         // Diferencia vertical entre el cuerpo visible y la posición continua (para el nombre).
         float desfase_y = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - sy;
+        // Los pies: el centro del rombo de la celda del cuerpo (el ancla del sprite es su esquina + (24, 12)).
+        if (radio_luz > 0) {
+            a.luces.push_back({radio_luz, static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 24,
+                               static_cast<float>(mundo_py(vis_x, vis_y) + oy) + 12});
+            if (propio) std::swap(a.luces.front(), a.luces.back());  // el corte de 700 no la apaga
+        }
+        if (fuera(150, 150)) continue;  // alumbra, pero no se dibuja
         u32 prof = profundidad(static_cast<float>(mundo_py(fx, fy)) + 12.0f, ORDEN_PERSONAJE, 4);
         GfxId gfx = o.col<O_GFX>()[s];
         const AccionVisible acc = elegir_accion(a, s, ahora);
@@ -370,13 +432,20 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
             if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)
                 g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
             else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
-                g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_EFECTOS, 0),
-                                         rgba(255, 255, 255, ALFA_SILUETA));
+                g.gpu().dibujar_escalado(dm.region, dm.x, dm.y, dm.lado, dm.lado, clave_orden(CAPA_MUNDO, 0xFFFFFFFEu),
+                                         rgba(255, 255, 255, ALFA_SILUETA));  // bajo la lluvia, sobre el resto
             top = dm.y0;
             bajo_puntero = a.entrada.mx >= dm.x0 && a.entrada.mx < dm.x1 && a.entrada.my >= dm.y0 && a.entrada.my < dm.y1;
-            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], dm.x0, dm.y0, dm.x1, dm.y1, prof});
+            if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], dm.x0, dm.y0, dm.x1, dm.y1, prof, 0});
         } else {
             RegionAtlas rg;
+            bool rg_pendiente = false;
+            // pendiente() compara la dirección: se consulta sobre la referencia, antes de copiarla a rg.
+            auto pedir_frame = [&](u16 sub_pedido, u16 frame) {
+                const RegionAtlas& r = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub_pedido, frame);
+                rg_pendiente = g.pendiente(r);
+                rg = r;
+            };
             if (r) {
                 bool termino = false;
                 bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
@@ -389,40 +458,44 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
                 if (sombra >= 0)
                     g.gpu().dibujar_en(g.frame_sprite(static_cast<GfxId>(sombra), sub, f->frame), px, py,
                                        clave_orden(CAPA_MUNDO, prof - 1), rgba(255, 255, 255, 160));
-                rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), sub, f->frame);
+                pedir_frame(sub, f->frame);
             } else {
                 // Sin acciones en la tabla (los ítems del suelo, por ejemplo): el primer frame de N-0.spr.
-                rg = g.frame_sprite(a.sprites.gfx_archivos(gfx), 0, 0);
+                pedir_frame(0, 0);
             }
             if (rg.valida()) {
                 // El ancla de los .spr es la esquina superior izquierda de la celda (calibrada con el
                 // explorador: los pies quedan en el centro del rombo).
                 const u32 color = color_personaje(a, s, vis_x, vis_y);
-                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color);
+                // Atributo 104 bit 8 (fuego, braseros...): suma luz, su fondo oscuro no tapa.
+                g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color, a.sprites.aditivo(gfx) ? Mezcla::ADITIVA : Mezcla::NORMAL);
                 // Tapado por un objeto del mapa: también su silueta encima de todo (varias piezas
                 // translúcidas superpuestas casi lo esconden).
                 if (o.ids()[s] == a.mundo.jugador.id && a.mundo.jugador.ceguera)  // ciego: solo se ve a sí mismo
                     g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, PROF_CEGUERA + 1), color);
                 else if (a.jugador_tapado && o.ids()[s] == a.mundo.jugador.id)
-                    g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_EFECTOS, 0), rgba(255, 255, 255, ALFA_SILUETA));
+                    g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, 0xFFFFFFFEu), rgba(255, 255, 255, ALFA_SILUETA));  // bajo la lluvia, sobre el resto
                 top = py + rg.oy - desfase_y;
                 const float x0 = px + rg.ox, y0 = py + rg.oy, x1 = x0 + rg.w, y1 = y0 + rg.h;
                 bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, 0});
             } else {
-                // Sin sprite: un bloque magenta del tamaño de un cuerpo, que se puede elegir con el clic.
+                // Sin sprite: un bloque del tamaño de un cuerpo, que se puede elegir con el clic. Verde mientras
+                // el sprite todavía se carga (o el atlas no tiene lugar); magenta si de verdad falta.
                 const float x0 = static_cast<float>(mundo_px(vis_x, vis_y) + ox) + 12, y0 = static_cast<float>(mundo_py(vis_x, vis_y) + oy) - 22;
                 const float x1 = x0 + 24, y1 = y0 + 36;
-                g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), rgba(255, 0, 255, 170));
+                const u32 color_marca = rg_pendiente ? rgba(60, 220, 90, 170) : rgba(255, 0, 255, 170);
+                g.gpu().rectangulo(static_cast<int>(x0), static_cast<int>(y0), 24, 36, clave_orden(CAPA_MUNDO, prof), color_marca);
                 top = y0;
                 bajo_puntero = a.entrada.mx >= x0 && a.entrada.mx < x1 && a.entrada.my >= y0 && a.entrada.my < y1;
-                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof});
+                if (o.col<O_ESTADO>()[s] != ESTADO_MUERTO) a.en_pantalla.push_back({o.ids()[s], x0, y0, x1, y1, prof, static_cast<u8>(rg_pendiente ? 1 : 2)});
             }
         }
         // Barra de vida si el servidor la da (S_HpMeter: grupo y mascotas; el % de S_CharPack es
         // 0xFF para los monstruos en L1J-JP) y nombre; el objetivo del ataque, en amarillo.
+        const bool soy_yo = o.ids()[s] == a.mundo.jugador.id;
         const u8 hp = o.col<O_HP>()[s];
-        if (hp <= 100) {
+        if (hp <= 100 && !soy_yo) {
             constexpr int ANCHO_BARRA = 40;
             g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5, ANCHO_BARRA, 3, clave_orden(CAPA_EFECTOS, 0),
                                rgba(30, 30, 30, 200));
@@ -430,27 +503,80 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
                                clave_orden(CAPA_EFECTOS, 1), rgba(220, 50, 40));
             top -= 6;
         }
+        // Barra de HP/MP propia (opción): dos barras finas sobre el personaje, con los valores reales.
+        if (soy_yo && a.cfg.barra_personaje) {
+            const EstadoJugador& j = a.mundo.jugador;
+            constexpr int W = 40;
+            auto barra = [&](int dy, i32 v, i32 vmax, u32 col) {
+                g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5 + dy, W, 3, clave_orden(CAPA_EFECTOS, 0),
+                                   rgba(30, 30, 30, 200));
+                if (vmax > 0)
+                    g.gpu().rectangulo(static_cast<int>(sx) + 4, static_cast<int>(top) - 5 + dy, W * std::clamp(v, 0, vmax) / vmax, 3,
+                                       clave_orden(CAPA_EFECTOS, 1), col);
+            };
+            barra(0, j.hp, j.hp_max, rgba(220, 50, 40));
+            barra(-4, j.mp, j.mp_max, rgba(80, 130, 240));
+            top -= 10;
+        }
+        // Texto de combate flotante (opción): daño recibido / "Miss", sube y se desvanece (DUR_COMBATE).
+        if (soy_yo && a.n_textos_combate) {
+            u8 w = 0;
+            for (u8 i = 0; i < a.n_textos_combate; ++i) {
+                App::TextoCombate& f = a.textos_combate[i];
+                u64 dt = ahora - f.t0;
+                if (dt >= DUR_COMBATE) continue;  // expirado: se compacta fuera
+                std::string_view tx(f.t);
+                int tw = ancho_texto(f.t, tx.size());
+                // Arranca encima del nombre/barras y sube 26 px desvaneciéndose.
+                float ty = sy - 66 - static_cast<float>(dt) / DUR_COMBATE * 26.0f;
+                u8 alfa = static_cast<u8>(255 * (1.0 - static_cast<double>(dt) / DUR_COMBATE));
+                g.texto_sombra(tx, sx + 24 - tw / 2, ty, clave_orden(CAPA_EFECTOS, 3), rgba(f.r, f.g, f.b, alfa));
+                if (w != i) a.textos_combate[w] = f;
+                ++w;
+            }
+            a.n_textos_combate = w;
+        }
         // Nombre con los "$N" resueltos en cualquier parte ("$4 (85)" es "Adena (85)"). Los ítems
         // del suelo lo muestran solo con el puntero encima, para no tapar el mapa.
         char nombre_buf[128];
         std::string_view nombre(nombre_buf, expandir_desc(a.desc, texto(a.mundo, o.col<O_NOMBRE>()[s]), nombre_buf,
                                                           sizeof nombre_buf));
         if (a.sprites.tipo(gfx) == TIPO_ITEM && !bajo_puntero) nombre = {};
+        // NPC con título: el nombre llega como "Merchant^Nombre"; se muestra "[Merchant]" encima del
+        // nombre normal (la misma franja que el título de un personaje, más abajo).
+        char titulo_npc_buf[64] = "";
+        std::string_view titulo_npc;
+        if (auto p = nombre.find('^'); p != std::string_view::npos) {
+            int n = std::snprintf(titulo_npc_buf, sizeof titulo_npc_buf, "[%.*s]", static_cast<int>(p), nombre.data());
+            titulo_npc = {titulo_npc_buf, std::min(static_cast<size_t>(n), sizeof titulo_npc_buf - 1)};
+            nombre = nombre.substr(p + 1);
+        }
         if (!nombre.empty()) {
             int w = ancho_texto(nombre.data(), nombre.size());
             // Los personajes (nombre propio; los NPC y monstruos vienen como "$N") según el
-            // alineamiento: legal azul, caótico rojo, neutral blanco.
+            // alineamiento: legal azul, caótico rojo, neutral blanco; rosa mientras dura el PK
+            // (S_PinkName). Los monstruos, según su nivel respecto del jugador (nivel_relativo).
             const bool personaje = !texto(a.mundo, o.col<O_NOMBRE>()[s]).empty() && texto(a.mundo, o.col<O_NOMBRE>()[s])[0] != '$';
             u32 color = rgba(200, 220, 255);
-            if (personaje) color = color_alineamiento(o.col<O_LEGAL>()[s]);
+            if (personaje) color = ahora < o.col<O_ROSA>()[s] ? rgba(255, 130, 200) : color_alineamiento(o.col<O_LEGAL>()[s]);
+            else if (o.col<O_NIVEL>()[s] && a.mundo.jugador.nivel && tipo_objeto(a, s) == TIPO_MONSTRUO) {
+                static const u32 COLORES[] = {rgba(240, 240, 240), rgba(120, 230, 120), rgba(255, 215, 80), rgba(255, 90, 80)};
+                color = COLORES[static_cast<int>(nivel_relativo(o.col<O_NIVEL>()[s], a.mundo.jugador.nivel))];
+            }
             if (o.ids()[s] == a.objetivo) color = rgba(255, 230, 90);
             g.texto_sombra(nombre, sx + 24 - w / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), color);
+            if (const Vendedor* v = vendedor(a, o.ids()[s]); v && !v->titulo.empty()) {  // título de la tienda
+                dibujar_titulo(g, v->titulo, sx + 24, top - 28, clave_orden(CAPA_EFECTOS, 1), rgba(255, 220, 130));
+            }
             // Marcado con True Target: la marca y su mensaje encima del nombre.
             if (o.ids()[s] == a.marca_objetivo) {
                 const int wm = ancho_texto(a.marca_texto.data(), a.marca_texto.size());
                 g.texto_sombra("V", sx + 24 - 3, top - 28, clave_orden(CAPA_EFECTOS, 0), rgba(255, 80, 60));
                 if (wm) g.texto_sombra(a.marca_texto, sx + 24 - wm / 2, top - 42, clave_orden(CAPA_EFECTOS, 0), rgba(255, 160, 140));
             }
+            // El señor de un castillo: una corona a la izquierda (del emblema, si tiene).
+            if (castillo_de(a, o.ids()[s]))
+                dibujar_corona(g, sx + 24 - w / 2 - (o.col<O_CLAN>()[s] ? 19 : 0) - 16, top - 12, clave_orden(CAPA_EFECTOS, 0));
             // Emblema del clan a la izquierda del nombre (se pide una vez por clan).
             if (u32 clan = o.col<O_CLAN>()[s]) {
                 const RegionAtlas& em = g.emblema(clan);
@@ -462,11 +588,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
                 }
             }
             top -= 14;
-            // Título encima del nombre.
-            std::string_view titulo = texto(a.mundo, o.col<O_TITULO>()[s]);
-            if (!titulo.empty() && personaje) {
-                int wt = ancho_texto(titulo.data(), titulo.size());
-                g.texto_sombra(titulo, sx + 24 - wt / 2, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
+            // Título encima del nombre: el del NPC ("Merchant^...") o el del personaje (O_TITULO).
+            std::string_view titulo = !titulo_npc.empty()                  ? titulo_npc
+                                      : personaje || o.col<O_MASCOTA>()[s] ? texto(a.mundo, o.col<O_TITULO>()[s])
+                                                          : std::string_view{};
+            if (!titulo.empty()) {
+                dibujar_titulo(g, titulo, sx + 24, top - 14, clave_orden(CAPA_EFECTOS, 0), rgba(230, 200, 130));
                 top -= 14;
             }
         }
@@ -504,11 +631,6 @@ void dibujar_efectos(App& a, u64 ahora, double ox, double oy) {
                 continue;
             }
             double k = static_cast<double>(t) / ef.vuelo_ms;
-            if (!a.aut.captura_proyectil.empty() && k >= 0.4) {  // prueba automática
-                a.gpu.pedir_captura(a.aut.captura_proyectil);
-                a.aut.captura_proyectil.clear();
-                a.salir = true;
-            }
             x = ef.x0 + (ef.x1 - ef.x0) * k;
             y = ef.y0 + (ef.y1 - ef.y0) * k;
             f = &a.sprites.frame_en(*r, t, termino, 0, true);
@@ -554,40 +676,6 @@ int direccion_teclas(const EntradaFrame& e) {
     return -1;
 }
 
-// Prueba automática (--atacar=texto): el objeto vivo más cercano cuyo nombre contenga el texto.
-ObjId objetivo_automatico(const App& a, Slot yo) {
-    const TablaObjetos& o = a.mundo.objetos;
-    ObjId mejor = 0;
-    int mejor_d = 1 << 30;
-    for (Slot s = 0; s < o.tamano(); ++s) {
-        if (s == yo || o.col<O_ESTADO>()[s] == ESTADO_MUERTO || tipo_objeto(a, s) == TIPO_ITEM) continue;
-        if (a.desc.resolver(texto(a.mundo, o.col<O_NOMBRE>()[s])).find(a.aut.atacar) == std::string_view::npos) continue;
-        if (std::any_of(a.mascotas.begin(), a.mascotas.end(), [&](const Mascota& m) { return m.id == o.ids()[s]; })) continue;
-        int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-        if (d < mejor_d) {
-            mejor_d = d;
-            mejor = o.ids()[s];
-        }
-    }
-    return mejor;
-}
-
-// Prueba automática (--recoger): el ítem del suelo más cercano.
-ObjId item_mas_cercano(const App& a, Slot yo) {
-    const TablaObjetos& o = a.mundo.objetos;
-    ObjId mejor = 0;
-    int mejor_d = 1 << 30;
-    for (Slot s = 0; s < o.tamano(); ++s) {
-        if (a.sprites.tipo(o.col<O_GFX>()[s]) != TIPO_ITEM) continue;
-        int d = std::max(std::abs(o.col<O_X>()[s] - o.col<O_X>()[yo]), std::abs(o.col<O_Y>()[s] - o.col<O_Y>()[yo]));
-        if (d < mejor_d) {
-            mejor_d = d;
-            mejor = o.ids()[s];
-        }
-    }
-    return mejor;
-}
-
 // Ataque al objetivo (adyacente o, con arco, a distancia): la animación propia empieza ya (el eco
 // del servidor no la reinicia, ver Ev::ATAQUE) y no se vuelve a atacar hasta que termine. La
 // flecha la dibuja el eco (S_UseArrowSkill trae su gráfico y las celdas: ver mundo.cpp).
@@ -596,9 +684,21 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
     int dir = direccion_de(o.col<O_X>()[obj] - o.col<O_X>()[yo], o.col<O_Y>()[obj] - o.col<O_Y>()[yo]);
     if (dir >= 0) o.col<O_DIR>()[yo] = static_cast<u8>(dir);
     enviar(a, cmd::atacar(a.op, o.ids()[obj], o.col<O_X>()[obj], o.col<O_Y>()[obj]));
-    o.col<O_ACCION>()[yo] = ACC_ATACAR;
-    o.col<O_TACCION>()[yo] = ahora;
     GfxId gfx = o.col<O_GFX>()[yo];
+    // Compensación de ataque (opcional, en vivo): sin esperar el eco del servidor, mostrar ya el golpe
+    // -el swing propio y el flinch del objetivo en el frame de impacto- para que con latencia alta el
+    // combate se sienta instantáneo. Puede "errar" en un fallo o fuera de rango; el servidor lo corrige
+    // (mundo.cpp no reinicia un flinch ya en curso). Apagado: la animación espera el eco (como el stock).
+    if (a.cfg.compensar_ataque) {
+        o.col<O_ACCION>()[yo] = ACC_ATACAR;
+        o.col<O_TACCION>()[yo] = ahora;
+        if (o.col<O_ESTADO>()[obj] != ESTADO_MUERTO) {
+            u64 impacto = a.sprites.ms_hasta_impacto(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
+            if (impacto == 0) impacto = a.sprites.ms_hasta_impacto(gfx, ACC_ATACAR);
+            o.col<O_ACCION>()[obj] = ACC_DANADO;
+            o.col<O_TACCION>()[obj] = ahora + impacto;
+        }
+    }
     u32 ms = a.sprites.duracion_ms(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
     if (ms == 0) ms = a.sprites.duracion_ms(gfx, ACC_ATACAR);
     if (ms == 0) ms = ATAQUE_DESCONOCIDO_MS;
@@ -608,10 +708,10 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
 // Movimiento propio con predicción: se avanza localmente y se avisa al servidor (C_MoveChar
 // lleva la celda de origen). Si la celda está bloqueada solo se gira.
 
-// Portales (entradas de mazmorras, escaleras): el servidor teletransporta cuando el destino de un
-// paso es un portal de su tabla (C_MoveChar mira DungeonTable antes que nada), pero el mapa del
-// cliente marca casi todas esas celdas como bloqueadas y no dice cuáles son portales (en el mapa
-// 4, 39 de 74 tienen el atributo 0x08, que también tienen 3857 celdas que no lo son). Así que, al
+// Portales (entradas de mazmorras, escaleras): los que trae el mapa del cliente (el final del .s32)
+// se piden con C_EnterPortal, como el original (mover_jugador). Pero el servidor tiene algunos que
+// el cliente no (en el mapa 4, 26 de 74), y también teletransporta cuando el destino de un paso es
+// un portal de su tabla (C_MoveChar mira DungeonTable antes que nada). Para esos, al
 // intentar entrar a una celda bloqueada vecina con el teclado o con un clic justo sobre ella, se
 // manda el paso sin moverse aquí: si es un portal llega el teletransporte; si no, no pasa nada
 // visible (el servidor toma el origen del próximo paso del paquete). Una vez por segundo por celda.
@@ -630,6 +730,14 @@ bool intento_portal(App& a, int nx, int ny, int dir, bool teclado, u64 ahora) {
     return true;
 }
 
+// Una mascota (o invocación) de otro jugador no se ataca con un clic: solo con Ctrl. Las propias
+// (a.mascotas, S_PetCtrlMenu) siguen como cualquier otro objeto.
+bool mascota_sin_ctrl(const App& a, Slot s) {
+    if (s == SIN_SLOT || !a.mundo.objetos.col<O_MASCOTA>()[s] || a.entrada.ctrl) return false;
+    const ObjId id = a.mundo.objetos.ids()[s];
+    return std::none_of(a.mascotas.begin(), a.mascotas.end(), [id](const Mascota& m) { return m.id == id; });
+}
+
 // Objetivo bajo el puntero según su tipo de gfx: un ítem se recoge, un monstruo se ataca, a un
 // NPC se le habla (con Ctrl se lo ataca) y a otros personajes se los ataca con Ctrl o en modo PK
 // ("/pk"). 0 si no hay (se camina).
@@ -640,9 +748,13 @@ void elegir_objetivo_bajo_puntero(App& a) {
     Slot b = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
     u8 tipo = b != SIN_SLOT ? tipo_objeto(a, b) : 0;
     // Un NPC (sin Ctrl): se camina hasta él y se le habla, aunque se suelte el botón.
-    a.hablar_objetivo = b != SIN_SLOT && es_npc(a, b) && !e.ctrl;
+    a.hablar_objetivo = b != SIN_SLOT && (es_npc(a, b) || vendedor(a, a.objetivo)) && !e.ctrl;
     const bool forzar = e.ctrl || (a.modo_pk && tipo == TIPO_PERSONAJE);
     if (b != SIN_SLOT && tipo != TIPO_ITEM && tipo != TIPO_MONSTRUO && !a.hablar_objetivo && !forzar) a.objetivo = 0;
+    if (mascota_sin_ctrl(a, b)) {  // la de otro jugador: solo con Ctrl
+        a.objetivo = 0;
+        a.hablar_objetivo = false;
+    }
 }
 
 void mover_jugador(App& a, u64 ahora) {
@@ -651,14 +763,29 @@ void mover_jugador(App& a, u64 ahora) {
     const EntradaFrame& e = a.entrada;
     const Vista vi = vista(a);
     bool sobre_panel = (e.my >= vi.panel_y && e.mx >= vi.panel_x0 && e.mx < vi.panel_x1) || sobre_inventario(a) ||
-                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
-                       a.arrastrando_atajo >= 0;
+                       sobre_hechizos(a) || sobre_barra(a) || sobre_forma(a) || sobre_cantidad(a) || sobre_tienda(a) || sobre_tablon(a) || sobre_correo(a) || sobre_casas(a) || sobre_mascotas(a) || sobre_destino(a) || sobre_npc(a) || a.arrastrando != 0 || a.arrastrando_hechizo != 0 ||
+                       a.arrastrando_atajo >= 0 || a.autobuffs.arrastrando >= 0;
     // Objetivo: lo que hay bajo el puntero al apretar el botón, y se mantiene mientras siga
     // apretado aunque la cámara se mueva y el puntero ya no esté encima (se camina hasta él y se
     // lo ataca). Apretado sobre el suelo se camina hacia el puntero, y si el puntero pasa sobre
     // algo, eso queda como objetivo. Soltar lo abandona, salvo con la tecla A (ataque sostenido).
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
+    // Shift+clic en el mundo: solo girar hacia ahí, sin caminar ni elegir objetivo (por ejemplo, para
+    // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina. Como un clic
+    // nuevo, cancela lo que estuviera haciendo; inmóvil, a mitad de un paso o de un ataque no gira.
+    if (clic_en_mundo && e.pulsado && e.shift && s != SIN_SLOT && !a.mundo.jugador.muerto) {
+        a.hechizo_pendiente = 0;
+        a.ataque_sostenido = a.objetivo_fijo = a.hablar_objetivo = false;
+        a.objetivo = 0;
+        a.clic_consumido = true;
+        if (!a.mundo.jugador.inmovil && !moviendose(a.mundo, s, ahora) && ahora >= a.fin_ataque) {
+            const u8 d = static_cast<u8>(direccion_hacia(e.mx - vi.cx, e.my - vi.cy));
+            o.col<O_DIR>()[s] = d;
+            enviar(a, cmd::girar(a.op, d));
+        }
+        return;
+    }
     // Antes de esperar el fin del paso: el frame en que se aprieta no se pierde.
     if (clic_en_mundo && e.pulsado) {
         a.hechizo_pendiente = 0;  // un clic nuevo cancela el hechizo en camino
@@ -669,10 +796,10 @@ void mover_jugador(App& a, u64 ahora) {
     if (!e.presionado) a.objetivo_fijo = false;
     // Tecla A (con el chat cerrado): atacar al objetivo, o al monstruo bajo el puntero, hasta que
     // muera o se camine.
-    if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !a.ventana_forma) {
+    if (e.tecla_a && a.cfg.chat_con_enter && !a.escribiendo_chat && !a.cantidad.abierto && !escribiendo_en_ventana(a)) {
         ObjId t = a.objetivo && !a.hablar_objetivo ? a.objetivo : objeto_bajo_puntero(a);
         Slot b = t ? o.buscar(t) : SIN_SLOT;
-        if (b != SIN_SLOT && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
+        if (b != SIN_SLOT && !mascota_sin_ctrl(a, b) && (tipo_objeto(a, b) == TIPO_MONSTRUO || e.ctrl || (a.modo_pk && tipo_objeto(a, b) == TIPO_PERSONAJE))) {
             a.objetivo = t;
             a.hablar_objetivo = false;
             a.ataque_sostenido = true;
@@ -699,12 +826,8 @@ void mover_jugador(App& a, u64 ahora) {
         // Apretado sobre el suelo: lo que el puntero toque al caminar queda como objetivo.
         elegir_objetivo_bajo_puntero(a);
         a.objetivo_fijo = a.objetivo != 0;
-    } else if (!e.presionado && a.aut.atacar.empty() && !a.aut.recoger && !a.hablar_objetivo && !a.ataque_sostenido) {
+    } else if (!e.presionado && !a.hablar_objetivo && !a.ataque_sostenido) {
         a.objetivo = 0;
-    }
-    if (a.objetivo == 0 && a.frames_en_pantalla > 60) {
-        if (!a.aut.atacar.empty()) a.objetivo = objetivo_automatico(a, s);
-        if (a.objetivo == 0 && a.aut.recoger) a.objetivo = item_mas_cercano(a, s);
     }
     Slot obj = a.objetivo ? o.buscar(a.objetivo) : SIN_SLOT;
     if (obj != SIN_SLOT && o.col<O_ESTADO>()[obj] == ESTADO_MUERTO) obj = SIN_SLOT;
@@ -718,7 +841,11 @@ void mover_jugador(App& a, u64 ahora) {
         int dx = o.col<O_X>()[obj] - o.col<O_X>()[s], dy = o.col<O_Y>()[obj] - o.col<O_Y>()[s];
         if (a.hablar_objetivo && std::max(std::abs(dx), std::abs(dy)) <= DISTANCIA_HABLAR_NPC) {
             // A una puerta no se le habla: se abre o se cierra (C_Door).
-            if (tipo_objeto(a, obj) == TIPO_PUERTA)
+            if (vendedor(a, a.objetivo))
+                abrir_tienda_de(a, a.objetivo);
+            else if (es_tablon(o.col<O_GFX>()[obj]))
+                enviar(a, cmd::tablon(a.op, Cli::BOARD, a.objetivo));
+            else if (tipo_objeto(a, obj) == TIPO_PUERTA)
                 enviar(a, cmd::puerta(a.op, static_cast<u16>(o.col<O_X>()[obj]), static_cast<u16>(o.col<O_Y>()[obj]), a.objetivo));
             else
                 enviar(a, cmd::hablar_npc(a.op, a.objetivo));
@@ -753,23 +880,20 @@ void mover_jugador(App& a, u64 ahora) {
     }
     if (dir < 0 && clic_en_mundo)
         dir = direccion_hacia(e.mx - vi.cx, e.my - vi.cy);  // el jugador está siempre en (cx, cy)
-    if (dir < 0 && a.aut.ruta_hecha < a.aut.ruta.size() && a.frames_en_pantalla > 60) {
-        // Prueba automática: direcciones fijas (dígitos 0–7), una por paso.
-        dir = (a.aut.ruta[a.aut.ruta_hecha++] - '0') & 7;
-        ruta = true;
-    }
-    if (dir < 0 && a.aut.pasos > a.pasos_auto_hechos && a.frames_en_pantalla > 60) {
-        // Prueba automática: caminar en la primera dirección libre empezando por la derecha.
-        for (int i = 0; i < 8 && dir < 0; ++i) {
-            int d = (3 + i) % 8;
-            if (celda_pasable(a.mundo, a.rec, o.col<O_X>()[s] + DIR_DX[d], o.col<O_Y>()[s] + DIR_DY[d])) dir = d;
-        }
-        ++a.pasos_auto_hechos;
-    }
     if (dir < 0) return;
     u16 x = o.col<O_X>()[s], y = o.col<O_Y>()[s];
     int nx = x + DIR_DX[dir], ny = y + DIR_DY[dir];
-    if (celda_pasable(a.mundo, a.rec, nx, ny)) {
+    const u32 celda = static_cast<u32>(nx & 0xFFFF) << 16 | static_cast<u32>(ny & 0xFFFF);
+    const bool pasable = celda_pasable(a.mundo, a.rec, nx, ny);
+    if (!pasable && es_portal(a.mundo, a.rec, nx, ny) && !(celda == a.celda_intento_portal && ahora < a.t_intento_portal + 1000)) {
+        // Portal conocido por el mapa del cliente, en una celda bloqueada: como el original,
+        // C_EnterPortal con su celda. (En una pasable alcanza el paso: C_MoveChar también la revisa,
+        // y así un portal que el servidor no tiene no impide pisarla.)
+        enviar(a, cmd::entrar_portal(a.op, static_cast<u16>(nx), static_cast<u16>(ny)));
+        a.celda_intento_portal = celda;
+        a.t_intento_portal = ahora;
+        o.col<O_DIR>()[s] = static_cast<u8>(dir);
+    } else if (pasable) {
         enviar(a, cmd::mover(a.op, x, y, static_cast<u8>(dir)));
         o.col<O_XANT>()[s] = x;
         o.col<O_YANT>()[s] = y;
@@ -817,6 +941,8 @@ void dibujar_panel(App& a) {
     barra(g, IMG_BARRA_EXP, X + 3, Y + 386, pexp / 100.0f, t);
     std::snprintf(t, sizeof t, "%d/%d", j.hp, j.hp_max);
     barra(g, IMG_BARRA_HP, X + 3, Y + 402, j.hp_max > 0 ? static_cast<float>(j.hp) / j.hp_max : 0.0f, t);
+    dibujar_indicador_pocion(a, static_cast<float>(X + 3 + g.img(IMG_BARRA_HP).w - 44),
+                             static_cast<float>(Y + 402 + (g.img(IMG_BARRA_HP).h - ALTO_GLIFO) / 2), clave_orden(CAPA_UI_TEXTO, 1));
     std::snprintf(t, sizeof t, "%d/%d", j.mp, j.mp_max);
     barra(g, IMG_BARRA_MP, X + 3, Y + 423, j.mp_max > 0 ? static_cast<float>(j.mp) / j.mp_max : 0.0f, t);
     // Cuatro casillas con ícono: CA, alineamiento, peso y comida.
@@ -871,6 +997,7 @@ void dibujar_panel_simple(App& a) {
     x += barra_ascii(g, x, y, j.hp_max > 0 ? static_cast<float>(j.hp) / j.hp_max : 0.0f, rgba(230, 70, 60), k);
     std::snprintf(t, sizeof t, " %d/%d", j.hp, j.hp_max);
     x += g.texto(t, x, y, k, valor) + SEPARACION_SIMPLE;
+    if (int w = dibujar_indicador_pocion(a, x, y, k)) x += w + SEPARACION_SIMPLE;
     x += g.texto("MP ", x, y, k, rotulo);
     x += barra_ascii(g, x, y, j.mp_max > 0 ? static_cast<float>(j.mp) / j.mp_max : 0.0f, rgba(80, 130, 240), k);
     std::snprintf(t, sizeof t, " %d/%d", j.mp, j.mp_max);
@@ -885,6 +1012,55 @@ void dibujar_panel_simple(App& a) {
     campo("Food ", t);
 }
 
+// Minimapa en la esquina inferior derecha, del tamaño de la zona de chat. Muestra la pasabilidad de
+// lo ya cargado (segmento_cargado no toca disco: lo no explorado queda como fondo) centrada en el
+// personaje, más un punto por objeto. cam_x/cam_y es el centro de cámara (= la celda del personaje).
+constexpr int MM_CELL = 2;  // px por celda en el minimapa
+void dibujar_minimapa(App& a, double cam_x, double cam_y) {
+    Graficos& g = *a.g;
+    const Vista vi = vista(a);
+    // Cuadrado del alto de la zona de chat. UI simple: dentro de la franja, a la derecha de los
+    // botones; UI original: sobre el panel, en la esquina.
+    const int W = (CHAT_FILAS + 1) * ALTO_GLIFO, H = W;
+    const int x0 = vi.w - MARGEN_SIMPLE - W;
+    const int y0 = a.cfg.ui_simple ? vi.panel_y + 4 : vi.panel_y - H - 8;
+    if (y0 < 0 || x0 < 0) return;
+    g.gpu().rectangulo(x0, y0, W, H, clave_orden(CAPA_UI, 3), rgba(10, 12, 10, 205));  // fondo = sin explorar
+    g.gpu().rectangulo(x0 - 1, y0 - 1, W + 2, 1, clave_orden(CAPA_UI, 4), rgba(150, 130, 90));
+    const int cx = static_cast<int>(std::lround(cam_x)), cy = static_cast<int>(std::lround(cam_y));
+    const int cols = W / MM_CELL, rows = H / MM_CELL;
+    for (int r = 0; r < rows; ++r)
+        for (int c = 0; c < cols; ++c) {
+            const int wx = cx + c - cols / 2, wy = cy + r - rows / 2;
+            const SegmentoMapa* s = segmento_cargado(a.mundo, a.rec, wx, wy);
+            if (!s) continue;
+            const int lx = wx - s->base_x, ly = wy - s->base_y;
+            const bool bloq = (s->atributo_en(lx, ly, 0) & 1) && (s->atributo_en(lx, ly, 1) & 1);
+            g.gpu().rectangulo(x0 + c * MM_CELL, y0 + r * MM_CELL, MM_CELL, MM_CELL, clave_orden(CAPA_UI, 4),
+                               bloq ? rgba(55, 50, 45) : rgba(90, 110, 85));
+        }
+    TablaObjetos& o = a.mundo.objetos;
+    for (Slot s = 0; s < o.tamano(); ++s) {
+        if (!o.ids()[s]) continue;
+        const int dx = static_cast<int>(o.col<O_X>()[s]) - cx, dy = static_cast<int>(o.col<O_Y>()[s]) - cy;
+        if (std::abs(dx) > cols / 2 || std::abs(dy) > rows / 2) continue;
+        u32 col;
+        if (o.ids()[s] == a.mundo.jugador.id)
+            col = rgba(255, 255, 255);
+        else {
+            const u8 t = tipo_objeto(a, s);
+            col = t == TIPO_MONSTRUO    ? rgba(230, 70, 60)
+                  : t == TIPO_PERSONAJE ? rgba(90, 200, 230)
+                  : t == TIPO_ITEM      ? rgba(150, 150, 150)
+                                        : rgba(230, 210, 90);
+        }
+        g.gpu().rectangulo(x0 + (cols / 2 + dx) * MM_CELL - 1, y0 + (rows / 2 + dy) * MM_CELL - 1, 3, 3,
+                           clave_orden(CAPA_UI, 5), col);
+    }
+}
+
+}  // namespace
+
 void enviar_chat(App& a, std::string_view linea) {
     if (comando_social(a, linea)) return;
     EntradaChat c;
@@ -892,6 +1068,20 @@ void enviar_chat(App& a, std::string_view linea) {
     if (c.susurro) enviar(a, cmd::susurrar(a.op, c.destino, c.texto));
     else enviar(a, cmd::chat(a.op, c.tipo, c.texto));
 }
+
+void empujar_texto_combate(App& a, const char* t, u8 r, u8 g, u8 b) {
+    constexpr u8 N = sizeof a.textos_combate / sizeof a.textos_combate[0];
+    if (a.n_textos_combate >= N) {  // descartar el más viejo
+        std::memmove(a.textos_combate, a.textos_combate + 1, (N - 1) * sizeof a.textos_combate[0]);
+        a.n_textos_combate = N - 1;
+    }
+    App::TextoCombate& f = a.textos_combate[a.n_textos_combate++];
+    std::snprintf(f.t, sizeof f.t, "%s", t);
+    f.t0 = a.entrada.ahora_ms;
+    f.r = r, f.g = g, f.b = b;
+}
+
+namespace {
 
 // Dónde va el chat: registro (x, y, ancho; CHAT_FILAS filas), caja de entrada y zona en la que
 // la rueda del mouse lo desplaza.
@@ -904,8 +1094,12 @@ AreaChat area_chat(const App& a) {
     const Vista vi = vista(a);
     if (a.cfg.ui_simple) {
         const int y = vi.panel_y + 4, entrada_y = y + CHAT_FILAS * ALTO_GLIFO;
-        return {MARGEN_SIMPLE, y, vi.w - 2 * MARGEN_SIMPLE, MARGEN_SIMPLE + 12, entrada_y, vi.w - 2 * MARGEN_SIMPLE - 12,
-                0, vi.panel_y, vi.w, vi.h - vi.panel_y};
+        // A la derecha: minimapa cuadrado (lado = alto de la zona de chat) + bloque de botones, con
+        // un hueco de 8 px a cada lado. El chat ocupa lo que queda a la izquierda.
+        const int lado = (CHAT_FILAS + 1) * ALTO_GLIFO;
+        const int ancho = std::max(80, vi.w - 2 * MARGEN_SIMPLE - lado - 16 - ancho_botones_texto());
+        return {MARGEN_SIMPLE, y, ancho, MARGEN_SIMPLE + 12, entrada_y, ancho - 12,
+                0, vi.panel_y, MARGEN_SIMPLE + ancho, vi.h - vi.panel_y};
     }
     const int X = vi.hx, Y = vi.hy;
     return {X + CHAT_X, Y + CHAT_Y, CHAT_ANCHO, X + ENTRADA_X, Y + ENTRADA_Y, 330, X + 124, Y + 363, 390, 117};
@@ -944,18 +1138,16 @@ void dibujar_chat(App& a) {
     // Línea de entrada. Con "chat con Enter" está cerrada hasta apretar Enter (así las teclas son
     // acciones); Enter envía y la cierra, Esc la vacía y la cierra (y no llega a las ventanas).
     const bool con_enter = a.cfg.chat_con_enter;
-    if (con_enter && !a.escribiendo_chat && e.enter && !a.ventana_forma) {
+    if (con_enter && !a.escribiendo_chat && e.enter && !escribiendo_en_ventana(a)) {
         a.escribiendo_chat = true;
         e.enter = false;
     }
     const bool abierta = !con_enter || a.escribiendo_chat;
     if (a.cfg.ui_simple) g.texto(">", ac.entrada_x - 12, ac.entrada_y, kt, abierta ? rgba(214, 190, 140) : rgba(110, 100, 80));
-    if (abierta && e.escape) {
+    if (abierta && e.escape && (con_enter || !a.chat_entrada.empty())) {  // sin nada que borrar, Esc sigue a las ventanas
         a.chat_entrada.clear();
-        if (con_enter) {
-            a.escribiendo_chat = false;
-            e.escape = false;
-        }
+        if (con_enter) a.escribiendo_chat = false;
+        e.escape = false;
     }
     if (!abierta) {
         g.texto("Enter: chat", ac.entrada_x, ac.entrada_y, kt, rgba(110, 100, 80));
@@ -975,6 +1167,10 @@ void dibujar_estado(App& a) {
     const Rect rv = rect_ventana(a, IdVentana::ESTADO);
     const int ESTADO_X = rv.x, ESTADO_Y = rv.y;
     if (ui::ventana(g, e, a.cfg.ui_simple, ESTADO_X, ESTADO_Y, "Status", opacidad_ventanas(a))) a.ventana_estado = false;
+    // Dos pestañas, como el original: los atributos y el equipo.
+    if (ui::boton_texto(g, e, "Status", ESTADO_X + 20, ESTADO_Y + ui::VENTANA_ALTO - 24, 96, 18)) a.pestana_estado = 0;
+    if (ui::boton_texto(g, e, "Equipment", ESTADO_X + 128, ESTADO_Y + ui::VENTANA_ALTO - 24, 96, 18)) a.pestana_estado = 1;
+    if (a.pestana_estado == 1) return dibujar_equipo(a, ESTADO_X, ESTADO_Y);
 
     const EstadoJugador& j = a.mundo.jugador;
     Slot s = a.mundo.objetos.buscar(j.id);
@@ -1046,12 +1242,16 @@ void cambiar_zoom(App& a) {
 // Las ventanas, de atrás hacia adelante, cada una en su nivel (Gpu::nivel_ventana). Las que no
 // son la de más arriba bajo el puntero no lo ven, así sus botones no reciben el clic de otra;
 // salvo mientras se arrastra algo: soltarlo lo resuelve la ventana de donde salió.
-constexpr u32 NIVEL_SOBRE_VENTANAS = 31;
 
 void dibujar_ventanas(App& a) {
     EntradaFrame& e = a.entrada;
     const int mx = e.mx, my = e.my;
     const bool arrastre = a.arrastrando || a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || a.ventana_arrastrada >= 0;
+    // Esc cierra todas las ventanas. NPC, Social y Opciones ya lo hacen al dibujarse; los diálogos, el
+    // chat y un hechizo o mascota eligiendo objetivo se lo quedan antes. Con un pergamino esperando su
+    // objetivo, Esc solo cancela eso (inventario_ui.cpp). Arrastrando algo no cierra: soltarlo lo
+    // resuelve la ventana de donde salió. El intercambio tampoco: dejaría el trade abierto.
+    if (e.escape && !a.usar_sobre && !arrastre) a.ventana_estado = a.ventana_inventario = a.ventana_hechizos = a.ventana_salida = false;
     for (int i = 0; i < static_cast<int>(IdVentana::CANTIDAD); ++i) {
         const IdVentana v = static_cast<IdVentana>(a.orden_ventanas[i]);
         if (!arrastre && a.ventana_arriba >= 0 && a.ventana_arriba != static_cast<int>(v)) e.mx = e.my = -10000;
@@ -1100,7 +1300,10 @@ void dibujar_estados_alterados(App& a, int w, int h) {
 }
 
 void dibujar_muerte(App& a) {
-    if (!a.mundo.jugador.muerto) return;
+    if (!a.mundo.jugador.muerto) {
+        a.t_muerte = 0;  // también si lo resucitaron (S_Resurrection)
+        return;
+    }
     Graficos& g = *a.g;
     const Vista vi = vista(a);
     const int w = 200, h = 64, x = vi.w / 2 - w / 2, y = vi.panel_y / 2 - h / 2;
@@ -1111,8 +1314,15 @@ void dibujar_muerte(App& a) {
     g.texto(t, x + (w - ancho_texto(t, std::strlen(t))) / 2, y + 12, clave_orden(CAPA_UI_TEXTO, 20), rgba(255, 120, 100));
     bool pedir = ui::boton_texto(g, a.entrada, "Restart", x + w / 2 - 40, y + 34, 80, 18);
     if (a.t_muerte == 0) a.t_muerte = a.entrada.ahora_ms;
-    if (a.aut.reiniciar && a.entrada.ahora_ms - a.t_muerte > 5000) pedir = true;  // prueba automática
     if (pedir) reiniciar(a);
+}
+
+// Modo espectador (flag fantasma del propio personaje): botón para volver (C_ExitGhost), arriba al centro.
+void dibujar_espectador(App& a) {
+    const Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
+    if (s == SIN_SLOT || !(a.mundo.objetos.col<O_FLAGS>()[s] & FLAG_FANTASMA)) return;
+    const Vista vi = vista(a);
+    if (ui::boton_texto(*a.g, a.entrada, "Leave spectator mode", vi.w / 2 - 80, 70, 160, 20)) enviar(a, Escritor(a.op, Cli::EXITGHOST));
 }
 
 void dibujar_depuracion(App& a) {
@@ -1124,6 +1334,15 @@ void dibujar_depuracion(App& a) {
                   a.gpu.paginas_usadas(), a.gpu.ancho(), a.gpu.alto(), a.gpu.escala(), a.mundo.mapa, s != SIN_SLOT ? a.mundo.objetos.col<O_X>()[s] : 0,
                   s != SIN_SLOT ? a.mundo.objetos.col<O_Y>()[s] : 0);
     g.texto_sombra(t, 4, 4, clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
+}
+
+// Contador de Shift+F3: el tiempo es el del frame completo; F3 da además el de la CPU.
+void dibujar_fps(App& a) {
+    if (a.fps <= 0) return;  // todavía no pasó el primer segundo de medición
+    char t[32];
+    const int n = std::snprintf(t, sizeof t, "%.0f fps  %.1f ms", a.fps, 1000.0f / a.fps);
+    a.g->texto_sombra(t, static_cast<float>(a.gpu.ancho() - ancho_texto(t, static_cast<size_t>(n)) - 6), 4,
+                      clave_orden(CAPA_UI_TEXTO, 0), rgba(180, 255, 180));
 }
 
 // Cursor: círculo si un hechizo espera su objetivo; espada sobre un monstruo (o con Ctrl sobre otro
@@ -1138,10 +1357,16 @@ void elegir_cursor(App& a) {
     ObjId id = objeto_bajo_puntero(a);
     Slot s = id ? a.mundo.objetos.buscar(id) : SIN_SLOT;
     if (s == SIN_SLOT) return;
+    // Tienda de un jugador: el clic camina hasta él y pide su lista. Con Ctrl, el clic lo ataca.
+    if (vendedor(a, id) && !a.entrada.ctrl) {
+        a.cursor = Cursor::MONEDA;
+        return;
+    }
     u8 tipo = tipo_objeto(a, s);
-    if (tipo == TIPO_MONSTRUO || (a.entrada.ctrl && tipo != TIPO_ITEM) || (a.modo_pk && tipo == TIPO_PERSONAJE))
+    if ((tipo == TIPO_MONSTRUO && !mascota_sin_ctrl(a, s)) || (a.entrada.ctrl && tipo != TIPO_ITEM) ||
+        (a.modo_pk && tipo == TIPO_PERSONAJE))
         a.cursor = Cursor::ESPADA;
-    else if (es_npc(a, s) && tipo != TIPO_PUERTA)  // sin Ctrl, el clic le habla
+    else if (es_npc(a, s) && tipo != TIPO_PUERTA && !mascota_sin_ctrl(a, s))  // sin Ctrl, el clic le habla
         a.cursor = Cursor::LABIOS;
 }
 
@@ -1178,6 +1403,23 @@ int direccion_de(int dx, int dy) {
 }
 
 
+void dibujar_captura(App& a) {
+    // Render no interactivo (LIN_RENDER): dibuja el mapa centrado en la celda pedida y, pasados unos
+    // frames (para que el atlas transmita los tiles, como el explorador), guarda el PNG y sale.
+    const Vista vi = vista(a);
+    const double cam_x = a.render.x, cam_y = a.render.y;
+    segmento(a.mundo, a.rec, a.render.x, a.render.y);  // fuerza el segmento central (síncrono) ya en el 1er frame
+    const double ox = vi.cx - 24 - mundo_px(cam_x, cam_y);
+    const double oy = vi.cy - 12 - mundo_py(cam_x, cam_y);
+    actualizar_segmentos(a.mundo, a.render.x, a.render.y, radio_segmentos(vi));
+    dibujar_suelo(a, cam_x, cam_y, ox, oy);
+    dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
+    if (a.frames_en_pantalla >= 45) {
+        a.gpu.pedir_captura(a.render.salida);
+        a.salir = true;
+    }
+}
+
 void frame_juego(App& a) {
     Graficos& g = *a.g;
     u64 ahora = a.entrada.ahora_ms;
@@ -1185,16 +1427,8 @@ void frame_juego(App& a) {
         g.texto("Cargando...", a.gpu.ancho() / 2 - 30, a.gpu.alto() / 2 - 6, clave_orden(CAPA_UI_TEXTO, 0), rgba(255, 255, 254));
         return;
     }
-    if (a.aut.estado) {
-        a.ventana_estado = true;
-        a.aut.estado = false;
-    }
     if (a.entrada.alt_c) a.ventana_estado = !a.ventana_estado;
     if (a.entrada.alt_i) a.ventana_inventario = !a.ventana_inventario;
-    acciones_item_automaticas(a);
-    // Prueba automática: una línea de --decir por segundo después de entrar.
-    if (a.aut.dichas < a.aut.decir.size() && a.frames_en_pantalla > 90 + 60 * a.aut.dichas)
-        enviar_chat(a, a.aut.decir[a.aut.dichas++]);
 
     cambiar_zoom(a);
     const Vista vi = vista(a);
@@ -1204,8 +1438,9 @@ void frame_juego(App& a) {
     procesar_hechizos(a, ahora);
     procesar_mascotas(a);
     procesar_barra(a);
+    procesar_autobuffs(a);
+    procesar_autopocion(a);
     procesar_npc(a, ahora);
-    procesar_social(a, ahora);
     elegir_cursor(a);
     mover_jugador(a, ahora);
     Slot s = a.mundo.objetos.buscar(a.mundo.jugador.id);
@@ -1219,32 +1454,46 @@ void frame_juego(App& a) {
     // (1/escala de píxel lógico), así la cámara se mueve suave y todo el mundo se desplaza junto.
     double ox = vi.cx - 24 - mundo_px(cam_x, cam_y);
     double oy = vi.cy - 12 - mundo_py(cam_x, cam_y);
-    if (ahora - a.t_mantener_vivo > MS_MANTENER_VIVO) {
-        enviar(a, cmd::mantener_vivo(a.op));
-        a.t_mantener_vivo = ahora;
-    }
 
     actualizar_segmentos(a.mundo, static_cast<int>(cam_x), static_cast<int>(cam_y), radio_segmentos(vi));
     dibujar_suelo(a, cam_x, cam_y, ox, oy);
     dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
     dibujar_personajes(a, ahora, ox, oy);
     dibujar_efectos(a, ahora, ox, oy);
+    aplicar_luz(a, ahora);
     dibujar_clima(a, vi.w, vi.panel_y, ahora);
     dibujar_estados_alterados(a, vi.w, vi.h);
     a.teclas_f_y = -1;  // dibujar_panel los ubica si se dibuja el panel original
     if (a.cfg.ui_simple) {
         dibujar_panel_simple(a);
-        dibujar_botones_texto(a, vi.w - MARGEN_SIMPLE, area_chat(a).entrada_y - 2);
+        // Botones en 2 columnas, justo a la izquierda del minimapa (lado = alto de la zona de chat).
+        const int lado = (CHAT_FILAS + 1) * ALTO_GLIFO;
+        dibujar_botones_texto(a, vi.w - MARGEN_SIMPLE - lado - 8, vi.panel_y + 10);
     } else {
         dibujar_panel(a);
     }
     dibujar_barra(a, vi.panel_y - 36 - 6);
+    dibujar_autobuffs(a);
+    dibujar_boton_pocion(a);
     dibujar_mascotas(a);
+    dibujar_grupo(a);
+    // Tienda, tablón y correo encima de las ventanas (nivel 30); el diálogo de cantidad, encima de todo.
+    a.gpu.nivel_ventana(30);
+    dibujar_tienda(a);
+    dibujar_tablon(a);
+    dibujar_correo(a);
+    dibujar_casas(a);
+    a.gpu.nivel_ventana(0);
+    dibujar_castillos(a);
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_forma(a);
     dibujar_pregunta(a);
+    a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_cantidad(a);
+    a.gpu.nivel_ventana(0);
+    dibujar_reinicio(a);
     dibujar_destino(a);
+    dibujar_minimapa(a, cam_x, cam_y);
     a.gpu.nivel_ventana(0);
     dibujar_chat(a);
     dibujar_ventanas(a);
@@ -1253,6 +1502,8 @@ void frame_juego(App& a) {
     a.gpu.nivel_ventana(NIVEL_SOBRE_VENTANAS);
     dibujar_ayuda_teclas(a);
     dibujar_muerte(a);
+    dibujar_espectador(a);
+    if (a.cfg.mostrar_fps) dibujar_fps(a);
     a.gpu.nivel_ventana(0);
     if (a.depuracion) dibujar_depuracion(a);
 }

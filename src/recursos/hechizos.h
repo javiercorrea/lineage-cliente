@@ -29,6 +29,16 @@ struct Hechizo {
     u16 gfx = 0;
     u16 icono = 0;            // N.tbt; 0 si no tiene
     u8 alcance = 0;           // en celdas; 0 = sin límite propio
+    u16 duracion_s = 0;       // duration= de spells (los buffs)
+    // Encanta un ítem que el cliente indica en C_UseSkill (SpellEnchantWeapon: un arma;
+    // SpellBlessedArmor: una armadura); SpellEnchantCurrentWeapon usa la equipada sin indicarla.
+    enum : u8 { SIN_ITEM, SOBRE_ARMA, SOBRE_ARMADURA } sobre_item = SIN_ITEM;
+    bool sobre_arma_actual = false;  // SpellEnchantCurrentWeapon (Bless Weapon, Holy Weapon)
+    // Área alrededor del lanzador (S_RangeSkill tipo 0): cómo se reparte el gráfico. SpellTornado
+    // (Tornado, Fire Storm): 4 copias alrededor; SpellBlizzard (Blizzard, Freezing Blizzard): por
+    // toda el área. `area` = areaEffect (celdas).
+    enum : u8 { AREA_UNA, AREA_CUATRO, AREA_LLENA } reparto = AREA_UNA;
+    u8 area = 0;
     bool con_objetivo = false;  // se elige un personaje o monstruo; si no, se lanza al instante
     bool de_ataque = false;     // se lanza con la acción 18; si no, con la 19
     bool existe() const { return !nombre.empty(); }
