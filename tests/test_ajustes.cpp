@@ -85,3 +85,20 @@ TEST_CASE("ms_mantener_tecla: 300 por defecto, se recorta a 150-1000 y vuelve ig
     c.ms_mantener_tecla = 700;
     CHECK(leer_config(escribir_config(c)).ms_mantener_tecla == 700);
 }
+
+TEST_CASE("autopocion: por personaje, apagada con 60 % sin entrada, umbral recortado a 10-95 de a 5") {
+    Config c;
+    CHECK_FALSE(autopocion_de(c, "Ana").encendida);
+    CHECK(autopocion_de(c, "Ana").umbral == 60);
+    poner_autopocion(c, "Ana", {true, 70});
+    poner_autopocion(c, "Eva", {false, 33});  // se redondea a 30
+    CHECK(autopocion_de(c, "Ana").encendida);
+    CHECK(autopocion_de(c, "Ana").umbral == 70);
+    CHECK(autopocion_de(c, "Eva").umbral == 30);
+    c.autopocion = "Ana:1,200;Eva:1,1";
+    CHECK(autopocion_de(c, "Ana").umbral == 95);
+    CHECK(autopocion_de(c, "Eva").umbral == 10);
+    Config d = leer_config("autopocion=Ana:1,45\n");
+    CHECK(autopocion_de(leer_config(escribir_config(d)), "Ana").umbral == 45);
+    CHECK(personajes_con_datos(d).size() == 1);
+}

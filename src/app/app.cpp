@@ -249,6 +249,7 @@ void procesar_red(App& a) {
         eventos_marcadores(a, e);
         eventos_hechizos(a, e);
         eventos_autobuffs(a, e);
+        eventos_autopocion(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
         // "Miss" sobre el personaje: un ataque que lo tiene de objetivo y no acierta (el daño recibido
         // se detecta por la caída de HP tras aplicar los eventos, abajo).

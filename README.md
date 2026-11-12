@@ -187,6 +187,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
 | `autobuffs` | Auto-buffs per character: on/off and the six spells (`Name:1\|43,42,0,0,0,0`) |
 | `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
+| `autopocion` | Auto potion per character: on/off and HP threshold in % (`Name:1,60`; off with 60 % by default) |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
 as an absolute path or relative to the `settings.ini` folder. It is shrunk to fit 560×190 (best to supply
@@ -283,6 +284,10 @@ title is shown as text.
   on, each one is cast again when its effect ends (or has less than 2 s left), left to right and one at a time,
   only while you are not walking, attacking or casting something else. Off by default; saved per character.
   It sends the same packet as casting by hand.
+- **Auto potion:** per character, in Options ("Auto potion", "Auto potion when") or in the settings tool. While HP
+  is below the threshold (60 % by default) it drinks a healing potion as soon as the previous one's delay is over:
+  condensed first, then ancient, then normal, and within each the colour that fits what is missing (clear for a
+  big loss, orange for a medium one, red for a small one). "Pot<60%" next to HP shows it is on (red: no potions).
 
 ### Magic
 

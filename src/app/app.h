@@ -8,6 +8,7 @@
 #include <vector>
 #include "audio/audio.h"
 #include "mundo/autobuffs.h"
+#include "mundo/autopocion.h"
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
 #include "plataforma/rutas.h"
@@ -358,6 +359,12 @@ struct App {
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool medio_sin_objetivo = false;  // esta pulsación del medio ya dejó un hechizo esperando el clic
     AutoBuffs autobuffs;
+    // Auto-poción (autopocion_ui.cpp): la opción del personaje cargado y la demora de la última.
+    struct AutoPocion {
+        std::string de;
+        OpcionPocion op;
+        u64 proxima_ms = 0, bebida_ms = 0;
+    } autopocion;
     // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
     struct TeclaMantenida {
         int numero = 0;      // 1..10; 0 = ninguna
@@ -614,6 +621,13 @@ void poner_autobuff(App& a, int casillero, u32 hechizo);  // con aviso en el cha
 void procesar_autobuffs(App& a);          // después de procesar_barra: lanza el que toque
 void eventos_autobuffs(App& a, const Evento& e);
 void dibujar_autobuffs(App& a);           // después de dibujar_barra
+
+// Auto-poción (autopocion_ui.cpp).
+void procesar_autopocion(App& a);
+void eventos_autopocion(App& a, const Evento& e);
+void guardar_autopocion(App& a);          // a.autopocion.op en settings.ini (lo usan las opciones)
+// Encendida, "Pot<60%" en (x, y) (rojo sin pociones de curación); devuelve el ancho (0 apagada).
+int dibujar_indicador_pocion(App& a, float x, float y, u64 clave);
 
 // Polymorph (forma_ui.cpp).
 bool cargar_formas(App& a);
