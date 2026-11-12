@@ -341,6 +341,7 @@ struct App {
     u64 t_item_usado = 0;
     u16 icono_fuerza = 0, icono_destreza = 0;  // el de la poción que dio el efecto activo
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
+    bool medio_sin_objetivo = false;  // esta pulsación del medio ya dejó un hechizo esperando el clic
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12
     std::string atajos_de;            // personaje cuyos atajos están cargados
