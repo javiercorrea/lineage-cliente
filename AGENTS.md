@@ -10,6 +10,7 @@ código. El idioma del proyecto es el **español**: código (identificadores), c
   [ENTREGABLES.md](ENTREGABLES.md).
 - **Plan:** [docs/analisis/PLAN_CLIENTE.md](docs/analisis/PLAN_CLIENTE.md) (11 entregables jugables).
 - **Plan 3D** (modelos animados junto a los sprites): [docs/analisis/PLAN_3D.md](docs/analisis/PLAN_3D.md).
+- **Plan de portado** (Windows y Linux, x64 y arm64): [docs/analisis/PLAN_PORTADO.md](docs/analisis/PLAN_PORTADO.md).
 - **Protocolo:** [docs/analisis/PROTOCOLO_RED.md](docs/analisis/PROTOCOLO_RED.md) y `docs/analisis/opcodes/`.
 - **Uso, flags y controles:** [README.md](README.md).
 - **Descubrimientos y decisiones** (formatos, tiempos de los sprites, orden de dibujo, transparencias,
