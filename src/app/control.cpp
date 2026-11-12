@@ -70,6 +70,7 @@ struct PasoMouse {
     int x, y;
     u8 boton;  // 0 izquierdo, 1 derecho, 2 medio
     bool apretar, soltar;
+    int rueda = 0;  // pasos de la rueda en ese frame (+ hacia arriba)
 };
 
 struct Control {
@@ -293,6 +294,7 @@ const char* AYUDA[] = {
     "abrir|cerrar inventario|estado|hechizos|opciones|social|salida|teclas",
     "girar <0-7>   ofrecer <ítem> (intercambio)   aceptar-intercambio   cancelar-intercambio",
     "clic <x> <y> [der|medio]   arrastrar <x1> <y1> <x2> <y2>   mantener <x> <y> <frames>   raton <x> <y> down|up",
+    "rueda <x> <y> <pasos>   barra-pagina [n]   (página visible de la barra de atajos; sin n, la dice)",
     "tecla <nombre> (ctrl+ alt+ shift+)   texto \"...\"   ctrl on|off   shift on|off",
     "esperar pantalla=X | paquete=NOMBRE | html=X | ventana=X | dialogo=pregunta|cantidad | chat=texto | frames=n | ms=n  [plazo=ms]",
     "captura <ruta.bmp>   mudo on|off   traza on|off   traza-html on|off   perf on|off   depuracion on|off   salir",
@@ -521,6 +523,12 @@ bool ejecutar(App& a, Conexion& c, std::string_view linea) {
         ev.button.y = static_cast<float>(std::atoi(p[2].c_str()));
         ev.button.windowID = SDL_GetWindowID(a.ventana);
         SDL_PushEvent(&ev);
+    } else if (cmd == "rueda") {
+        if (p.size() < 4) return error("uso: rueda <x> <y> <pasos>");
+        g.mouse.push_back({std::atoi(p[1].c_str()), std::atoi(p[2].c_str()), 3, false, false, std::atoi(p[3].c_str())});
+    } else if (cmd == "barra-pagina") {
+        if (p.size() > 1) cambiar_pagina_barra(a, std::atoi(p[1].c_str()) - 1);
+        responder(c, "pagina=" + std::to_string(a.pagina_barra + 1) + " paginas=" + std::to_string(a.cfg.paginas_barra));
     } else if (cmd == "clic") {
         if (p.size() < 3) return error("uso: clic <x> <y> [der|medio]");
         clic(std::atoi(p[1].c_str()), std::atoi(p[2].c_str()), p.size() > 3 ? (p[3] == "der" ? 1 : p[3] == "medio" ? 2 : 0) : 0);
@@ -731,9 +739,11 @@ void control_entrada(App& a) {
     } else if (m.boton == 1) {
         e.derecho_presionado = m.apretar;
         e.clic_derecho = m.soltar;
-    } else {
+    } else if (m.boton == 2) {
         e.medio_presionado = m.apretar;
         e.clic_medio = m.soltar;
+    } else {
+        e.rueda = m.rueda;
     }
 }
 

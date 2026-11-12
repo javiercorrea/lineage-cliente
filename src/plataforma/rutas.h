@@ -16,6 +16,8 @@ struct Servidor {
     std::string usuario;
 };
 
+constexpr int PAGINAS_BARRA_MAX = 9;  // páginas de la barra de atajos
+
 struct Config {
     std::string carpeta_juego;     // donde están Sprite*.pak, Tile.pak, map/, font/...
     std::vector<Servidor> servidores;  // al menos uno (ver leer_config)
@@ -36,8 +38,9 @@ struct Config {
     // Atajos de hechizos F5–F12 por personaje: "Nombre:4,3,0,0,0,0,0,0;Otro:..." (skill ids, 0 = vacío).
     std::string atajos;
     // Barra de atajos Alt+1..Alt+0 por personaje: "Nombre:h4,i40308:268435461,0,...;Otro:..."
-    // (h = hechizo, i = ítem gfx:id, 0 = vacío).
+    // (h = hechizo, i = ítem gfx:id, 0 = vacío, * tras el elegido); las páginas, separadas por "/".
     std::string barra;
+    int paginas_barra = 3;  // páginas a la vista (1 a PAGINAS_BARRA_MAX); las de más se conservan
     // Ventanas del juego: posición de las que se movieron ("inventario:900,36;estado:...") y
     // opacidad del fondo (0–255).
     std::string ventanas;
@@ -62,6 +65,8 @@ std::string_view valor_de_personaje(std::string_view opcion, std::string_view pe
 void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, std::string_view valor);
 // Quita las entradas de un personaje de una opción (el editor de ajustes las borra con esto).
 void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje);
+// Parte `n` (desde 0) de un valor separado por '/' (las páginas de la barra); vacía si no hay.
+std::string_view parte_de_valor(std::string_view valor, int n);
 // Personajes que tienen datos guardados (atajos o barra), sin repetir y en orden de aparición.
 std::vector<std::string> personajes_con_datos(const Config& c);
 

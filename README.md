@@ -182,7 +182,8 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `globos_comic` | `1` speech and shouts in a rounded outline over the head (also in Options: "Speech balloons"), `0` plain text |
 | `compensar_ataque` | Show your swing at once, without waiting for the server's echo |
 | `logo` | PNG for the simple login screen, see below |
-| `atajos`, `barra` | F5–F12 spells and shortcut bar, per character |
+| `atajos`, `barra` | F5–F12 spells and shortcut bar, per character (bar pages separated by `/`) |
+| `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
 | `ventanas` | Saved window positions |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
@@ -270,6 +271,9 @@ title is shown as text.
   it. Middle-click on a slot selects it (gold frame), and the middle button on a character or monster uses the
   selected spell there; held, it repeats each time the wait ends (for an item, every half second). Spell slots
   (bar and F5–F12) show the wait until the next spell: a shrinking shade and the seconds left. Saved per character.
+  The bar has pages (3 by default; "Hotbar pages" in Options): the `^ number v` selector on its right, or the mouse
+  wheel over the bar, changes the visible one, and keys, clicks and drags act on it. The selected slot keeps
+  working from any page.
 
 ### Magic
 
@@ -357,6 +361,7 @@ commands. The `release` build doesn't include it: a CMake step (`cmake/sin_contr
 | `esperar pantalla=\|paquete=\|html=\|ventana=\|dialogo=\|chat=\|frames=\|ms= [plazo=ms]` | Wait for something instead of counting frames (`paquete=` and `chat=` also count what arrived since the previous command) |
 | `captura <path.bmp>`, `mudo on\|off`, `traza on\|off`, `traza-html on\|off`, `perf on\|off`, `depuracion on\|off`, `salir` | Screenshots and debugging |
 | `forzar-hora <seconds 0-86399>\|off` | Fix the time of day for light and ambient sound, for tests |
+| `rueda <x> <y> <steps>`, `barra-pagina [n]` | Mouse wheel; visible shortcut bar page (without `n`, reports it) |
 
 `herramientas/lin_ctl.py` uses it from the terminal (`lin_ctl.py <socket> estado`, or interactively) or as a module
 for writing tests.

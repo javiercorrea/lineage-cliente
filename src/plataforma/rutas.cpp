@@ -67,6 +67,7 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "idioma") c.idioma = valor;
     else if (clave == "atajos") c.atajos = valor;
     else if (clave == "barra") c.barra = valor;
+    else if (clave == "paginas_barra") c.paginas_barra = std::clamp(std::atoi(std::string(valor).c_str()), 1, PAGINAS_BARRA_MAX);
     else if (clave == "ventanas") c.ventanas = valor;
     else if (clave == "opacidad_ventanas") c.opacidad_ventanas = std::atoi(std::string(valor).c_str());
     else if (clave == "volumen_musica") c.volumen_musica = std::atoi(std::string(valor).c_str());
@@ -162,6 +163,14 @@ void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje) 
     opcion = std::move(nuevo);
 }
 
+std::string_view parte_de_valor(std::string_view valor, int n) {
+    for (; n > 0 && !valor.empty(); --n) {
+        const size_t barra = valor.find('/');
+        valor = barra == std::string_view::npos ? std::string_view{} : valor.substr(barra + 1);
+    }
+    return valor.substr(0, valor.find('/'));
+}
+
 std::vector<std::string> personajes_con_datos(const Config& c) {
     std::vector<std::string> nombres;
     for (std::string_view opcion : {std::string_view{c.atajos}, std::string_view{c.barra}}) {
@@ -202,6 +211,7 @@ std::string escribir_config(const Config& c) {
     linea("idioma", c.idioma);
     linea("atajos", c.atajos);
     linea("barra", c.barra);
+    linea("paginas_barra", std::to_string(c.paginas_barra));
     linea("ventanas", c.ventanas);
     linea("opacidad_ventanas", std::to_string(c.opacidad_ventanas));
     linea("volumen_musica", std::to_string(c.volumen_musica));

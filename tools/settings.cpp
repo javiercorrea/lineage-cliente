@@ -76,7 +76,7 @@ bool elegir_carpeta_inicial(SDL_Window* v, std::string& carpeta) {
 // La configuración, más los campos numéricos como texto (se convierten al guardar).
 struct Formulario {
     Config cfg;
-    std::string ancho, alto, zoom, opacidad, musica, efectos, puerto;
+    std::string ancho, alto, zoom, opacidad, musica, efectos, puerto, paginas;
     size_t sv = 0;         // servidor que se edita (pestaña Servidores)
     size_t personaje = 0;  // personaje de la pestaña Personajes
     std::vector<std::string> protocolos = PROTOCOLOS;
@@ -102,6 +102,7 @@ void cargar_campos(Formulario& f) {
     f.alto = std::to_string(c.ventana_alto);
     f.zoom = std::to_string(c.zoom);
     f.opacidad = std::to_string(c.opacidad_ventanas);
+    f.paginas = std::to_string(c.paginas_barra);
     f.musica = std::to_string(c.volumen_musica);
     f.efectos = std::to_string(c.volumen_efectos);
     f.sv = std::min(f.sv, c.servidores.size() - 1);  // leer_config siempre deja al menos un servidor
@@ -123,6 +124,8 @@ std::string volcar(Formulario& f) {
     c.zoom = n;
     if (!entero(f.opacidad, 0, 255, n)) return tr(Tx::AJ_ERR_OPACIDAD);
     c.opacidad_ventanas = n;
+    if (!entero(f.paginas, 1, PAGINAS_BARRA_MAX, n)) return tr(Tx::AJ_ERR_PAGINAS);
+    c.paginas_barra = n;
     if (!entero(f.musica, 0, 100, n)) return tr(Tx::AJ_ERR_MUSICA);
     c.volumen_musica = n;
     if (!entero(f.efectos, 0, 100, n)) return tr(Tx::AJ_ERR_EFECTOS);
@@ -268,6 +271,7 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
         aplicar_idioma(c.idioma);
     }
     si_no(p, fila(p, 8), tr(Tx::AJ_PANTALLA_COMPLETA), c.pantalla_completa);
+    campo(p, fila(p, 9), tr(Tx::AJ_PAGINAS_BARRA), f.paginas, 1);
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
