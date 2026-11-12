@@ -165,7 +165,7 @@ void usar_numero(App& a, int n) {
 void mantener_numero(App& a) {
     App::TeclaMantenida& m = a.tecla_mantenida;
     if (!m.numero) return;
-    if (a.entrada.numero_mantenido != m.numero) {
+    if (!(a.entrada.numeros_mantenidos & (1u << (m.numero - 1)))) {
         m = {};
         return;
     }
@@ -187,11 +187,11 @@ const RegionAtlas& icono_atajo(App& a, const Atajo& b) {
     return vacia;
 }
 
-bool movio(const App& a) {
+}  // namespace
+
+bool arrastre_movido(const App& a) {
     return std::abs(a.entrada.mx - a.arrastre_x0) > MOVIMIENTO_ARRASTRE || std::abs(a.entrada.my - a.arrastre_y0) > MOVIMIENTO_ARRASTRE;
 }
-
-}  // namespace
 
 std::string_view nombre_personaje(const App& a) {
     return a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()) ? std::string_view(a.pjs[a.pj_sel].nombre)
@@ -205,11 +205,13 @@ int casillero_bajo_puntero(const App& a) {
     return dx / PASO;
 }
 
-bool sobre_barra(const App& a) {
+// Los casilleros de atajos y el selector (sin los auto-buffs: la rueda cambia de página solo ahí).
+static bool sobre_atajos(const App& a) {
     const EntradaFrame& e = a.entrada;
-    return (e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4) ||
-           sobre_autobuffs(a);
+    return e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4;
 }
+
+bool sobre_barra(const App& a) { return sobre_atajos(a) || sobre_autobuffs(a); }
 
 void poner_atajo(App& a, int casillero, Atajo atajo) {
     if (casillero < 0 || casillero >= CASILLEROS_BARRA) return;
@@ -229,7 +231,7 @@ void procesar_barra(App& a) {
     // Con menos páginas (opciones), la visible pasa a la última que queda.
     a.pagina_barra = std::min(a.pagina_barra, paginas(a) - 1);
     // La rueda sobre la barra o el selector: hacia arriba, la página siguiente (como "^").
-    if (a.entrada.rueda && paginas(a) > 1 && sobre_barra(a)) cambiar_pagina_barra(a, a.pagina_barra + a.entrada.rueda);
+    if (a.entrada.rueda && paginas(a) > 1 && sobre_atajos(a)) cambiar_pagina_barra(a, a.pagina_barra + a.entrada.rueda);
     if (a.entrada.alt_numero) usar_numero(a, a.entrada.alt_numero);
     // 1–0 sin Alt: con el chat cerrado (chat con Enter) y sin otro diálogo de texto abierto.
     if (a.entrada.numero && a.cfg.chat_con_enter && !a.escribiendo_chat && !escribiendo_en_ventana(a) && !a.cantidad.abierto)
@@ -265,7 +267,7 @@ void dibujar_barra(App& a, int y) {
             g.gpu().rectangulo(x, y, B, CELDA, kf + 1, oro);
             g.gpu().rectangulo(x + CELDA - B, y, B, CELDA, kf + 1, oro);
         }
-        if (i != a.arrastrando_atajo || !movio(a)) {
+        if (i != a.arrastrando_atajo || !arrastre_movido(a)) {
             const RegionAtlas& ic = icono_atajo(a, b);
             // Hechizo que no se sabe o sin MP suficiente, o ítem que ya no está: oscurecido.
             bool disponible = true;
@@ -353,14 +355,14 @@ void dibujar_barra(App& a, int y) {
         a.arrastre_x0 = e.mx;
         a.arrastre_y0 = e.my;
     }
-    if (a.arrastrando_atajo >= 0 && e.presionado && movio(a)) {
+    if (a.arrastrando_atajo >= 0 && e.presionado && arrastre_movido(a)) {
         const RegionAtlas& ic = icono_atajo(a, pagina[a.arrastrando_atajo]);
         g.gpu().dibujar(ic, e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic && a.arrastrando_atajo >= 0) {
         int desde = a.arrastrando_atajo;
         a.arrastrando_atajo = -1;
-        if (!movio(a)) {
+        if (!arrastre_movido(a)) {
             if (bajo == desde) usar_atajo(a, pagina[desde]);
         } else if (bajo >= 0) {
             std::swap(pagina[desde], pagina[bajo]);

@@ -183,10 +183,10 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `compensar_ataque` | Show your swing at once, without waiting for the server's echo |
 | `logo` | PNG for the simple login screen, see below |
 | `atajos`, `barra` | F5–F12 spells and shortcut bar, per character (bar pages separated by `/`) |
+| `ventanas` | Saved window positions |
 | `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
 | `autobuffs` | Auto-buffs per character: on/off and the six spells (`Name:1\|43,42,0,0,0,0`) |
 | `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
-| `ventanas` | Saved window positions |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
 as an absolute path or relative to the `settings.ini` folder. It is shrunk to fit 560×190 (best to supply

@@ -736,7 +736,7 @@ void control_entrada(App& a) {
     EntradaFrame& e = a.entrada;
     if (g.ctrl) e.ctrl = true;
     if (g.shift) e.shift = true;
-    if (g.mantenido && e.ahora_ms < g.mantenido_hasta) e.numero_mantenido = g.mantenido;
+    if (g.mantenido && e.ahora_ms < g.mantenido_hasta) e.numeros_mantenidos |= static_cast<u16>(1u << (g.mantenido - 1));
     else g.mantenido = 0;
     if (g.mouse.empty()) return;
     const PasoMouse m = g.mouse.front();

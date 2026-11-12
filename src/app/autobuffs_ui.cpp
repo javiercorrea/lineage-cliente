@@ -15,9 +15,14 @@ namespace {
 
 constexpr int CELDA = CELDA_AUTO, PASO = CELDA + 2;
 const u32 VERDE = rgba(90, 170, 90);
+constexpr u64 GRACIA_AL_ENTRAR_MS = 5000;
 
+// Pone (o vacía, con 0) un casillero. Lo pedido o lanzado ahí era de otro hechizo: se olvida.
 void poner(App& a, int i, u32 id) {
-    CasilleroAuto& c = a.autobuffs.c[i];
+    AutoBuffs& ab = a.autobuffs;
+    if (ab.pidiendo == i) ab.pidiendo = -1;
+    if (ab.ultimo == i) ab.ultimo = -1;
+    CasilleroAuto& c = ab.c[i];
     c = {};
     if (!id) return;
     c.hechizo = id;
@@ -30,6 +35,10 @@ void cargar(App& a) {
     ab.de = nombre_personaje(a);
     ab.encendido = false;
     ab.arrastrando = ab.pidiendo = ab.ultimo = -1;
+    ab.apretado_interruptor = false;
+    // Al entrar, los íconos de los buffs que siguen activos en el servidor llegan después: sin esta
+    // espera se relanzarían todos.
+    ab.desde_ms = a.entrada.ahora_ms + GRACIA_AL_ENTRAR_MS;
     for (int i = 0; i < CASILLEROS_AUTO; ++i) poner(a, i, 0);
     std::string_view v = valor_de_personaje(a.cfg.autobuffs, ab.de);
     const size_t barra = v.find('|');
@@ -67,10 +76,6 @@ bool ocupado(const App& a, u64 ahora) {
            (o.col<O_FLAGS>()[s] & FLAG_FANTASMA);
 }
 
-bool movio(const App& a) {
-    return std::abs(a.entrada.mx - a.arrastre_x0) > 4 || std::abs(a.entrada.my - a.arrastre_y0) > 4;
-}
-
 int y_interruptor(const App& a) { return a.autobuffs.y - ALTO_GLIFO - 5; }
 
 }  // namespace
@@ -94,6 +99,8 @@ void poner_autobuff(App& a, int casillero, u32 id) {
         a.chat.agregar("Auto-buff: only buffs you can cast on yourself.", rgba(255, 200, 120), CHAT_SISTEMA);
         return;
     }
+    for (int i = 0; i < CASILLEROS_AUTO; ++i)  // uno solo por hechizo: se mueve
+        if (i != casillero && a.autobuffs.c[i].hechizo == id) poner(a, i, 0);
     poner(a, casillero, id);
     guardar(a);
 }
@@ -113,7 +120,11 @@ void procesar_autobuffs(App& a) {
             ab.pidiendo = -1;
         }
     }
-    if (!ab.encendido || ab.pidiendo >= 0 || ocupado(a, ahora)) return;
+    // Otro hechizo salió después del último auto-buff: un "falló" que llegue ya no es de este.
+    if (ab.ultimo >= 0 && a.hechizo_lanzado_ms > ab.c[ab.ultimo].lanzado_ms) ab.ultimo = -1;
+    for (CasilleroAuto& c : ab.c)
+        if (c.hechizo && !c.efecto_visto && resta_efecto_de_hechizo(a.mundo.jugador, c.hechizo, ahora)) c.efecto_visto = true;
+    if (!ab.encendido || ab.pidiendo >= 0 || ahora < ab.desde_ms || ocupado(a, ahora)) return;
     const int i = elegir_autobuff(a.mundo.jugador, ab.c, CASILLEROS_AUTO, ahora);
     if (i < 0) return;
     const u32 id = ab.c[i].hechizo;
@@ -155,10 +166,13 @@ void dibujar_autobuffs(App& a) {
     g.gpu().rectangulo(x0, ty, CELDA, th, kf, ab.encendido ? rgba(40, 110, 40, 230) : rgba(20, 18, 15, sobre_int ? 230 : 200));
     g.texto("Auto", static_cast<float>(x0 + (CELDA - ancho_texto("Auto", 4)) / 2), static_cast<float>(ty + 1), kt,
             ab.encendido ? rgba(220, 255, 220) : rgba(160, 150, 130));
-    if (e.clic && sobre_int && !arrastrando_algo) {
+    // Solo si el botón se apretó sobre él: soltar ahí algo arrastrado no lo cambia.
+    if (e.pulsado) ab.apretado_interruptor = sobre_int && !arrastrando_algo;
+    if (e.clic && sobre_int && ab.apretado_interruptor) {
         ab.encendido = !ab.encendido;
         guardar(a);
     }
+    if (e.clic) ab.apretado_interruptor = false;
 
     const int bajo = autobuff_bajo_puntero(a);
     const bool trayendo = (a.arrastrando_hechizo || a.arrastrando_atajo >= 0 || ab.arrastrando >= 0) && bajo >= 0;
@@ -170,7 +184,7 @@ void dibujar_autobuffs(App& a) {
         g.gpu().rectangulo(x, y + CELDA - 1, CELDA, 1, kf + 1, VERDE);
         g.gpu().rectangulo(x, y, 1, CELDA, kf + 1, VERDE);
         g.gpu().rectangulo(x + CELDA - 1, y, 1, CELDA, kf + 1, VERDE);
-        if (!c.hechizo || (i == ab.arrastrando && e.presionado && movio(a))) continue;
+        if (!c.hechizo || (i == ab.arrastrando && e.presionado && arrastre_movido(a))) continue;
         const Hechizo& h = a.hechizos[c.hechizo];
         const bool disponible = a.mundo.jugador.sabe(c.hechizo) && a.mundo.jugador.mp >= c.mp;
         const u32 color = disponible ? BLANCO : rgba(110, 110, 110);
@@ -201,28 +215,26 @@ void dibujar_autobuffs(App& a) {
         a.arrastre_x0 = e.mx;
         a.arrastre_y0 = e.my;
     }
-    if (ab.arrastrando >= 0 && e.presionado && movio(a)) {
+    if (ab.arrastrando >= 0 && e.presionado && arrastre_movido(a)) {
         const Hechizo& h = a.hechizos[ab.c[ab.arrastrando].hechizo];
         if (h.icono) g.gpu().dibujar(g.icono(h.icono), e.mx - 16, e.my - 16, clave_orden(CAPA_ARRASTRE, 0));
     }
     if (e.clic && ab.arrastrando >= 0) {
         const int desde = ab.arrastrando;
         ab.arrastrando = -1;
-        if (movio(a) && bajo >= 0 && bajo != desde) {
+        if (arrastre_movido(a) && bajo >= 0 && bajo != desde) {
             std::swap(ab.c[desde], ab.c[bajo]);
             if (ab.ultimo == desde) ab.ultimo = bajo;
             else if (ab.ultimo == bajo) ab.ultimo = desde;
             ab.pidiendo = -1;
             guardar(a);
-        } else if (movio(a) && !sobre_autobuffs(a)) {
+        } else if (arrastre_movido(a) && !sobre_autobuffs(a)) {
             poner(a, desde, 0);
             guardar(a);
         }
     }
     if (e.clic_derecho && bajo >= 0 && ab.c[bajo].hechizo) {
         poner(a, bajo, 0);
-        if (ab.pidiendo == bajo) ab.pidiendo = -1;
-        if (ab.ultimo == bajo) ab.ultimo = -1;
         guardar(a);
     }
 }

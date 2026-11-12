@@ -37,7 +37,7 @@ int elegir_autobuff(const EstadoJugador& j, const CasilleroAuto* c, int n, u64 a
         if (k.lanzado_ms && ahora < k.lanzado_ms + ESPERA_RESPUESTA_MS) continue;
         const u64 resta = resta_efecto_de_hechizo(j, k.hechizo, ahora);
         if (resta >= MARGEN_AUTO_MS) continue;
-        if (!resta && k.lanzado_ms && ahora < k.lanzado_ms + k.duracion_ms) continue;  // efecto que no se ve
+        if (!resta && !k.efecto_visto && k.lanzado_ms && ahora < k.lanzado_ms + k.duracion_ms) continue;  // no se ve
         return i;
     }
     return -1;

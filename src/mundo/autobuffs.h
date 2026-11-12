@@ -17,6 +17,7 @@ struct CasilleroAuto {
     u64 duracion_ms = 0;
     u64 lanzado_ms = 0;     // cuándo salió su último C_UseSkill (0 = nunca)
     u64 reintentar_ms = 0;  // tras un fallo, no antes de esto
+    bool efecto_visto = false;  // alguna vez se vio su efecto: si no está, terminó (aunque antes de tiempo)
 };
 
 // Hechizo que da un efecto activo, o 0 si viene de un ítem.
@@ -26,8 +27,8 @@ u64 resta_efecto_de_hechizo(const EstadoJugador& j, u32 hechizo, u64 ahora);
 // Buff que se puede mantener solo: no es de ataque, dura, y no pide elegir un ítem.
 bool acepta_autobuff(const Hechizo& h);
 // El primer casillero (de izquierda a derecha) que hay que lanzar ahora, o -1. Lanzar: el efecto no
-// está activo o le queda menos de MARGEN_AUTO_MS; si no se lo ve, tampoco se lanzó hace menos de
-// su duración (hay buffs sin ícono ni gráfico). Además alcanza el MP, pasó un posible fallo y la
+// está activo o le queda menos de MARGEN_AUTO_MS; si su efecto nunca se vio (hay buffs sin ícono ni
+// gráfico), tampoco se lanzó hace menos de su duración. Además alcanza el MP, pasó un posible fallo y la
 // respuesta del lanzado anterior, y el personaje no está muerto ni inmóvil.
 int elegir_autobuff(const EstadoJugador& j, const CasilleroAuto* c, int n, u64 ahora);
 

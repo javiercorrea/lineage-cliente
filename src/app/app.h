@@ -52,6 +52,8 @@ struct AutoBuffs {
     u64 pedido_ms = 0;
     int ultimo = -1;       // el último que salió (a él se le atribuye un "falló")
     int x = 0, y = -1000;  // posición del último frame (la pone dibujar_barra)
+    u64 desde_ms = 0;      // no lanza antes (al entrar: que lleguen los íconos de lo que sigue activo)
+    bool apretado_interruptor = false;  // el botón se apretó sobre "Auto"
 };
 
 // Tienda y almacén (npc_ui.cpp): una fila por ítem; `id` es el índice en la tienda (compra) o el id
@@ -595,6 +597,8 @@ void control_cerrar();
 // Casillero bajo el puntero, -1 si no hay.
 int casillero_bajo_puntero(const App& a);
 bool sobre_barra(const App& a);  // también el selector de página
+// Un arrastre que empezó en arrastre_x0/y0 ya se movió lo suficiente para no ser un clic.
+bool arrastre_movido(const App& a);
 // Página visible de la barra (con vuelta: de la última a la primera).
 void cambiar_pagina_barra(App& a, int pagina);
 void poner_atajo(App& a, int casillero, Atajo atajo);

@@ -48,6 +48,14 @@ TEST_CASE("elegir_autobuff: efecto que no se ve, no antes de su duración") {
     CHECK(elegir_autobuff(j, c, 1, 100000 + 60000) == 0);
 }
 
+TEST_CASE("elegir_autobuff: un efecto que se vio y terminó antes de tiempo se relanza") {
+    EstadoJugador j = jugador();
+    CasilleroAuto c[1] = {casillero(43, 10, 300000)};  // Haste, 300 s
+    c[0].lanzado_ms = 100000;
+    c[0].efecto_visto = true;  // tuvo ícono; ya no está (murió, se lo quitaron)
+    CHECK(elegir_autobuff(j, c, 1, 160000) == 0);
+}
+
 TEST_CASE("elegir_autobuff: espera la respuesta del lanzado anterior aunque el efecto esté por vencer") {
     EstadoJugador j = jugador();
     CasilleroAuto c[1] = {casillero(43)};
