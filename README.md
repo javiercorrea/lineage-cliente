@@ -189,7 +189,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
 | `usar_autobuffs`, `usar_autopocion` | `0` hides and turns off auto-buffs or auto potion completely (both `1` by default) |
 | `autopocion` | Auto potion per character: on/off and HP threshold in % (`Name:1,60`; off with 60 % by default) |
-| `modelos`, `modelos_3d` | 3D models (branch `agente/modelos-3d`): folder with `modelos.txt` and the `.glb` files; `modelos_3d=0` draws the sprites (Shift+F2 toggles). `LIN_MODELO_SPRITE=1` also draws the sprite on top, for calibration |
+| `modelos`, `modelos_3d` | 3D models (branch `agente/modelos-3d`): folder with `modelos.txt` and the `.glb` files; `modelos_3d=0` draws the sprites (Shift+F2 toggles). A `modelos.txt` line may be `gfx:weapon file ...` for a character model with that weapon drawn (4 sword, 11 axe, 20 bow, 24 spear, 46 dagger, 50 two-handed sword). `LIN_MODELO_SPRITE=1` also draws the sprite on top, for calibration |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
 as an absolute path or relative to the `settings.ini` folder. It is shrunk to fit 560×190 (best to supply

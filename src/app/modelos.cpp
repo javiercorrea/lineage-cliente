@@ -42,8 +42,14 @@ constexpr const char* NOMBRES_ACCION[32] = {
     "lanzar", "varita", "habilidad", "hechizo", "caminar_arco", "atacar_arco", "dano_arco", "quieto_arco",
     "caminar_lanza", "atacar_lanza", "dano_lanza", "quieto_lanza", nullptr, nullptr, "atacar_alt", "hechizo_dir"};
 
-ModeloGfx* modelo_de(App& a, GfxId gfx) {
-    const u32* i = a.indice_modelos.buscar(gfx);
+// Clave del índice: el gfx y, en los personajes, el arma visible (en L1 el arma está dibujada en el
+// sprite: hay un modelo por arma; línea "gfx:arma" de modelos.txt).
+constexpr u32 clave_modelo(GfxId gfx, u8 arma) { return static_cast<u32>(gfx) | static_cast<u32>(arma) << 16; }
+
+// El modelo del gfx con esa arma; si no hay, el del gfx sin arma (también al morir: estado = ESTADO_MUERTO).
+ModeloGfx* modelo_de(App& a, GfxId gfx, u8 arma) {
+    const u32* i = arma ? a.indice_modelos.buscar(clave_modelo(gfx, arma)) : nullptr;
+    if (!i) i = a.indice_modelos.buscar(clave_modelo(gfx, 0));
     return i ? &a.modelos[*i] : nullptr;
 }
 
@@ -93,10 +99,13 @@ void cargar_modelos(App& a) {
         t.remove_prefix(std::min(t.size(), linea.size() + 1));
         if (linea.empty() || linea[0] == '#') continue;
         char archivo[256] = {};
-        unsigned gfx = 0;
+        unsigned gfx = 0, arma = 0;
         float giro = 0, sentido = 1, elevacion = 20, px = 30;
-        if (std::sscanf(std::string(linea).c_str(), "%u %255s %f %f %f %f", &gfx, archivo, &giro, &sentido, &elevacion, &px) < 2)
-            continue;
+        const std::string l(linea);
+        if (std::sscanf(l.c_str(), "%u:%u %255s %f %f %f %f", &gfx, &arma, archivo, &giro, &sentido, &elevacion, &px) < 3) {
+            arma = 0;
+            if (std::sscanf(l.c_str(), "%u %255s %f %f %f %f", &gfx, archivo, &giro, &sentido, &elevacion, &px) < 2) continue;
+        }
         std::vector<u8> glb;
         ModeloGfx m;
         if (!leer_archivo(carpeta + archivo, glb) || !m.modelo.cargar(glb)) {
@@ -112,9 +121,9 @@ void cargar_modelos(App& a) {
         for (int c = 0; c < CLIPS_BASE; ++c) m.clip[c] = m.modelo.clip(NOMBRES_CLIP[c]);
         for (int c = 0; c < 32; ++c) m.clip_accion[c] = NOMBRES_ACCION[c] ? m.modelo.clip(NOMBRES_ACCION[c]) : -1;
         m.modelo.recorrido(m.clip[CLIP_CAMINAR], m.recorrido);
-        a.indice_modelos.poner(m.gfx, static_cast<u32>(a.modelos.size()));
+        a.indice_modelos.poner(clave_modelo(m.gfx, static_cast<u8>(arma)), static_cast<u32>(a.modelos.size()));
         a.modelos.push_back(std::move(m));
-        LIN_LOG("Modelo 3D para el gfx %u: %s (%zu clips, zancada %.2f)", gfx, archivo, a.modelos.back().modelo.cantidad_clips(),
+        LIN_LOG("Modelo 3D para el gfx %u (arma %u): %s (%zu clips, zancada %.2f)", gfx, arma, archivo, a.modelos.back().modelo.cantidad_clips(),
                 a.modelos.back().recorrido[RECORRIDO_N] / 2);
     }
 }
@@ -129,10 +138,14 @@ bool preparar_modelo(App& a, Slot s, double fx, double fy, double ox, double oy,
     if (!a.cfg.modelos_3d || a.modelos.empty()) return false;
     TablaObjetos& o = a.mundo.objetos;
     const GfxId gfx = o.col<O_GFX>()[s];
-    ModeloGfx* mg = modelo_de(a, gfx);
+    ModeloGfx* mg = modelo_de(a, gfx, o.col<O_ESTADO>()[s]);
     if (!mg) return false;
     const Modelo& m = mg->modelo;
     AnimModelo& am = anim_de(a, o.ids()[s], ahora);
+    if (am.modelo != mg) {  // cambió de arma (o de forma): los clips del modelo anterior no son de este
+        am.modelo = mg;
+        am.clip = am.clip_ant = -1;
+    }
 
     // Giro gradual hacia la dirección del objeto.
     const u64 dt = am.visto && ahora - am.visto < 1000 ? ahora - am.visto : 0;

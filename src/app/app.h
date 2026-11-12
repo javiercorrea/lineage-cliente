@@ -86,6 +86,7 @@ struct ModeloGfx {
 };
 struct AnimModelo {
     ObjId id = 0;
+    const ModeloGfx* modelo = nullptr;  // con el que se animó la última vez (cambia con el arma)
     int clip = -1, clip_ant = -1;
     float t = 0, t_ant = 0;
     bool bucle = true, bucle_ant = true;
@@ -453,7 +454,7 @@ struct App {
     ReinicioAtributos reinicio;
     std::vector<Mascota> mascotas;
     std::vector<ModeloGfx> modelos;
-    MapaHash indice_modelos{16};  // gfx -> índice en modelos
+    MapaHash indice_modelos{16};  // gfx | arma << 16 -> índice en modelos
     AnimModelo anim_modelos[64];
     std::vector<MiembroGrupo> grupo;
     TiendaJugadores tienda_pj;

@@ -147,11 +147,13 @@ para reutilizar un modelo en varios gfx). La carpeta se configura en `settings.i
 - huesos con nombre estable (los 17 de `prueba_3d`: `raiz`, `cadera`, `pecho`, `mano.R`...) para
   enganchar armas y efectos.
 
-**Armas:** en el original cada combinación clase × arma es un sprite. En 3D el arma es una malla
-aparte (`armas/<tipo>.glb`) que se engancha a `mano.R` según el tipo de arma del estado visual
-(`S_CharPack`/`S_CharVisualUpdate`: 4 espada, 20 arco, 24 lanza...). Las variantes de clip por arma
-(atacar con arco ≠ con espada) se buscan como `<acción+arma>` antes que `<acción>`, igual que con
-los sprites.
+**Armas:** en el original cada combinación clase × arma es un sprite, con el arma dibujada. Implementado: **un
+modelo por arma**, generado por prueba_3d desde el "quieto" de esa arma (`generar_modelo.py --arma N`). En
+`modelos.txt` la línea lleva `gfx:arma` (`61:4 caballero_espada.glb ...`) y `modelo_de` busca por gfx y arma
+visible (`O_ESTADO`: 4 espada, 11 hacha, 20 arco, 24 lanza, 46 daga, 50 mandoble), con respaldo al modelo sin arma
+(también al morir). En esos modelos, caminar, atacar, daño y quieto **son** los del arma, con los nombres básicos.
+La alternativa, el arma como malla aparte (`armas/<tipo>.glb`) enganchada a `mano.R`, queda descartada por ahora:
+el pipeline saca la malla del sprite y no separa el arma del cuerpo.
 
 ---
 
