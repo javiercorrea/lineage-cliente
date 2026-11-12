@@ -41,6 +41,8 @@ struct Config {
     // Barra de atajos Alt+1..Alt+0 por personaje: "Nombre:h4,i40308:268435461,0,...;Otro:..."
     // (h = hechizo, i = ítem gfx:id, 0 = vacío, * tras el elegido); las páginas, separadas por "/".
     std::string barra;
+    // Auto-buffs por personaje: "Nombre:1|43,42,0,0,0,0" (encendido y los hechizos de los 6 casilleros).
+    std::string autobuffs;
     int paginas_barra = 3;  // páginas a la vista (1 a PAGINAS_BARRA_MAX); las de más se conservan
     // Mantener 1–0 sobre un hechizo con objetivo que no es de ataque: pasado este tiempo, se lanza
     // sobre uno mismo (y se repite mientras se mantenga). De MS_MANTENER_MIN a MS_MANTENER_MAX.
@@ -71,7 +73,7 @@ void poner_valor_de_personaje(std::string& opcion, std::string_view personaje, s
 void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje);
 // Parte `n` (desde 0) de un valor separado por '/' (las páginas de la barra); vacía si no hay.
 std::string_view parte_de_valor(std::string_view valor, int n);
-// Personajes que tienen datos guardados (atajos o barra), sin repetir y en orden de aparición.
+// Personajes que tienen datos guardados (atajos, barra o auto-buffs), sin repetir y en orden de aparición.
 std::vector<std::string> personajes_con_datos(const Config& c);
 
 // Ruta del archivo de configuración del usuario (settings.ini).

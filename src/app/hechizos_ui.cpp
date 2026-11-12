@@ -501,6 +501,8 @@ void dibujar_arrastre(App& a) {
             if (bajo == id) pedir_hechizo(a, id, 0);
         } else if (int c = casillero_bajo_puntero(a); c >= 0) {
             poner_atajo(a, c, {TipoAtajo::HECHIZO, id, 0});
+        } else if (int ab = autobuff_bajo_puntero(a); ab >= 0) {
+            poner_autobuff(a, ab, id);
         } else if (int f = tecla_f_bajo_puntero(a); f >= 0) {  // a una tecla F del panel original
             a.atajos[f] = static_cast<u16>(id);
             guardar_atajos(a);
@@ -508,22 +510,7 @@ void dibujar_arrastre(App& a) {
     }
 }
 
-// Hechizo que da el efecto (para el nombre y el ícono), o 0 si viene de un ítem.
-// S_SkillIconShield y S_SkillBrave: tipo -> hechizo según L1SkillUse.sendIcon del servidor.
-static u32 hechizo_de_efecto(const EfectoActivo& ef) {
-    switch (ef.clase) {
-    case EA_HASTE: return ef.tipo == 2 ? 29 : 43;  // Slow; Haste (también la poción)
-    case EA_BRAVE: return ef.tipo == 4 ? 52 : ef.tipo == 6 ? 186 : 0;  // Holy Walk; Bloodlust
-    case EA_ESCUDO:
-        return ef.tipo == 5 ? 3 : ef.tipo == 3 ? 99 : ef.tipo == 7 ? 159 : ef.tipo == 10 ? 168 : ef.tipo == 6 ? 151 : 0;
-    case EA_AURA: return ef.tipo + 1u;  // el índice del hechizo
-    case EA_ICONO: return ef.tipo == 40 ? 68 : 0;  // Immune to Harm
-    case EA_FUERZA: return ef.tipo == 5 ? 42 : ef.tipo == 2 ? 109 : 0;  // Enchant Mighty; Dress Mighty
-    case EA_DESTREZA: return ef.tipo == 5 ? 26 : ef.tipo == 2 ? 110 : 0;  // Enchant Dexterity; Dress Dexterity
-    case EA_HECHIZO: return ef.tipo;
-    default: return 0;
-    }
-}
+// Hechizo que da el efecto: hechizo_de_efecto (mundo/autobuffs.cpp).
 
 // Los que vienen de un ítem: su ícono de inventario (gfx de L1J: poción de brave 79, waffle de
 // elfo 130, poción azul 75) y su nombre.

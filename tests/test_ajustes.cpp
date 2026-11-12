@@ -24,6 +24,15 @@ TEST_CASE("personajes_con_datos: une atajos y barra sin repetir") {
     CHECK(n[2] == "Mario");
 }
 
+TEST_CASE("personajes_con_datos: también los que solo tienen auto-buffs") {
+    Config c;
+    c.barra = "Ana:h4;";
+    c.autobuffs = "Ana:1|43,0,0,0,0,0;Eva:0|42,0,0,0,0,0;";
+    const std::vector<std::string> n = personajes_con_datos(c);
+    REQUIRE(n.size() == 2);
+    CHECK(n[1] == "Eva");
+}
+
 TEST_CASE("personajes_con_datos: sin datos devuelve lista vacía") {
     Config c;
     CHECK(personajes_con_datos(c).empty());

@@ -184,6 +184,7 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `logo` | PNG for the simple login screen, see below |
 | `atajos`, `barra` | F5–F12 spells and shortcut bar, per character (bar pages separated by `/`) |
 | `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
+| `autobuffs` | Auto-buffs per character: on/off and the six spells (`Name:1\|43,42,0,0,0,0`) |
 | `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
 | `ventanas` | Saved window positions |
 
@@ -277,6 +278,11 @@ title is shown as text.
   working from any page. Holding 1–0 on a targeted spell that is not an attack (heals, buffs) casts it on
   yourself after a moment (300 ms; "Hold 1-0 to self-cast" in Options) and repeats while held; a tap still waits
   for the target click.
+- **Auto-buffs:** six green slots right of the bar. Drag a buff there (from Alt+S or from a bar slot; attacks
+  and spells without a duration are refused), reorder by dragging, right-click empties. With "Auto" (above them)
+  on, each one is cast again when its effect ends (or has less than 2 s left), left to right and one at a time,
+  only while you are not walking, attacking or casting something else. Off by default; saved per character.
+  It sends the same packet as casting by hand.
 
 ### Magic
 

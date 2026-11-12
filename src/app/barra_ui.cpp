@@ -207,7 +207,8 @@ int casillero_bajo_puntero(const App& a) {
 
 bool sobre_barra(const App& a) {
     const EntradaFrame& e = a.entrada;
-    return e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4;
+    return (e.mx >= a.barra_x - 4 && e.mx < a.barra_x + ancho_total(a) + 4 && e.my >= a.barra_y - 4 && e.my < a.barra_y + CELDA + 4) ||
+           sobre_autobuffs(a);
 }
 
 void poner_atajo(App& a, int casillero, Atajo atajo) {
@@ -242,7 +243,9 @@ void procesar_barra(App& a) {
 void dibujar_barra(App& a, int y) {
     Graficos& g = *a.g;
     const EntradaFrame& e = a.entrada;
-    a.barra_x = (a.gpu.ancho() - ancho_total(a)) / 2;
+    a.barra_x = (a.gpu.ancho() - ancho_total(a) - SEPARACION_AUTO - ANCHO_AUTO) / 2;
+    a.autobuffs.x = a.barra_x + ancho_total(a) + SEPARACION_AUTO;
+    a.autobuffs.y = y + (CELDA - CELDA_AUTO);
     Atajo* pagina = visible(a);
     a.barra_y = y;
     const u64 kf = clave_orden(CAPA_UI, 5), ki = clave_orden(CAPA_UI, 6), kt = clave_orden(CAPA_UI_TEXTO, 5);
@@ -365,6 +368,8 @@ void dibujar_barra(App& a, int y) {
             if (a.casillero_elegido == base + desde) a.casillero_elegido = base + bajo;
             else if (a.casillero_elegido == base + bajo) a.casillero_elegido = base + desde;
             guardar_barra(a);
+        } else if (int ab = autobuff_bajo_puntero(a); ab >= 0) {  // copia el hechizo a un auto-buff
+            if (pagina[desde].tipo == TipoAtajo::HECHIZO) poner_autobuff(a, ab, pagina[desde].id);
         } else if (!sobre_barra(a)) {
             poner_atajo(a, desde, {});
         }
