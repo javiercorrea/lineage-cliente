@@ -269,9 +269,9 @@ title is shown as text.
 - **1..0 (or Alt+1..Alt+0):** shortcut bar (bottom center). Drag a spell (from Alt+S) or an item (from Alt+I) onto
   a slot. Clicking it, or its number or Alt+number, uses it; right-click empties it; dragging between slots moves
   it. Middle-click on a slot selects it (gold frame), and the middle button on a character or monster uses the
-  selected spell there; held, it repeats each time the wait ends (for an item, every half second). Spell slots
+  selected spell there; held, it repeats each time the wait ends (for an item, every half second). With nothing under the pointer it works like the slot's key (a targeted spell waits for the click). A dot next to the page number means the selected slot is on another page. Spell slots
   (bar and F5–F12) show the wait until the next spell: a shrinking shade and the seconds left. Saved per character.
-  The bar has pages (3 by default; "Hotbar pages" in Options): the `^ number v` selector on its right, or the mouse
+  The bar has pages (3 by default; "Hotbar pages" in Options): the page selector on its right (up arrow, number, down arrow), or the mouse
   wheel over the bar, changes the visible one, and keys, clicks and drags act on it. The selected slot keeps
   working from any page.
 

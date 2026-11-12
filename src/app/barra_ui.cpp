@@ -118,19 +118,21 @@ void elegir_casillero(App& a, int c) {
 
 // Botón del medio apretado sobre el mundo: usa el elegido, y mientras se mantiene lo repite en
 // cuanto se puede (un hechizo, al terminar la espera; un ítem, cada MS_REPETIR_ITEM). Un hechizo
-// con objetivo va a lo que haya bajo el puntero en ese momento (uno mismo incluido); sin nada ahí
-// no se lanza.
+// con objetivo va a lo que haya bajo el puntero en ese momento (uno mismo incluido); sin nada ahí,
+// como la tecla 1–0: queda esperando el clic del objetivo, y el resto de esa pulsación no hace nada
+// más (si no, repetiría el "elegir objetivo").
 constexpr u64 MS_REPETIR_ITEM = 500;
 
 void usar_elegido(App& a) {
     Atajo* el = elegido(a);
-    if (!el || sobre_barra(a) || sobre_alguna_ventana(a)) return;
+    if (!el || a.medio_sin_objetivo || sobre_barra(a) || sobre_alguna_ventana(a)) return;
     const u64 ahora = a.entrada.ahora_ms;
     Atajo& b = *el;
     if (b.tipo == TipoAtajo::HECHIZO) {
         if (a.hechizo_pendiente || ahora < a.hechizo_listo_ms) return;  // uno en camino, o esperando
         if (!a.hechizos[b.id].con_objetivo) pedir_hechizo(a, b.id, 0);
         else if (ObjId obj = objeto_bajo_puntero(a, true)) pedir_hechizo(a, b.id, obj);
+        else a.medio_sin_objetivo = true, pedir_hechizo(a, b.id, 0);
     } else if (b.tipo == TipoAtajo::ITEM && ahora >= a.t_repetir_medio + MS_REPETIR_ITEM) {
         a.t_repetir_medio = ahora;
         usar_atajo(a, b);
@@ -193,6 +195,7 @@ void procesar_barra(App& a) {
         usar_atajo(a, visible(a)[a.entrada.numero - 1]);
     if (int c = casillero_bajo_puntero(a); a.entrada.clic_medio && c >= 0) elegir_casillero(a, c);
     if (a.entrada.medio_presionado) usar_elegido(a);
+    else a.medio_sin_objetivo = false;
 }
 
 void dibujar_barra(App& a, int y) {
@@ -212,10 +215,11 @@ void dibujar_barra(App& a, int y) {
         g.gpu().rectangulo(x, y, CELDA, CELDA, kf, fondo);
         if (a.pagina_barra * CASILLEROS_BARRA + i == a.casillero_elegido) {
             const u32 oro = rgba(240, 200, 80);
-            g.gpu().rectangulo(x, y, CELDA, 2, kf + 1, oro);
-            g.gpu().rectangulo(x, y + CELDA - 2, CELDA, 2, kf + 1, oro);
-            g.gpu().rectangulo(x, y, 2, CELDA, kf + 1, oro);
-            g.gpu().rectangulo(x + CELDA - 2, y, 2, CELDA, kf + 1, oro);
+            constexpr int B = 3;  // más grueso que el resaltado del puntero
+            g.gpu().rectangulo(x, y, CELDA, B, kf + 1, oro);
+            g.gpu().rectangulo(x, y + CELDA - B, CELDA, B, kf + 1, oro);
+            g.gpu().rectangulo(x, y, B, CELDA, kf + 1, oro);
+            g.gpu().rectangulo(x + CELDA - B, y, B, CELDA, kf + 1, oro);
         }
         if (i != a.arrastrando_atajo || !movio(a)) {
             const RegionAtlas& ic = icono_atajo(a, b);
@@ -273,6 +277,9 @@ void dibujar_barra(App& a, int y) {
             g.gpu().rectangulo(fx, y + CELDA - 7 + f, w, 1, kf + 1, claro);     // abajo: punta hacia abajo
         }
         centrado(n, y + (CELDA - ALTO_GLIFO) / 2, rgba(255, 230, 120));
+        // Punto dorado junto al número: el elegido está en otra página (el medio lo usa igual).
+        if (elegido(a) && a.casillero_elegido / CASILLEROS_BARRA != a.pagina_barra)
+            g.gpu().rectangulo(sx + ANCHO_SELECTOR - 4, y + CELDA / 2 - 1, 3, 3, kf + 1, rgba(240, 200, 80));
         if (e.clic && sobre_sel && a.arrastrando_atajo < 0 && !a.arrastrando_hechizo && !a.arrastrando)
             cambiar_pagina_barra(a, a.pagina_barra + (e.my < y + CELDA / 2 ? 1 : -1));
     }
