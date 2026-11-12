@@ -76,7 +76,7 @@ bool elegir_carpeta_inicial(SDL_Window* v, std::string& carpeta) {
 // La configuración, más los campos numéricos como texto (se convierten al guardar).
 struct Formulario {
     Config cfg;
-    std::string ancho, alto, zoom, opacidad, musica, efectos, puerto, paginas;
+    std::string ancho, alto, zoom, opacidad, musica, efectos, puerto, paginas, ms_mantener;
     size_t sv = 0;         // servidor que se edita (pestaña Servidores)
     size_t personaje = 0;  // personaje de la pestaña Personajes
     std::vector<std::string> protocolos = PROTOCOLOS;
@@ -103,6 +103,7 @@ void cargar_campos(Formulario& f) {
     f.zoom = std::to_string(c.zoom);
     f.opacidad = std::to_string(c.opacidad_ventanas);
     f.paginas = std::to_string(c.paginas_barra);
+    f.ms_mantener = std::to_string(c.ms_mantener_tecla);
     f.musica = std::to_string(c.volumen_musica);
     f.efectos = std::to_string(c.volumen_efectos);
     f.sv = std::min(f.sv, c.servidores.size() - 1);  // leer_config siempre deja al menos un servidor
@@ -126,6 +127,8 @@ std::string volcar(Formulario& f) {
     c.opacidad_ventanas = n;
     if (!entero(f.paginas, 1, PAGINAS_BARRA_MAX, n)) return tr(Tx::AJ_ERR_PAGINAS);
     c.paginas_barra = n;
+    if (!entero(f.ms_mantener, MS_MANTENER_MIN, MS_MANTENER_MAX, n)) return tr(Tx::AJ_ERR_MS_MANTENER);
+    c.ms_mantener_tecla = n;
     if (!entero(f.musica, 0, 100, n)) return tr(Tx::AJ_ERR_MUSICA);
     c.volumen_musica = n;
     if (!entero(f.efectos, 0, 100, n)) return tr(Tx::AJ_ERR_EFECTOS);
@@ -272,6 +275,7 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
     }
     si_no(p, fila(p, 8), tr(Tx::AJ_PANTALLA_COMPLETA), c.pantalla_completa);
     campo(p, fila(p, 9), tr(Tx::AJ_PAGINAS_BARRA), f.paginas, 1);
+    campo(p, fila(p, 10), tr(Tx::AJ_MS_MANTENER), f.ms_mantener, 4);
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {

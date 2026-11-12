@@ -332,6 +332,15 @@ void dibujar_opciones(App& a) {
         a.cfg.paginas_barra = a.cfg.paginas_barra % PAGINAS_BARRA_MAX + 1;
         cambio = true;
     }
+    std::snprintf(t, sizeof t, "%d ms", a.cfg.ms_mantener_tecla);
+    if (fila("Hold 1-0 to self-cast", t)) {  // 150 -> 200 -> 300 -> 400 -> 500 -> 700 -> 1000 -> 150
+        static constexpr int VALORES[] = {150, 200, 300, 400, 500, 700, 1000};
+        int sig = VALORES[0];
+        for (int v : VALORES)
+            if (v > a.cfg.ms_mantener_tecla) { sig = v; break; }
+        a.cfg.ms_mantener_tecla = sig;
+        cambio = true;
+    }
     if (fila("HP/MP bar over char", a.cfg.barra_personaje ? "On" : "Off"))
         a.cfg.barra_personaje = !a.cfg.barra_personaje, cambio = true;
     if (fila("Damage numbers", a.cfg.texto_dano ? "On" : "Off"))

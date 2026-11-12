@@ -188,6 +188,12 @@ void leer_entrada(App& a) {
     e.arriba = teclas[SDL_SCANCODE_UP];
     e.abajo = teclas[SDL_SCANCODE_DOWN];
     e.izquierda = teclas[SDL_SCANCODE_LEFT];
+    // El número apretado ahora (por su tecla, no su posición: igual que `numero`).
+    e.numero_mantenido = 0;
+    for (int i = 0; i < 10 && !e.numero_mantenido; ++i) {
+        const SDL_Scancode s = SDL_GetScancodeFromKey(i < 9 ? SDLK_1 + static_cast<SDL_Keycode>(i) : SDLK_0, nullptr);
+        if (s != SDL_SCANCODE_UNKNOWN && teclas[s]) e.numero_mantenido = i + 1;
+    }
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
     e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
     e.shift = (SDL_GetModState() & SDL_KMOD_SHIFT) != 0;

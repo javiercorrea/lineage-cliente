@@ -342,6 +342,13 @@ struct App {
     u16 icono_fuerza = 0, icono_destreza = 0;  // el de la poción que dio el efecto activo
     u64 t_repetir_medio = 0;          // botón del medio mantenido: último uso de un ítem
     bool medio_sin_objetivo = false;  // esta pulsación del medio ya dejó un hechizo esperando el clic
+    // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
+    struct TeclaMantenida {
+        int numero = 0;      // 1..10; 0 = ninguna
+        u32 hechizo = 0;
+        u64 desde_ms = 0;
+        bool sobre_si = false;  // pasó el tiempo: se lanza sobre uno mismo
+    } tecla_mantenida;
     bool clic_consumido = false;      // el clic que eligió el objetivo no camina hasta soltarlo
     u16 atajos[8] = {};               // F5..F12
     std::string atajos_de;            // personaje cuyos atajos están cargados
