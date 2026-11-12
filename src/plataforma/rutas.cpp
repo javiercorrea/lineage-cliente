@@ -67,6 +67,10 @@ void aplicar(Config& c, Anterior& ant, std::string_view clave, std::string_view 
     else if (clave == "idioma") c.idioma = valor;
     else if (clave == "atajos") c.atajos = valor;
     else if (clave == "barra") c.barra = valor;
+    else if (clave == "autobuffs") c.autobuffs = valor;
+    else if (clave == "autopocion") c.autopocion = valor;
+    else if (clave == "usar_autobuffs") c.usar_autobuffs = valor != "0";
+    else if (clave == "usar_autopocion") c.usar_autopocion = valor != "0";
     else if (clave == "ms_mantener_tecla")
         c.ms_mantener_tecla = std::clamp(std::atoi(std::string(valor).c_str()), MS_MANTENER_MIN, MS_MANTENER_MAX);
     else if (clave == "paginas_barra") c.paginas_barra = std::clamp(std::atoi(std::string(valor).c_str()), 1, PAGINAS_BARRA_MAX);
@@ -165,6 +169,23 @@ void quitar_valor_de_personaje(std::string& opcion, std::string_view personaje) 
     opcion = std::move(nuevo);
 }
 
+OpcionPocion autopocion_de(const Config& c, std::string_view personaje) {
+    OpcionPocion o;
+    const std::string_view v = valor_de_personaje(c.autopocion, personaje);
+    if (v.empty()) return o;
+    o.encendida = v[0] == '1';
+    if (const size_t coma = v.find(','); coma != std::string_view::npos) {
+        const int u = std::atoi(std::string(v.substr(coma + 1)).c_str());
+        o.umbral = std::clamp(u / 5 * 5, UMBRAL_POCION_MIN, UMBRAL_POCION_MAX);
+    }
+    return o;
+}
+
+void poner_autopocion(Config& c, std::string_view personaje, OpcionPocion o) {
+    const int u = std::clamp(o.umbral / 5 * 5, UMBRAL_POCION_MIN, UMBRAL_POCION_MAX);
+    poner_valor_de_personaje(c.autopocion, personaje, (o.encendida ? "1," : "0,") + std::to_string(u));
+}
+
 std::string_view parte_de_valor(std::string_view valor, int n) {
     for (; n > 0 && !valor.empty(); --n) {
         const size_t barra = valor.find('/');
@@ -175,7 +196,8 @@ std::string_view parte_de_valor(std::string_view valor, int n) {
 
 std::vector<std::string> personajes_con_datos(const Config& c) {
     std::vector<std::string> nombres;
-    for (std::string_view opcion : {std::string_view{c.atajos}, std::string_view{c.barra}}) {
+    for (std::string_view opcion : {std::string_view{c.atajos}, std::string_view{c.barra}, std::string_view{c.autobuffs},
+                                    std::string_view{c.autopocion}}) {
         while (!opcion.empty()) {
             std::string_view par = opcion.substr(0, opcion.find(';'));
             opcion = par.size() < opcion.size() ? opcion.substr(par.size() + 1) : std::string_view{};
@@ -213,6 +235,10 @@ std::string escribir_config(const Config& c) {
     linea("idioma", c.idioma);
     linea("atajos", c.atajos);
     linea("barra", c.barra);
+    linea("autobuffs", c.autobuffs);
+    linea("autopocion", c.autopocion);
+    linea("usar_autobuffs", c.usar_autobuffs ? "1" : "0");
+    linea("usar_autopocion", c.usar_autopocion ? "1" : "0");
     linea("paginas_barra", std::to_string(c.paginas_barra));
     linea("ms_mantener_tecla", std::to_string(c.ms_mantener_tecla));
     linea("ventanas", c.ventanas);

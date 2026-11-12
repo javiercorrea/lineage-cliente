@@ -24,6 +24,15 @@ TEST_CASE("personajes_con_datos: une atajos y barra sin repetir") {
     CHECK(n[2] == "Mario");
 }
 
+TEST_CASE("personajes_con_datos: también los que solo tienen auto-buffs") {
+    Config c;
+    c.barra = "Ana:h4;";
+    c.autobuffs = "Ana:1|43,0,0,0,0,0;Eva:0|42,0,0,0,0,0;";
+    const std::vector<std::string> n = personajes_con_datos(c);
+    REQUIRE(n.size() == 2);
+    CHECK(n[1] == "Eva");
+}
+
 TEST_CASE("personajes_con_datos: sin datos devuelve lista vacía") {
     Config c;
     CHECK(personajes_con_datos(c).empty());
@@ -75,4 +84,32 @@ TEST_CASE("ms_mantener_tecla: 300 por defecto, se recorta a 150-1000 y vuelve ig
     Config c = leer_config("");
     c.ms_mantener_tecla = 700;
     CHECK(leer_config(escribir_config(c)).ms_mantener_tecla == 700);
+}
+
+TEST_CASE("autopocion: por personaje, apagada con 60 % sin entrada, umbral recortado a 10-95 de a 5") {
+    Config c;
+    CHECK_FALSE(autopocion_de(c, "Ana").encendida);
+    CHECK(autopocion_de(c, "Ana").umbral == 60);
+    poner_autopocion(c, "Ana", {true, 70});
+    poner_autopocion(c, "Eva", {false, 33});  // se redondea a 30
+    CHECK(autopocion_de(c, "Ana").encendida);
+    CHECK(autopocion_de(c, "Ana").umbral == 70);
+    CHECK(autopocion_de(c, "Eva").umbral == 30);
+    c.autopocion = "Ana:1,200;Eva:1,1";
+    CHECK(autopocion_de(c, "Ana").umbral == 95);
+    CHECK(autopocion_de(c, "Eva").umbral == 10);
+    Config d = leer_config("autopocion=Ana:1,45\n");
+    CHECK(autopocion_de(leer_config(escribir_config(d)), "Ana").umbral == 45);
+    CHECK(personajes_con_datos(d).size() == 1);
+}
+
+TEST_CASE("usar_autobuffs y usar_autopocion: encendidos por defecto y de ida y vuelta") {
+    Config c = leer_config("");
+    CHECK(c.usar_autobuffs);
+    CHECK(c.usar_autopocion);
+    c.usar_autobuffs = false;
+    const Config d = leer_config(escribir_config(c));
+    CHECK_FALSE(d.usar_autobuffs);
+    CHECK(d.usar_autopocion);
+    CHECK_FALSE(leer_config("usar_autopocion=0\n").usar_autopocion);
 }

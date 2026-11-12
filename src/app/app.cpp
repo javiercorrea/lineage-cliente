@@ -189,10 +189,10 @@ void leer_entrada(App& a) {
     e.abajo = teclas[SDL_SCANCODE_DOWN];
     e.izquierda = teclas[SDL_SCANCODE_LEFT];
     // El número apretado ahora (por su tecla, no su posición: igual que `numero`).
-    e.numero_mantenido = 0;
-    for (int i = 0; i < 10 && !e.numero_mantenido; ++i) {
+    e.numeros_mantenidos = 0;
+    for (int i = 0; i < 10; ++i) {
         const SDL_Scancode s = SDL_GetScancodeFromKey(i < 9 ? SDLK_1 + static_cast<SDL_Keycode>(i) : SDLK_0, nullptr);
-        if (s != SDL_SCANCODE_UNKNOWN && teclas[s]) e.numero_mantenido = i + 1;
+        if (s != SDL_SCANCODE_UNKNOWN && teclas[s]) e.numeros_mantenidos |= static_cast<u16>(1u << i);
     }
     e.derecha = teclas[SDL_SCANCODE_RIGHT];
     e.ctrl = (SDL_GetModState() & (SDL_KMOD_CTRL | SDL_KMOD_GUI)) != 0;
@@ -248,6 +248,8 @@ void procesar_red(App& a) {
         eventos_mascotas(a, e);
         eventos_marcadores(a, e);
         eventos_hechizos(a, e);
+        eventos_autobuffs(a, e);
+        eventos_autopocion(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
         // "Miss" sobre el personaje: un ataque que lo tiene de objetivo y no acierta (el daño recibido
         // se detecta por la caída de HP tras aplicar los eventos, abajo).

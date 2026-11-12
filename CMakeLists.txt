@@ -78,6 +78,8 @@ add_library(lin_recursos STATIC
 target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb)
 
 add_library(lin_mundo STATIC
+    src/mundo/autobuffs.cpp
+    src/mundo/autopocion.cpp
     src/mundo/cargador_segmentos.cpp
     src/mundo/chat.cpp
     src/mundo/luz.cpp
@@ -109,6 +111,8 @@ add_executable(lineage
     src/app/inventario_ui.cpp
     src/app/hechizos_ui.cpp
     src/app/barra_ui.cpp
+    src/app/autobuffs_ui.cpp
+    src/app/autopocion_ui.cpp
     src/app/forma_ui.cpp
     src/app/npc_ui.cpp
     src/app/ventanas.cpp
@@ -171,6 +175,8 @@ if(LIN_TESTS)
         tests/test_fuente.cpp
         tests/test_textos.cpp
         tests/test_ajustes.cpp
+        tests/test_autobuffs.cpp
+        tests/test_autopocion.cpp
         tests/test_socket.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)

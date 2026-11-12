@@ -359,6 +359,25 @@ frame, peor frame de cada segundo 2–5 ms al caminar.
   (alrededor de un segundo).
 - **Lo que el servidor envía y el cliente no implementa:** [analisis/OPCODES_PENDIENTES.md](analisis/OPCODES_PENDIENTES.md).
 
+### Otros servidores locales (L1J-EN 363 y L1JGO-Whale 3.80C)
+
+Visto al probar la barra de atajos, los auto-buffs y la auto-poción en los dos:
+
+- **Nombres de ítem:** L1J-EN manda el `$N` (los mismos números que L1J-JP para las pociones de
+  curación). Whale los manda en chino, sin `$N`. Por eso la auto-poción reconoce las pociones también por
+  el ícono (`mundo/autopocion.cpp`). El 1161 de la antigua roja es también el de la solución de mithril
+  negro (ítem de misión, no se apila): solo cuenta con más de una unidad.
+- **Tipo de uso (`I_USO`):** las pociones de curación vienen con 59 en L1J-JP y L1J-EN. En Whale vienen
+  con 51, el mismo que cualquier ítem común: no sirve para reconocerlas.
+- **Comandos GM distintos:**
+  - L1J-EN: `.create <id> <cantidad> <encantamiento> <identificado>` (los cuatro; `.item` muestra de qué
+    monstruos cae). `.level` llena el HP y manda al mapa 0. GM es `access_level=1` en `accounts` y
+    `accesslevel=1` en `characters` (apuntan a `access_levels`).
+  - Whale: `.item <id> [cantidad]`, `.allskill`, `.hp <n>` (HP actual). GM es `access_level=200` en las dos
+    tablas (PostgreSQL).
+- **Whale no guarda lo que da `.allskill`:** al volver a entrar, `S_AddSkill` trae solo las magias
+  iniciales. Hay que repetirlo en cada sesión de prueba.
+
 ---
 
 ## 6. Decisiones de interfaz

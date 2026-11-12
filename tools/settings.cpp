@@ -173,7 +173,7 @@ struct Pantalla {
     Pantalla(Graficos& g_, EntradaFrame& e_, SDL_Window* v) : g(g_), e(e_), ventana(v) {}
     int foco = -1;                    // campo de texto con foco (su número dentro de la pestaña)
     int campos = 0, campos_antes = 0;  // campos de texto de este frame y del anterior (para Tab)
-    bool abre_sv = false, abre_proto = false, abre_ini = false, abre_pj = false, abre_idioma = false;  // desplegables abiertos
+    bool abre_sv = false, abre_proto = false, abre_ini = false, abre_pj = false, abre_idioma = false, abre_umbral = false;  // desplegables abiertos
     std::string aviso;  // lo que pasó con el último botón; sale en la línea de abajo
     bool aviso_error = false;
     // Scroll del contenido de la pestaña: las filas se corren `desplaza` px; lo que queda fuera de la caja no se dibuja.
@@ -276,6 +276,8 @@ void pestana_interfaz(Pantalla& p, Formulario& f) {
     si_no(p, fila(p, 8), tr(Tx::AJ_PANTALLA_COMPLETA), c.pantalla_completa);
     campo(p, fila(p, 9), tr(Tx::AJ_PAGINAS_BARRA), f.paginas, 1);
     campo(p, fila(p, 10), tr(Tx::AJ_MS_MANTENER), f.ms_mantener, 4);
+    si_no(p, fila(p, 11), tr(Tx::AJ_USAR_AUTOBUFFS), c.usar_autobuffs);
+    si_no(p, fila(p, 12), tr(Tx::AJ_USAR_AUTOPOCION), c.usar_autopocion);
 }
 
 void pestana_audio(Pantalla& p, Formulario& f) {
@@ -326,9 +328,31 @@ void pestana_personajes(Pantalla& p, Formulario& f) {
             std::snprintf(buf, sizeof buf, tr(Tx::AJ_BARRA_QUITADA), nombre.c_str());
             estado(p, buf, false);
         }
+        texto(p, fila(p, 4), valor_de_personaje(c.autobuffs, nombre).empty() ? tr(Tx::AJ_AUTOBUFFS_NO) : tr(Tx::AJ_AUTOBUFFS_SI));
+        if (boton(p, X_CAMPO + 170, fila(p, 4), 160, tr(Tx::AJ_QUITAR_AUTOBUFFS))) {
+            quitar_valor_de_personaje(c.autobuffs, nombre);
+            std::snprintf(buf, sizeof buf, tr(Tx::AJ_AUTOBUFFS_QUITADOS), nombre.c_str());
+            estado(p, buf, false);
+        }
+        // Auto-poción del personaje (sin entrada: apagada con 60 %).
+        OpcionPocion o = autopocion_de(c, nombre);
+        bool encendida = o.encendida;
+        si_no(p, fila(p, 5), tr(Tx::AJ_AUTOPOCION), encendida);
+        static const std::vector<std::string> UMBRALES = [] {
+            std::vector<std::string> v;
+            for (int u = UMBRAL_POCION_MIN; u <= UMBRAL_POCION_MAX; u += 5) v.push_back(std::to_string(u) + " %");
+            return v;
+        }();
+        size_t umbral = static_cast<size_t>((o.umbral - UMBRAL_POCION_MIN) / 5);
+        const bool otro_umbral = lista(p, fila(p, 6), tr(Tx::AJ_UMBRAL_POCION), UMBRALES, umbral, p.abre_umbral);
+        if (encendida != o.encendida || otro_umbral) {
+            o.encendida = encendida;
+            o.umbral = UMBRAL_POCION_MIN + static_cast<int>(umbral) * 5;
+            poner_autopocion(c, nombre, o);
+        }
     }
-    texto(p, fila(p, 5), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
-    if (boton(p, X_CAMPO, fila(p, 6), 220, tr(Tx::AJ_RESTABLECER))) {
+    texto(p, fila(p, 7), c.ventanas.empty() ? tr(Tx::AJ_VENTANAS_DEF) : tr(Tx::AJ_VENTANAS_GUARD));
+    if (boton(p, X_CAMPO, fila(p, 8), 220, tr(Tx::AJ_RESTABLECER))) {
         c.ventanas.clear();
         estado(p, tr(Tx::AJ_VENTANAS_RESET), false);
     }

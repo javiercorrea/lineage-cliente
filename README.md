@@ -183,9 +183,12 @@ All of these can be changed from the editor; most can also be changed in the gam
 | `compensar_ataque` | Show your swing at once, without waiting for the server's echo |
 | `logo` | PNG for the simple login screen, see below |
 | `atajos`, `barra` | F5–F12 spells and shortcut bar, per character (bar pages separated by `/`) |
-| `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
-| `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
 | `ventanas` | Saved window positions |
+| `paginas_barra` | Shortcut bar pages, 1–9 (3 by default) |
+| `autobuffs` | Auto-buffs per character: on/off and the six spells (`Name:1\|43,42,0,0,0,0`) |
+| `ms_mantener_tecla` | Hold time before 1–0 casts a heal or buff on yourself, 150–1000 ms (300 by default) |
+| `usar_autobuffs`, `usar_autopocion` | `0` hides and turns off auto-buffs or auto potion completely (both `1` by default) |
+| `autopocion` | Auto potion per character: on/off and HP threshold in % (`Name:1,60`; off with 60 % by default) |
 
 **Custom login logo (simple interface):** `logo=my_logo.png`, a PNG with transparency of up to 2048×2048,
 as an absolute path or relative to the `settings.ini` folder. It is shrunk to fit 560×190 (best to supply
@@ -277,6 +280,16 @@ title is shown as text.
   working from any page. Holding 1–0 on a targeted spell that is not an attack (heals, buffs) casts it on
   yourself after a moment (300 ms; "Hold 1-0 to self-cast" in Options) and repeats while held; a tap still waits
   for the target click.
+- **Auto-buffs:** six green slots right of the bar. Drag a buff there (from Alt+S or from a bar slot; attacks
+  and spells without a duration are refused), reorder by dragging, right-click empties. With "Auto" (above them)
+  on, each one is cast again when its effect ends (or has less than 2 s left), left to right and one at a time,
+  only while you are not walking, attacking or casting something else. Off by default; saved per character.
+  It sends the same packet as casting by hand.
+- **Auto potion:** per character, in Options ("Auto potion", "Auto potion when") or in the settings tool. While HP
+  is below the threshold (60 % by default) it drinks a healing potion as soon as the previous one's delay is over:
+  condensed first, then ancient, then normal, and within each the colour that fits what is missing (clear for a
+  big loss, orange for a medium one, red for a small one). "Pot<60%" next to HP shows it is on (red: no potions).
+  The potion button right of the auto-buffs changes it quickly: Off -> 30 -> 60 -> 80 -> 90 % -> Off.
 
 ### Magic
 

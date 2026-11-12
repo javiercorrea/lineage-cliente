@@ -197,6 +197,21 @@ X(AJ_BARRA_SI, "Barra Alt+1..0: guardada", "Alt+1..0 bar: saved", "Barra Alt+1..
   "Leiste Alt+1..0: gespeichert", "Barre Alt+1..0 : enregistrée")
 X(AJ_QUITAR_ATAJOS, "Quitar atajos F5-F12", "Remove F5-F12 shortcuts", "Remover atalhos F5-F12",
   "Tasten F5-F12 entfernen", "Retirer les raccourcis F5-F12")
+X(AJ_AUTOBUFFS_NO, "Auto-buffs: ninguno", "Auto-buffs: none", "Auto-buffs: nenhum", "Auto-Buffs: keine", "Auto-buffs : aucun")
+X(AJ_AUTOBUFFS_SI, "Auto-buffs: guardados", "Auto-buffs: saved", "Auto-buffs: salvos", "Auto-Buffs: gespeichert",
+  "Auto-buffs : enregistrés")
+X(AJ_QUITAR_AUTOBUFFS, "Quitar auto-buffs", "Remove auto-buffs", "Remover auto-buffs", "Auto-Buffs entfernen",
+  "Retirer les auto-buffs")
+X(AJ_AUTOBUFFS_QUITADOS, "%s: auto-buffs quitados (al pulsar Guardar)", "%s: auto-buffs removed (press Save)",
+  "%s: auto-buffs removidos (ao pulsar Salvar)", "%s: Auto-Buffs entfernt (Speichern drücken)",
+  "%s : auto-buffs retirés (appuyer sur Enregistrer)")
+X(AJ_USAR_AUTOBUFFS, "Auto-buffs (casilleros junto a la barra)", "Auto-buffs (slots next to the bar)",
+  "Auto-buffs (espaços junto à barra)", "Auto-Buffs (Felder neben der Leiste)", "Auto-buffs (cases près de la barre)")
+X(AJ_USAR_AUTOPOCION, "Auto-poción (botón e indicador)", "Auto potion (button and indicator)",
+  "Auto-poção (botão e indicador)", "Auto-Trank (Knopf und Anzeige)", "Auto-potion (bouton et indicateur)")
+X(AJ_AUTOPOCION, "Auto-poción", "Auto potion", "Auto-poção", "Auto-Trank", "Auto-potion")
+X(AJ_UMBRAL_POCION, "Auto-poción con HP bajo", "Auto potion below HP", "Auto-poção com HP abaixo de",
+  "Auto-Trank unter HP", "Auto-potion sous PV")
 X(AJ_QUITAR_BARRA, "Quitar barra", "Remove bar", "Remover barra", "Leiste entfernen", "Retirer la barre")
 X(AJ_ATAJOS_QUITADOS, "%s: atajos quitados (al pulsar Guardar)", "%s: shortcuts removed (press Save)",
   "%s: atalhos removidos (ao pulsar Salvar)", "%s: Tasten entfernt (Speichern drücken)",
