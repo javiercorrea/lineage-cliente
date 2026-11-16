@@ -115,6 +115,7 @@ add_executable(lineage
     src/app/barra_ui.cpp
     src/app/autobuffs_ui.cpp
     src/app/autopocion_ui.cpp
+    src/app/modo_auto_ui.cpp
     src/app/forma_ui.cpp
     src/app/npc_ui.cpp
     src/app/ventanas.cpp

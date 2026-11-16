@@ -57,6 +57,7 @@ void leer_entrada(App& a) {
     e.alt_numero = 0;
     e.numero = 0;
     e.tecla_a = false;
+    e.tecla[0] = 0;
     int texto_antes = 0;  // para distinguir Alt+número de un carácter escrito con Option (ver abajo)
     e.rueda = 0;
     e.zoom = 0;
@@ -90,6 +91,14 @@ void leer_entrada(App& a) {
             for (const char* p = ev.text.text; *p && e.ntexto < 63; ++p) e.texto[e.ntexto++] = *p;
             break;
         case SDL_EVENT_KEY_DOWN:
+            if (!ev.key.repeat) {  // por su nombre, como las escribe un programa del modo auto (tecla_normalizada)
+                std::string n = ev.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_GUI) ? "ctrl+" : "";
+                if (ev.key.mod & SDL_KMOD_ALT) n += "alt+";
+                if (ev.key.mod & SDL_KMOD_SHIFT) n += "shift+";
+                n += SDL_GetKeyName(ev.key.key);
+                const std::string t = tecla_normalizada(n);
+                std::snprintf(e.tecla, sizeof e.tecla, "%s", t.c_str());
+            }
             switch (ev.key.key) {
             case SDLK_RETURN: case SDLK_KP_ENTER:
                 if (ev.key.mod & SDL_KMOD_ALT) {  // Alt+Enter: pantalla completa o ventana (sin repetir al mantenerla)
@@ -250,6 +259,7 @@ void procesar_red(App& a) {
         eventos_hechizos(a, e);
         eventos_autobuffs(a, e);
         eventos_autopocion(a, e);
+        eventos_modo_auto(a, e);
         if (e.tipo == Ev::MAPA && (a.pantalla == Pantalla::JUEGO || a.pantalla == Pantalla::CARGANDO)) avisar_mapa(a, static_cast<MapId>(e.v[0]));
         // "Miss" sobre el personaje: un ataque que lo tiene de objetivo y no acierta (el daño recibido
         // se detecta por la caída de HP tras aplicar los eventos, abajo).

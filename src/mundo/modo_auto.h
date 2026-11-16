@@ -12,6 +12,9 @@ namespace lin {
 
 // Minúsculas, sin tildes (á é í ó ú ü ñ) y sin espacios ni guiones: "Turn Undead" = "turnundead".
 std::string normalizar_nombre(std::string_view s);
+// Una tecla: "Shift + Ctrl + 1" -> "ctrl+shift+1" (modificadores en orden ctrl, alt, shift); vacía si no
+// tiene forma de tecla.
+std::string tecla_normalizada(std::string_view s);
 
 // ---- Condiciones ----
 enum class TipoCond : u8 {

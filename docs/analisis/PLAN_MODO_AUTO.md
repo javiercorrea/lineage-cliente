@@ -245,6 +245,22 @@ si sin jugadores a 30 entonces esperar
    la fase 3 seguir la ruta en el juego (un paso por vez con `mover_jugador`, recalcular si un paso falla).
 3. **Ejecutar en el juego**: atacar, lanzar con objetivo, usar ítems, los auto-hechizos en los casilleros
    de la barra, las teclas, el botón y la pausa. Prueba en vivo con los cuatro ejemplos.
+   **Escrita, sin probar en vivo:** `app/modo_auto_ui.cpp`.
+   - `/auto <nombre>` carga `planes/<nombre>.txt` (en la carpeta de `settings.ini`); con errores no
+     arranca y los muestra con su línea. `/auto` pausa o reanuda; `/auto off` termina. Una línea arriba de
+     la pantalla dice qué corre ("rule 2 (line 8)", "auto-spell haste", "moving", "paused").
+   - **Enrutador** (`Enrutador` en `mundo/ruta.h`): en cada frame se le fija el destino (el punto al azar de
+     `recorrer`, el de `puntos`, el personaje que se sigue, el de `ir a`) y sigue la última ruta calculada;
+     la recalcula hacia el último destino fijado al azar cada 0,4–1,6 s, o antes si no tiene ruta, se salió
+     de ella o un paso se bloqueó. Las celdas con alguien parado cuentan como bloqueadas. El paso lo da
+     `mover_jugador` (`a.paso_auto`) cuando no hay teclado, clic ni hechizo esperando.
+   - Las acciones de una regla van a una cola y salen de a una: `lanzar "Blood to Soul"; lanzar "Greater
+     Heal"` lanza los dos aunque la condición deje de cumplirse tras el primero. Una regla de más prioridad
+     reemplaza la cola.
+   - Los auto-buffs de la barra esperan mientras corre; la auto-poción sigue `pociones:`.
+   - Pendiente para la fase 4: recordar el programa por personaje y elegirlo en Opciones, `mapa` por
+     nombre, mostrar los auto-hechizos en los casilleros de la barra y las teclas del programa en la
+     ventana F1, y saltear un monstruo con el que Turn Undead falla.
 4. **`seguir a`**, el grupo (`aliado más herido`, la vida de otros) y el editor (cargar y ver el programa
    desde Opciones).
 

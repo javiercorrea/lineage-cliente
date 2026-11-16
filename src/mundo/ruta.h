@@ -23,6 +23,27 @@ PuedePasar paso_por_celdas(std::function<bool(i32 x, i32 y)> pisable);
 std::vector<std::pair<i32, i32>> buscar_ruta(i32 x0, i32 y0, i32 x1, i32 y1, const PuedePasar& puede, i32 cerca = 0,
                                              i32 max_nodos = 4000);
 
+// Sigue una ruta hacia el último destino fijado. Quien decide fija el destino en cada frame
+// (`fijar_destino`); la ruta no se recalcula en cada frame sino al azar cada RECALCULO_MIN_MS a
+// RECALCULO_MAX_MS (hacia el último destino fijado: así sigue a un destino que se mueve sin buscar todo el
+// tiempo ni moverse siempre igual), o antes si no hay ruta, si se salió de ella o si un paso se bloqueó.
+// Sin camino, `sin_camino` y no vuelve a buscar hasta el próximo recálculo.
+constexpr u64 RECALCULO_MIN_MS = 400, RECALCULO_MAX_MS = 1600;
+struct Enrutador {
+    bool hay_destino = false;
+    i32 dx = 0, dy = 0, cerca = 0;
+    std::vector<std::pair<i32, i32>> ruta;
+    size_t i = 0;  // la próxima celda de `ruta`
+    u64 recalcular_ms = 0;
+    u32 semilla = 0x2545F491u;
+    bool sin_camino = false;
+};
+void fijar_destino(Enrutador& r, i32 x, i32 y, i32 cerca = 0);
+void soltar_destino(Enrutador& r);
+// La dirección del próximo paso desde (x, y), o -1 (sin destino, ya se llegó, sin camino o bloqueado).
+// Se puede llamar en cada frame: solo avanza cuando (x, y) ya es la celda que seguía.
+int siguiente_paso(Enrutador& r, i32 x, i32 y, const PuedePasar& puede, u64 ahora);
+
 // Un punto al azar a entre `min` y `max` celdas de (x, y) que se pueda pisar, para "recorrer"; `semilla`
 // avanza (xorshift). false si en `intentos` no encontró ninguno.
 bool punto_al_azar(i32 x, i32 y, i32 min, i32 max, const std::function<bool(i32, i32)>& pisable, u32& semilla,

@@ -730,6 +730,7 @@ void mover_jugador(App& a, u64 ahora) {
     // algo, eso queda como objetivo. Soltar lo abandona, salvo con la tecla A (ataque sostenido).
     bool clic_en_mundo = e.presionado && !a.clic_consumido && !sobre_panel && !sobre_alguna_ventana(a) &&
                          a.ventana_arrastrada < 0;
+    if (clic_en_mundo && e.pulsado) modo_auto_intervencion(a);  // el jugador toma el control: pausa
     // Shift+clic en el mundo: solo girar hacia ahí, sin caminar ni elegir objetivo (por ejemplo, para
     // quedar frente a otro personaje e intercambiar). Mantener el botón tampoco camina. Como un clic
     // nuevo, cancela lo que estuviera haciendo; inmóvil, a mitad de un paso o de un ataque no gira.
@@ -770,6 +771,7 @@ void mover_jugador(App& a, u64 ahora) {
     u64 inicio_paso = (o.col<O_TMOV>()[s] > 0 && ahora - fin_paso < MS_ENCADENAR_PASO) ? fin_paso : ahora;
     int dir = direccion_teclas(e);
     const int dir_teclas = dir;
+    if (dir_teclas >= 0) modo_auto_intervencion(a);
     if (dir_teclas >= 0 && a.ataque_sostenido) {  // caminar con el teclado lo termina
         a.ataque_sostenido = false;
         a.objetivo = 0;
@@ -839,6 +841,7 @@ void mover_jugador(App& a, u64 ahora) {
     }
     if (dir < 0 && clic_en_mundo)
         dir = direccion_hacia(e.mx - vi.cx, e.my - vi.cy);  // el jugador está siempre en (cx, cy)
+    if (dir < 0 && !clic_en_mundo && a.paso_auto >= 0) dir = a.paso_auto;  // el modo auto, sin nada más que hacer
     if (dir < 0) return;
     u16 x = o.col<O_X>()[s], y = o.col<O_Y>()[s];
     int nx = x + DIR_DX[dir], ny = y + DIR_DY[dir];
@@ -1396,6 +1399,7 @@ void frame_juego(App& a) {
     actualizar_ventanas(a);
     procesar_hechizos(a, ahora);
     procesar_mascotas(a);
+    procesar_modo_auto(a, ahora);  // antes de la barra: sus teclas no le llegan a ella
     procesar_barra(a);
     procesar_autobuffs(a);
     procesar_autopocion(a);
@@ -1435,6 +1439,7 @@ void frame_juego(App& a) {
     dibujar_autobuffs(a);
     dibujar_boton_pocion(a);
     dibujar_mascotas(a);
+    dibujar_modo_auto(a);
     dibujar_grupo(a);
     // Tienda, tablón y correo encima de las ventanas (nivel 30); el diálogo de cantidad, encima de todo.
     a.gpu.nivel_ventana(30);

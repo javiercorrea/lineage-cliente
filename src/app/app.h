@@ -10,7 +10,9 @@
 #include "mundo/autobuffs.h"
 #include "mundo/autopocion.h"
 #include "mundo/chat.h"
+#include "mundo/modo_auto.h"
 #include "mundo/mundo.h"
+#include "mundo/ruta.h"
 #include "plataforma/rutas.h"
 #include "proto/comandos.h"
 #include "proto/decodificar.h"
@@ -369,6 +371,34 @@ struct App {
         bool apretado_boton = false;  // el botón se apretó sobre el de la barra
         int x = 0, y = -1000;         // el botón de la barra en el último frame (lo pone dibujar_barra)
     } autopocion;
+    // Modo auto programable (modo_auto_ui.cpp; docs/analisis/PLAN_MODO_AUTO.md).
+    struct ModoAuto {
+        bool cargado = false;
+        std::string archivo, de;  // el programa (planes/<archivo>.txt) y el personaje que lo corre
+        Programa p;
+        EstadoAuto est;
+        Enrutador ruta;
+        struct Auto {             // un auto-hechizo del programa, con su casillero (elegir_autobuff)
+            int regla;
+            std::string nombre;   // normalizado
+            CasilleroAuto c;
+        };
+        std::vector<Auto> autos;
+        std::vector<std::pair<std::string, u32>> hechizos;  // nombre normalizado -> id, de la tabla del cliente
+        std::vector<AccionAuto> cola;  // las acciones de la última regla o tecla, una por vez
+        OrigenDecision cola_origen = OrigenDecision::NADA;
+        int cola_indice = -1;
+        bool recorriendo = false;      // "moverse recorrer" tiene un destino
+        std::pair<i32, i32> destino{};
+        u32 semilla = 0x6D2B79F5u;
+        u32 ultimo_hechizo = 0;        // el último que se pidió y cuándo (un "falló" se le atribuye)
+        int ultimo_auto = -1;
+        u64 ultimo_ms = 0;
+        std::vector<std::pair<u32, u64>> reintentar;  // hechizo -> no antes de (tras un fallo)
+        std::vector<std::pair<u32, u64>> lanzados;    // hechizo -> cuándo lo pidió una regla por última vez
+        std::string estado;            // la línea de estado
+    } modo_auto;
+    int paso_auto = -1;  // dirección que pide el modo auto este frame (mover_jugador la usa si no hay otra)
     // Tecla 1–0 mantenida sobre un hechizo con objetivo que no es de ataque (barra_ui.cpp).
     struct TeclaMantenida {
         int numero = 0;      // 1..10; 0 = ninguna
@@ -626,6 +656,15 @@ void poner_autobuff_item(App& a, int casillero, ObjId item);  // un ítem: solo 
 void procesar_autobuffs(App& a);          // después de procesar_barra: lanza el que toque
 void eventos_autobuffs(App& a, const Evento& e);
 void dibujar_autobuffs(App& a);           // después de dibujar_barra
+
+// Modo auto programable (modo_auto_ui.cpp).
+bool comando_modo_auto(App& a, std::string_view orden, std::string_view arg);  // /auto <programa> | /auto | /auto off
+void procesar_modo_auto(App& a, u64 ahora);  // antes de procesar_barra: teclas, decide y pide el paso (a.paso_auto)
+void eventos_modo_auto(App& a, const Evento& e);
+void dibujar_modo_auto(App& a);
+bool modo_auto_activo(const App& a);         // cargado y corriendo (sin pausa)
+bool modo_auto_deja_pociones(const App& a);  // la auto-poción puede actuar ("pociones:" del programa)
+void modo_auto_intervencion(App& a);         // el jugador caminó o hizo clic en el mundo: pausa
 
 // Auto-poción (autopocion_ui.cpp).
 void procesar_autopocion(App& a);

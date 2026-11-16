@@ -61,6 +61,14 @@ TEST_CASE("normalizar_nombre: sin mayúsculas, tildes ni espacios") {
     CHECK(normalizar_nombre("Auto-Hechizos") == "autohechizos");
 }
 
+TEST_CASE("tecla_normalizada: modificadores en orden fijo") {
+    CHECK(tecla_normalizada("Shift + Ctrl + 1") == "ctrl+shift+1");
+    CHECK(tecla_normalizada("F5") == "f5");
+    CHECK(tecla_normalizada("alt+shift+ctrl+a") == "ctrl+alt+shift+a");
+    CHECK(tecla_normalizada("ctrl+") == "");
+    CHECK(tecla_normalizada("hyper+1") == "");
+}
+
 TEST_CASE("leer_programa: el español y el inglés dan el mismo programa") {
     const Programa es = leer(R"(
 plan "Prueba"

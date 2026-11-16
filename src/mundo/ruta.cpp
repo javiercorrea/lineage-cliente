@@ -70,6 +70,52 @@ std::vector<std::pair<i32, i32>> buscar_ruta(i32 x0, i32 y0, i32 x1, i32 y1, con
     return ruta;
 }
 
+void fijar_destino(Enrutador& r, i32 x, i32 y, i32 cerca) {
+    if (!r.hay_destino) r.recalcular_ms = 0;  // un destino nuevo (no el mismo de cada frame): buscar ya
+    r.hay_destino = true;
+    r.dx = x;
+    r.dy = y;
+    r.cerca = cerca;
+}
+
+void soltar_destino(Enrutador& r) {
+    r.hay_destino = false;
+    r.ruta.clear();
+    r.i = 0;
+    r.sin_camino = false;
+}
+
+int siguiente_paso(Enrutador& r, i32 x, i32 y, const PuedePasar& puede, u64 ahora) {
+    if (!r.hay_destino) return -1;
+    if (distancia(x, y, r.dx, r.dy) <= r.cerca) {
+        r.ruta.clear();
+        r.i = 0;
+        return -1;
+    }
+    if (r.i < r.ruta.size() && r.ruta[r.i] == std::pair<i32, i32>{x, y}) ++r.i;  // ya pisó la que seguía
+    const bool fuera = r.i < r.ruta.size() && distancia(x, y, r.ruta[r.i].first, r.ruta[r.i].second) != 1;
+    const bool acabada = r.i >= r.ruta.size() && !r.sin_camino;  // sin ruta o al final y todavía lejos
+    if (acabada || fuera || ahora >= r.recalcular_ms) {
+        r.ruta = buscar_ruta(x, y, r.dx, r.dy, puede, r.cerca);
+        r.i = 0;
+        r.sin_camino = r.ruta.empty();
+        r.semilla ^= r.semilla << 13;
+        r.semilla ^= r.semilla >> 17;
+        r.semilla ^= r.semilla << 5;
+        r.recalcular_ms = ahora + RECALCULO_MIN_MS + r.semilla % (RECALCULO_MAX_MS - RECALCULO_MIN_MS + 1);
+    }
+    if (r.i >= r.ruta.size()) return -1;
+    const auto [nx, ny] = r.ruta[r.i];
+    for (int d = 0; d < 8; ++d) {
+        if (x + DIR_DX[d] != nx || y + DIR_DY[d] != ny) continue;
+        if (puede(x, y, d)) return d;
+        break;
+    }
+    r.recalcular_ms = 0;  // bloqueado (alguien se paró ahí, se cerró una puerta): buscar de nuevo el próximo frame
+    r.sin_camino = false;
+    return -1;
+}
+
 bool punto_al_azar(i32 x, i32 y, i32 min, i32 max, const std::function<bool(i32, i32)>& pisable, u32& semilla,
                    std::pair<i32, i32>& punto, int intentos) {
     if (max < 1 || min > max) return false;

@@ -53,7 +53,7 @@ void guardar_autopocion(App& a) {
 void procesar_autopocion(App& a) {
     App::AutoPocion& p = a.autopocion;
     if (p.de != nombre_personaje(a)) cargar(a);
-    if (!a.cfg.usar_autopocion) return;
+    if (!a.cfg.usar_autopocion || !modo_auto_deja_pociones(a)) return;
     const EstadoJugador& j = a.mundo.jugador;
     const u64 ahora = a.entrada.ahora_ms;
     if (!p.op.encendida || j.muerto || j.hp <= 0 || j.hp_max <= 0 || ahora < p.proxima_ms) return;

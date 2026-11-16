@@ -148,7 +148,8 @@ void procesar_autobuffs(App& a) {
     if (ab.ultimo >= 0 && a.hechizo_lanzado_ms > ab.c[ab.ultimo].lanzado_ms) ab.ultimo = -1;
     for (CasilleroAuto& c : ab.c)
         if (c.hechizo && !c.efecto_visto && resta_efecto_de_hechizo(a.mundo.jugador, c.hechizo, ahora)) c.efecto_visto = true;
-    if (!ab.encendido || ab.pidiendo >= 0 || ahora < ab.desde_ms) return;
+    // Con el modo auto corriendo, los de la barra esperan: los del programa van en su prioridad.
+    if (!ab.encendido || ab.pidiendo >= 0 || ahora < ab.desde_ms || modo_auto_activo(a)) return;
     // Ocupado no se lanzan hechizos, pero las pociones sí: se elige solo entre ellas.
     CasilleroAuto libres[CASILLEROS_AUTO];
     const bool sin_hechizos = ocupado(a, ahora);

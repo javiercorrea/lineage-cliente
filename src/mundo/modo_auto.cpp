@@ -379,24 +379,28 @@ std::string_view sin_comentario(std::string_view l) {
     return l;
 }
 
-// "Ctrl + 1" -> "ctrl+1". Vacía si no tiene forma de tecla.
+}  // namespace
+
+// "Shift + Ctrl + 1" -> "ctrl+shift+1": minúsculas, sin espacios y los modificadores en orden fijo (ctrl,
+// alt, shift), como los arma el cliente al apretar la tecla. Vacía si no tiene forma de tecla.
 std::string tecla_normalizada(std::string_view s) {
     std::string r;
     for (char c : s)
         if (!std::isspace(static_cast<unsigned char>(c))) r += static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    bool ctrl = false, alt = false, shift = false;
     std::string_view v = r;
-    for (;;) {
-        bool quito = false;
-        for (std::string_view m : {"ctrl+", "alt+", "shift+"})
-            if (v.substr(0, m.size()) == m) {
-                v.remove_prefix(m.size());
-                quito = true;
-            }
-        if (!quito) break;
+    for (size_t mas; (mas = v.find('+')) != std::string_view::npos; v.remove_prefix(mas + 1)) {
+        const std::string_view m = v.substr(0, mas);
+        if (m == "ctrl" || m == "control" || m == "cmd") ctrl = true;
+        else if (m == "alt" || m == "option") alt = true;
+        else if (m == "shift") shift = true;
+        else return {};
     }
-    if (v.empty() || v.find('+') != std::string_view::npos) return {};
-    return r;
+    if (v.empty()) return {};
+    return std::string(ctrl ? "ctrl+" : "") + (alt ? "alt+" : "") + (shift ? "shift+" : "") + std::string(v);
 }
+
+namespace {
 
 // F1–F4, Esc, Enter y Tab (con cualquier modificador) y Shift+F12 son del cliente.
 bool tecla_reservada(const std::string& t) {
