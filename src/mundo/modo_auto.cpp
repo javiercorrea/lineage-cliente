@@ -1,6 +1,7 @@
 #include "mundo/modo_auto.h"
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <initializer_list>
 #include <iterator>
 #include "mundo/autobuffs.h"
@@ -706,6 +707,20 @@ Decision decidir(const Programa& p, EstadoAuto& est, const EntornoAuto& en, u64 
     for (size_t i = desde; i < p.reglas.size(); ++i)
         if (elegible(p, est, en, i, ahora, cual)) return disparar(p, est, i, ahora, cual);
     return mover(p);
+}
+
+const std::pair<i32, i32>* punto_actual(const Movimiento& m, EstadoAuto& est, i32 x, i32 y) {
+    if (m.puntos.empty()) return nullptr;
+    auto actual = [&]() -> const std::pair<i32, i32>* {
+        if (m.una_vez && est.punto >= m.puntos.size()) return nullptr;
+        return &m.puntos[est.punto % m.puntos.size()];
+    };
+    const std::pair<i32, i32>* p = actual();
+    if (p && std::max(std::abs(p->first - x), std::abs(p->second - y)) <= 1) {
+        ++est.punto;  // llegó: al siguiente (uno por llamada, aunque el siguiente también esté cerca)
+        p = actual();
+    }
+    return p;
 }
 
 Decision pulsar_tecla(const Programa& p, EstadoAuto& est, std::string_view tecla, bool& usada) {

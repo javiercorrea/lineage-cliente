@@ -152,6 +152,9 @@ struct EstadoAuto {
 // cumple (de arriba hacia abajo), salvo una sostenida con "hasta": sigue mientras no se cumpla su salida y
 // ninguna de más arriba corra. Sin reglas: MOVER (o NADA si el movimiento es quieto).
 Decision decidir(const Programa& p, EstadoAuto& est, const EntornoAuto& en, u64 ahora);
+// "moverse puntos": el punto al que hay que ir desde (x, y). Al llegar (a 1 celda o menos) pasa al
+// siguiente, en bucle (o, con "una vez", se acaba). nullptr si no hay puntos o ya se acabaron.
+const std::pair<i32, i32>* punto_actual(const Movimiento& m, EstadoAuto& est, i32 x, i32 y);
 // Una tecla (normalizada). Las de control (pausar, terminar, siguiente punto) cambian el estado y devuelven
 // NADA; "regla N" devuelve esa regla. Una tecla que el programa no define: NADA, con `usada` en false.
 Decision pulsar_tecla(const Programa& p, EstadoAuto& est, std::string_view tecla, bool& usada);

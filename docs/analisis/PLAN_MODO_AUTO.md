@@ -236,6 +236,13 @@ si sin jugadores a 30 entonces esperar
    - Los hechizos se validan contra la tabla del cliente al cargar (`validar_programa`); los ítems no,
      porque dependen del inventario.
 2. **Ruta (A\*)** y `recorrer` / `puntos` / `ir a`, con tests sobre un mapa de prueba.
+   **Hecha la parte pura:** `mundo/ruta.{h,cpp}` (`buscar_ruta`, `punto_al_azar`) y `punto_actual` en
+   `modo_auto`, con `tests/test_ruta.cpp` (también con ASan). La búsqueda pide "¿se puede dar este paso?",
+   no "¿se puede pisar esta celda?", porque el servidor valida por los bordes de la celda y la dirección
+   (`L1V1Map.isPassable`). La app la arma con `celda_pasable` y `paso_por_celdas`, que en diagonal exige
+   las dos celdas de al lado (el servidor pide una): más estricto, nunca un paso que el servidor rechace
+   por la esquina. Si el cliente lee algún día los bordes del mapa, se cambia solo esa función. Queda para
+   la fase 3 seguir la ruta en el juego (un paso por vez con `mover_jugador`, recalcular si un paso falla).
 3. **Ejecutar en el juego**: atacar, lanzar con objetivo, usar ítems, los auto-hechizos en los casilleros
    de la barra, las teclas, el botón y la pausa. Prueba en vivo con los cuatro ejemplos.
 4. **`seguir a`**, el grupo (`aliado más herido`, la vida de otros) y el editor (cargar y ver el programa

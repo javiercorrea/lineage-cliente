@@ -85,6 +85,7 @@ add_library(lin_mundo STATIC
     src/mundo/luz.cpp
     src/mundo/modo_auto.cpp
     src/mundo/mundo.cpp
+    src/mundo/ruta.cpp
     src/mundo/inventario.cpp)
 target_link_libraries(lin_mundo PUBLIC lin_core lin_proto lin_recursos)
 
@@ -179,6 +180,7 @@ if(LIN_TESTS)
         tests/test_autobuffs.cpp
         tests/test_autopocion.cpp
         tests/test_modo_auto.cpp
+        tests/test_ruta.cpp
         tests/test_socket.cpp
         src/core/asignaciones.cpp)
     target_link_libraries(lin_tests PRIVATE lin_mundo lin_render doctest)
