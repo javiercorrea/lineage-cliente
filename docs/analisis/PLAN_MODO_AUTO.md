@@ -223,6 +223,18 @@ si sin jugadores a 30 entonces esperar
 1. **Parser y evaluador**, con tests: las dos lenguas dan el mismo `Programa`; cada condición; la
    prioridad y el `hasta`; los auto-hechizos en su lugar de la prioridad; las teclas (incluidas las
    reservadas, que son error). Sin moverse todavía: `moverse quieto` y reglas.
+   **Hecha:** `mundo/modo_auto.{h,cpp}` y `tests/test_modo_auto.cpp` (también con ASan). Lo que quedó
+   decidido al implementarla:
+   - Mientras una regla con `hasta` está sostenida, el evaluador devuelve sus acciones en cada frame
+     (`Decision::continua`): quien las ejecuta (fase 3) las espacia y no relanza un buff cuyo efecto ya
+     está (para que `lanzar "Meditate" hasta ...` no la repita, y `lanzar "Fire Storm" hasta ...` sí).
+   - Una tecla con `hasta` solo la interrumpen las reglas que terminan el programa (las que tienen
+     `terminar`: el escape); las demás esperan a que se cumpla su salida.
+   - `"Nombre" hp` y `objetivo hp` desconocidos (fuera del grupo, sin objetivo): la condición es falsa
+     (con `no`, verdadera).
+   - `sin jugadores` sin distancia: ningún otro personaje a la vista.
+   - Los hechizos se validan contra la tabla del cliente al cargar (`validar_programa`); los ítems no,
+     porque dependen del inventario.
 2. **Ruta (A\*)** y `recorrer` / `puntos` / `ir a`, con tests sobre un mapa de prueba.
 3. **Ejecutar en el juego**: atacar, lanzar con objetivo, usar ítems, los auto-hechizos en los casilleros
    de la barra, las teclas, el botón y la pausa. Prueba en vivo con los cuatro ejemplos.
