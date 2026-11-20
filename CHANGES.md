@@ -7,6 +7,30 @@ con su verificación y lo pendiente, está en [ENTREGABLES.md](ENTREGABLES.md).
 Al hacer una versión nueva: agregar su sección arriba de todo, con los PRs mergeados desde el tag
 anterior (`git log --first-parent <tag anterior>..main`).
 
+## v0.1.4 (2026-11-19)
+
+### Agregado
+- **Windows (x64 y arm64):** el cliente compila con Visual Studio y dibuja con D3D12 (Winsock2, archivos
+  mapeados con `MapViewOfFile` y rutas UTF-16, control en vivo por TCP). La release trae un `.zip` por
+  arquitectura con ícono, versión y el runtime de C++ estático. Probado en Windows 11 arm64 en una VM (#20).
+- **Linux (x64 y arm64):** compila y pasa los tests (Vulkan); los archivos del juego se buscan sin distinguir
+  mayúsculas (`Sprite.pak`, `Map/`, `Music1012.mp3`). Falta probar el juego completo en Linux (#20).
+- **Texto HD** (`texto_hd=1`, Options "HD text"): los glifos se suavizan a la resolución real de la
+  pantalla en vez de agrandar cada píxel de la fuente (#44).
+
+### Cambiado
+- **Shaders:** una sola fuente en HLSL, compilada a SPIR-V, DXIL y MSL. En macOS hace falta
+  `brew install glslang spirv-cross` para compilar (#20).
+- **Zoom con la UI simple:** Ctrl −/+ cambia solo el mapa; el panel, las ventanas y los nombres sobre los
+  personajes quedan del mismo tamaño (#44).
+- **CI:** compila y corre los tests en macOS, Windows y Linux (x64 y arm64), sin avisos de MSVC `/W4` y con
+  los avisos como errores (#20).
+
+### Corregido
+- **Ítems:** el byte de bendición se leía al revés (0 es bendito, 1 normal) y los ítems normales salían
+  en amarillo, como benditos (#44).
+- **CA** por debajo de -128 se mostraba positiva (#44).
+
 ## v0.1.3 (2026-11-18)
 
 ### Agregado
