@@ -1,8 +1,9 @@
 # Formatos de .idx/.pak y archivos cifrados
 
-**Estado:** el formato clásico, el DES de Text y el AES de `list.spz` están implementados (`src/recursos/pak.cpp`,
-`des.cpp`, `aes.cpp`). `_EXT`, `_RMS` y los tiles Remastered están documentados acá para implementarlos cuando
-tengamos un cliente con esos índices para probar.
+**Estado:** implementados el formato clásico, `_EXT` y `_RMS` (con zlib, brotli y el DES de Text), el AES de
+`list.spz` y `Data` en lugar de `Text` (`src/recursos/pak.cpp`, `des.cpp`, `aes.cpp`; pruebas en `tests/test_pak.cpp`).
+Falta `_EXTB$` (dos descripciones distintas, sin un archivo real para decidir) y los tiles Remastered de 48×48 (§4).
+`_EXT` / `_RMS` están probados con índices armados a mano, todavía no con un cliente Remastered real.
 
 **Fuentes:** [srwh1234/L1MapViewer](https://github.com/srwh1234/L1MapViewer) (`Reader/L1IdxReader.cs`,
 `Reader/L1PakReader.cs`, `Algorithm.cs`, `Helper/L1MapHelper.cs`), su fork más nuevo
@@ -20,8 +21,8 @@ Todos los enteros son little-endian.
 |---|---|---|---|
 | `u32` cantidad (sin marca) | clásico | 28 bytes | implementado |
 | `_EXTB$` | extendido de bloques | largo variable | sin implementar |
-| `_EXT` (sin `B$` después) | extendido | 128 bytes | sin implementar (§3) |
-| `_RMS` | Remastered | 276 bytes | sin implementar (§3) |
+| `_EXT` (sin `B$` después) | extendido | 128 bytes | implementado (§3) |
+| `_RMS` | Remastered | 276 bytes | implementado (§3) |
 | `IDXC 02 01` | propio de Lineage Justice (cifrado por bloques) | ? | **no**: ver §6 |
 
 ## 2. Clásico (implementado)
@@ -56,7 +57,7 @@ plano (`cargar_lista_sprites` en `src/app/app.cpp`). El de la instalación de 20
 Los `.xml` no los necesitamos hoy (son la UI del Remastered). Para leerlos basta llamar a
 `descifrar_aes_lineage` desde el byte 4 y cambiar la `X` inicial por `<`.
 
-## 3. `_EXT` y `_RMS` (para implementar)
+## 3. `_EXT` y `_RMS` (implementado)
 
 Las dos fuentes coinciden en la entrada. La de PakViewer (`IdxHandler.cs`, `FromExtEntry`) es la más completa:
 
@@ -84,22 +85,21 @@ Entrada:              u32 offset en el .pak
     `u32 offset`, `i32 tamaño`, `i32 tamaño comprimido`, nombre terminado en 0. Datos en brotli y, si falla,
     zlib sin los 2 bytes de cabecera.
 
-### Plan
+### Implementación
 
-1. `Pak::abrir`: mirar los primeros 4 bytes y elegir el lector. El clásico queda como está.
-2. Guardar por entrada el tamaño guardado y la compresión (hoy `Entrada` tiene offset, nombre y tamaño).
-3. `Pak::buscar` devuelve una vista al archivo mapeado. Con compresión hay que descomprimir a un buffer:
-   cambiar a `bool leer(nombre, std::vector<u8>& salida)` para los paks comprimidos o cachear el resultado,
-   cuidando los llamadores que hoy guardan la vista (sprites y tiles).
-4. Dependencias: zlib y brotli no están en `cmake/dependencias.cmake`. Las dos se pueden traer con
-   FetchContent (brotli: el decodificador, `c/dec` y `c/common`, unos 10 archivos C).
-5. Nombres con subcarpeta (`data/…`): `Recursos::texto` busca por nombre suelto; buscar también con el
-   prefijo, o normalizar quitando la carpeta.
-6. Text vs Data: en los clientes nuevos las tablas, HTML y `list.spz` están en `Data` con prefijo `data/`. Si
-   no hay `Text.idx`, abrir `Data` como texto y aceptar la carpeta en `carpeta_juego_valida`
-   (`src/plataforma/rutas.cpp`), que hoy exige `Text.idx`.
-7. Pruebas: un índice sintético de cada formato con dos entradas (una sin comprimir y una en zlib o
-   brotli), sin datos del juego.
+- `Pak::abrir` mira los primeros bytes y elige el lector; `_EXTB$` e `IDXC` caen en el clásico y se rechazan (la
+  cantidad sale enorme).
+- Cada entrada guarda el tamaño guardado y la compresión. `Pak::buscar` devuelve una vista al `.pak` mapeado si el
+  archivo no va comprimido ni cifrado; si no, lo decodifica (DES, después zlib o brotli) la primera vez y lo guarda
+  en el `Pak`, así la vista sigue valiendo (`decodificados_`; `shortcut:` no se libera, pasar a un LRU si hace falta).
+  Un archivo que no se puede decodificar devuelve vacío y deja una línea en el log.
+- zlib (`v1.3.1`, solo inflate) y brotli (`v1.1.0`, solo el decodificador) se compilan desde sus fuentes en
+  `cmake/dependencias.cmake`.
+- Los nombres con carpeta (`data/list.spz`) se buscan por el nombre solo; ante dos iguales en carpetas distintas
+  gana el último del índice.
+- Sin `Text.idx`, `Recursos` abre `Data` como texto, y `carpeta_juego_valida` acepta `Data.idx/.pak` en su lugar.
+  Text en `_EXT` / `_RMS`: si menos de la mitad de las entradas son creíbles sin descifrar, se descifran con DES
+  (entradas desde el byte 8 y datos antes de descomprimir).
 
 ## 4. Mapas y tiles Remastered (para implementar)
 

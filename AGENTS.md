@@ -270,8 +270,8 @@ Mantener la lógica en el archivo propio; en los archivos compartidos, solo los 
   Seguir la densidad del código que rodea al cambio.
 - **Datos:** sin herencia ni polimorfismo dinámico en el camino caliente. Datos planos, tablas y funciones
   libres.
-- **Dependencias:** solo las de `cmake/dependencias.cmake` (SDL3, stb_image, dr_mp3, doctest, con
-  versiones fijas). No agregar otras sin una razón fuerte.
+- **Dependencias:** solo las de `cmake/dependencias.cmake` (SDL3, stb_image, dr_mp3, doctest y los
+  decodificadores de zlib y brotli para los paks del Remastered, con versiones fijas). No agregar otras sin una razón fuerte.
 - **Portabilidad:** lo específico de una plataforma queda en `plataforma/` y `render/`. Lo que falta para
   otra plataforma se marca con `// MULTIPLATAFORMA: ...`.
 - Antes de realizar algún cambio, lista los archivos que necesitas y leelos en un paso. Has las ediciones para luego ejecutar los tests.

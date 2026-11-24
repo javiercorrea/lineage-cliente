@@ -141,7 +141,7 @@ The game itself is not included: the first time, the client asks for the folder 
 ## Building for development
 
 The build tools are those of [Step by step](#step-by-step) (CMake 3.25+, Ninja, a C++23 compiler; SDL3 3.4.18, stb,
-dr_mp3 and doctest are fetched by CMake, pinned). On **Windows**, build from the Visual Studio developer console
+dr_mp3, doctest and the zlib and brotli decoders are fetched by CMake, pinned). On **Windows**, build from the Visual Studio developer console
 (x64 or arm64) with Ninja (`pip install ninja`): `dxc.exe` from the Windows SDK compiles the shaders.
 
 ```sh

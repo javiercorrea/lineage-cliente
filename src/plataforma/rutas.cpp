@@ -292,13 +292,17 @@ bool guardar_config_en(const std::string& ruta, const Config& c) {
 bool carpeta_juego_valida(const std::string& carpeta) {
     // En Linux el sistema de archivos distingue mayúsculas y la instalación original las mezcla
     // ("Sprite.pak", "map/"): ruta_real las busca sin distinguirlas.
-    for (const char* f : {"Sprite.idx", "Sprite.pak", "Tile.idx", "Tile.pak", "Text.idx", "Text.pak"}) {
-        if (!SDL_GetPathInfo(ruta_real(carpeta + f).c_str(), nullptr)) {
+    auto existe = [&](const char* f) { return SDL_GetPathInfo(ruta_real(carpeta + f).c_str(), nullptr); };
+    for (const char* f : {"Sprite.idx", "Sprite.pak", "Tile.idx", "Tile.pak"}) {
+        if (!existe(f)) {
             LIN_LOG("Carpeta del juego: no se encontró %s%s (%s)", carpeta.c_str(), f, SDL_GetError());
             return false;
         }
     }
-    return true;
+    // Los clientes Remastered no traen Text: sus tablas van en Data.
+    if ((existe("Text.idx") && existe("Text.pak")) || (existe("Data.idx") && existe("Data.pak"))) return true;
+    LIN_LOG("Carpeta del juego: no se encontró %sText.idx/.pak ni %sData.idx/.pak", carpeta.c_str(), carpeta.c_str());
+    return false;
 }
 
 }  // namespace lin

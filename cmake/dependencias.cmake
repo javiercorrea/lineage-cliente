@@ -32,7 +32,33 @@ FetchContent_Declare(dr_libs_src
     GIT_TAG d422edf14ec2b81ac40a7f22b5a7f64276b5fc34
     SOURCE_SUBDIR sin_cmake)
 
-FetchContent_MakeAvailable(SDL3 stb_src doctest_src dr_libs_src)
+# zlib y brotli: solo los decodificadores, para los .pak del Remastered (_EXT / _RMS, ver docs/analisis/FORMATOS_PAK.md).
+# Se compilan sus fuentes: sus CMakeLists piden versiones de CMake que CMake 4 ya no acepta.
+FetchContent_Declare(zlib_src
+    GIT_REPOSITORY https://github.com/madler/zlib.git
+    GIT_TAG v1.3.1
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR sin_cmake)
+FetchContent_Declare(brotli_src
+    GIT_REPOSITORY https://github.com/google/brotli.git
+    GIT_TAG v1.1.0
+    GIT_SHALLOW TRUE
+    SOURCE_SUBDIR sin_cmake)
+
+FetchContent_MakeAvailable(SDL3 stb_src doctest_src dr_libs_src zlib_src brotli_src)
+
+add_library(zlib_inflate STATIC
+    ${zlib_src_SOURCE_DIR}/adler32.c ${zlib_src_SOURCE_DIR}/crc32.c ${zlib_src_SOURCE_DIR}/inffast.c
+    ${zlib_src_SOURCE_DIR}/inflate.c ${zlib_src_SOURCE_DIR}/inftrees.c ${zlib_src_SOURCE_DIR}/zutil.c
+    ${zlib_src_SOURCE_DIR}/uncompr.c)
+target_include_directories(zlib_inflate SYSTEM PUBLIC ${zlib_src_SOURCE_DIR})
+target_compile_definitions(zlib_inflate PRIVATE NO_GZIP)
+set_target_properties(zlib_inflate PROPERTIES C_STANDARD 11)
+
+file(GLOB brotli_fuentes ${brotli_src_SOURCE_DIR}/c/common/*.c ${brotli_src_SOURCE_DIR}/c/dec/*.c)
+add_library(brotli_dec STATIC ${brotli_fuentes})
+target_include_directories(brotli_dec SYSTEM PUBLIC ${brotli_src_SOURCE_DIR}/c/include)
+set_target_properties(brotli_dec PROPERTIES C_STANDARD 11)
 
 # stb no trae CMakeLists: se expone como librería de solo headers
 add_library(stb INTERFACE)

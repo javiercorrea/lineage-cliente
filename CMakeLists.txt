@@ -106,7 +106,7 @@ add_library(lin_recursos STATIC
     src/recursos/hechizos.cpp
     src/recursos/html.cpp
     src/recursos/sonidos.cpp)
-target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb)
+target_link_libraries(lin_recursos PUBLIC lin_core lin_plataforma PRIVATE stb zlib_inflate brotli_dec)
 
 add_library(lin_mundo STATIC
     src/mundo/autobuffs.cpp
@@ -246,6 +246,7 @@ if(LIN_TESTS)
         tests/test_cifrado.cpp
         tests/test_aes.cpp
         tests/test_des.cpp
+        tests/test_pak.cpp
         tests/test_proto.cpp
         tests/test_recursos.cpp
         tests/test_muerte_ogro.cpp
