@@ -97,15 +97,13 @@ los px, lógicos (640×480 en el original).
   hacía que el cuerpo recorriera casi 2 celdas y volviera atrás.
 - **Ancla:** la esquina superior izquierda de la celda; los pies quedan en el centro del rombo
   (calibrado con el explorador).
-- **Gfx sin fila en la tabla (TODO, parche provisional):** `datos/sprite_table.txt` llega al gfx 8682 y la
-  tabla real del cliente va cifrada en `list.spz`, dentro de `Text.pak` (firma `S1354`; `list.spr` son 9
-  bytes en cero). `lin.bin` la lee, pero tiene un protector tipo Themida y no se puede analizar sin
-  ejecutarlo. **Hay que conseguir la tabla real con sus gfx y tiempos** y borrar los parches:
-  - `TablaSprites::copiar_filas_faltantes`: darkelf, death y spearm 75 y 80 copian la fila del nivel 70;
-    sus tiempos y su aspecto pueden no ser los correctos.
-  - `elegir_accion`: las formas sin "quieto" (darkelf) usan el quieto de otra arma.
-  - Siguen sin dibujarse los polymorphs `re *` (8781–8868), y los `young *` y `awake *` tienen archivos
-    pero no fila, por lo que no se animan.
+- **Gfx sin fila en la tabla (resuelto 2026-11-23):** `datos/sprite_table.txt` llega al gfx 8682; la tabla
+  real va en `list.spz` dentro de `Text.pak`, con DES (como todo Text), 5 bytes en claro (`S1354`) y el resto en
+  AES-128-CBC (formato y clave en `docs/analisis/FORMATOS_PAK.md`). El cliente la descifra y la fusiona sola si
+  no hay una lista en texto plano: 13.540 entradas hasta el 13543. Se borró `copiar_filas_faltantes` (los
+  polymorphs 75/80 tienen ahora sus filas reales). La fusión no pisa las filas que `sprite_table.txt` ya
+  tiene, así que sigue el parche de `elegir_accion` para las formas 52–70 sin "quieto". La lista trae filas para
+  los `re *` (8781–8868) y los `young *`/`awake *`; falta comprobar en el juego que se dibujen.
 - **Tabla real en texto plano (2026-11-20):** el cliente de Reborn (TW13032701, 2013) trae `TW13032701.txt`,
   la tabla del cliente en claro: 12.411 gfx hasta el 12413, con acciones, alias y atributos (formato de
   `lista_sprites.cpp`, el mismo que `list.spz` descifrado). Los `.spr` son los mismos que los de esta

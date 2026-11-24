@@ -247,3 +247,17 @@ TEST_CASE("Luz: day_phase splits the day at dawn and dusk and wraps the night ov
     CHECK(late.night);
     CHECK(late.elapsed < midnight.elapsed);  // la noche empieza al anochecer, así que las 23:59 están antes en ella que las 00:00
 }
+
+TEST_CASE("Luz: radio de los efectos fijos del mapa (tabla del cargador de .s32 del original)") {
+    CHECK(luz_efecto_mapa(3442) == 5);  // dot range five ... thirteen
+    CHECK(luz_efecto_mapa(3444) == 9);
+    CHECK(luz_efecto_mapa(3446) == 13);
+    CHECK(luz_efecto_mapa(1886) == 14);  // brazier fire
+    CHECK(luz_efecto_mapa(1893) == 7);   // fire light one
+    CHECK(luz_efecto_mapa(1909) == 5);   // steam
+    CHECK(luz_efecto_mapa(3550) == 11);  // fire big
+    CHECK(luz_efecto_mapa(3552) == 8);   // fire small
+    CHECK(luz_efecto_mapa(1522) == 13);  // street fire
+    CHECK(luz_efecto_mapa(2196) == 0);   // fuera de los rangos
+    CHECK(luz_efecto_mapa(3996) == 0);   // seaplant: se dibuja, no alumbra
+}

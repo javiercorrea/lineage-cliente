@@ -10,6 +10,7 @@
 //   u32 n, n × u32 (juegos de tiles del segmento; sin usar)
 //   u16 n, n portales × {u8 largo, nombre, u8 x en medias celdas, u8 y, u16 mapa destino, i16, i16}
 //     (los dos i16 no se sabe qué son; l1j-client leía los portales con otro formato, mal)
+//   u16 n (bit alto: entradas de 10 bytes), n × {u16 gfx, u16 x, u16 y [, i32]}  (efectos fijos: ver EfectoMapa)
 // El orden de las celdas en el archivo es fila por fila: y exterior, x interior. Esto está
 // verificado contra los mapas del servidor en tests/test_recursos.cpp.
 #pragma once
@@ -76,6 +77,14 @@ struct PortalMapa {
     u16 mapa;   // destino
 };
 
+// Efecto fijo del mapa (capa 8 del .s32): un sprite en bucle (vapor, chispas, algas) o una fuente de luz invisible ("dot range"). El
+// original crea un objeto por entrada al cargar el segmento (0x460580 -> 0x45f840 -> FUN_004cc980) con la luz de luz_efecto_mapa.
+// Las entradas extendidas (bit alto de n, cliente Justice nuevo) traen un i32 más que no se usa.
+struct EfectoMapa {
+    u16 gfx;
+    u16 x, y;  // celda absoluta del juego
+};
+
 struct SegmentoMapa {
     u16 base_x = 0, base_y = 0;                    // coordenadas de la celda (0,0) del segmento
     std::vector<u32> suelo;                        // [y][x][2]
@@ -84,6 +93,7 @@ struct SegmentoMapa {
     std::vector<ObjetoMapa> objetos;
     std::vector<PortalMapa> portales;
     std::vector<TechoMapa> techos;                 // sorted by (y, x); see techos_en
+    std::vector<EfectoMapa> efectos;
     // Celdas con una pieza de sombra (tile translúcido; ver tiles.h), un u64 por fila. Hace falta
     // leer los .til para saberlo: lo calcula el render la primera vez que lo necesita.
     mutable std::vector<u64> sombra;

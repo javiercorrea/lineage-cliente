@@ -156,7 +156,6 @@ public:
     size_t cantidad_gfx() const { return alias_.size(); }
 
 private:
-    void copiar_filas_faltantes();
     u32 gfx_de_tabla_ = 0;
     std::vector<FrameAccion> frames_;
     std::vector<bool> zancada_;

@@ -78,8 +78,8 @@ servidor_elegido=Classic
 ui_simple=0
 fuente_original=1
 texto_hd=1
-juego=/home/fx/work/l1/juego/Lineage Justice/
-lista_sprites=/home/fx/work/l1/juego/spritelist/list.spz
+juego=/path/to/Lineage Justice/
+lista_sprites=/path/to/spritelist/list.spz
 ```
 
 Start with `(cd servidor_classic && nohup setsid ./arrancar.sh > server.log 2>&1 < /dev/null &)`, stop with `servidor_classic/detener.sh`. Log in as fx / fx.

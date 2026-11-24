@@ -1,6 +1,9 @@
 #include <doctest/doctest.h>
+#include "plataforma/lanzador.h"
 #include "plataforma/rutas.h"
+#include <chrono>
 #include <random>
+#include <thread>
 #include <unordered_map>
 #include "core/anillo.h"
 #include "core/arena.h"
@@ -136,7 +139,39 @@ TEST_CASE("settings.ini: servidores, el elegido, migración del formato anterior
     CHECK(d.servidor == 1);
     CHECK(d.servidores[1].nombre == "Otro de prueba");
     CHECK(d.servidores[1].puerto == 2100);
+    CHECK(d.servidores[1].lanzador.empty());
+    CHECK(texto.find("bob|") == std::string::npos);  // sin lanzador no hay campo vacío: queda el formato de 5 campos
     CHECK_FALSE(d.ui_simple);
     CHECK(d.ventana_ancho == 1024);
     CHECK(d.ventana_alto == 768);
 }
+
+TEST_CASE("Lanzador de servidor: el campo 6 se lleva el resto de la línea; el puerto sale de su salida") {
+    Config c = leer_config("servidor=P|127.0.0.1|0|jp363|ana|/opt/l/proxy.sh --a|b\nservidor_elegido=P\n");
+    REQUIRE(c.servidores.size() == 1);
+    CHECK(c.servidores[0].lanzador == "/opt/l/proxy.sh --a|b");
+    CHECK(c.servidores[0].puerto == 0);
+    Config d = leer_config(escribir_config(c));
+    CHECK(d.servidores[0].lanzador == "/opt/l/proxy.sh --a|b");
+    CHECK(puerto_en_salida("starting\nport 25134\n") == 25134);
+    CHECK(puerto_en_salida("pid 123456 port 7001") == 7001);  // los números fuera de rango no cuentan
+    CHECK(puerto_en_salida("no port") == 0);
+    CHECK(puerto_en_salida("listening on 127.0.0.1:7001 (pid 4242)") == 7001);  // no el pid del final
+    CHECK(puerto_en_salida("12:30:45 proxy ready on localhost:7002") == 7002);   // una hora no es un puerto
+    CHECK(puerto_en_salida("report 3 port: 7003 v2") == 7003);
+    CHECK(puerto_marcado("12:30:45 starting") == 0);  // sin forma marcada hay que esperar al final de la salida
+    CHECK(puerto_en_salida("12:30:45 starting\n25134\n") == 25134);
+}
+
+#ifndef _WIN32
+TEST_CASE("Lanzador: da el puerto aunque el proxy en segundo plano deje la salida abierta") {
+    Lanzador l;
+    // El sleep hereda la salida: leer hasta el final esperaría 5 s; con "port N" se corta antes.
+    l.iniciar("sleep 5 & echo port 25134");
+    u16 puerto = 0;
+    bool listo = false;
+    for (int i = 0; i < 200 && !(listo = l.terminado(puerto)); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    CHECK(listo);
+    CHECK(puerto == 25134);
+}
+#endif

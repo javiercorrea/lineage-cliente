@@ -89,7 +89,7 @@ TEST_CASE("Mundo: el paso dura lo que la animación de caminar del sprite") {
     CHECK(m.objetos.col<O_DURMOV>()[s] == 1440);
 }
 
-TEST_CASE("Mundo: un movimiento que llega antes de terminar el paso sigue desde donde se ve") {
+TEST_CASE("Mundo: un paso que llega a mitad del anterior espera en la cola y empieza donde termina el actual") {
     Mundo m;
     Evento ev[] = {poner(7, 10, 10, "Orco")};
     aplicar_eventos(m, ev, 0);
@@ -106,19 +106,109 @@ TEST_CASE("Mundo: un movimiento que llega antes de terminar el paso sigue desde 
     double x0, y0;
     posicion_interpolada(m, s, medio, x0, y0);
     CHECK(x0 == doctest::Approx(10.5));
-    // Llega el siguiente a mitad del paso: la posición en ese instante no salta.
+    // Llega el siguiente a mitad del paso: el exe lo encola (objeto ocupado) y el paso actual no se corta.
     mov.v[0] = 12;
     Evento lote2[] = {mov};
     aplicar_eventos(m, lote2, medio);
+    CHECK(ocupado(m, s, medio));
+    avanzar_colas(m, medio);
     double x1, y1;
     posicion_interpolada(m, s, medio, x1, y1);
     CHECK(x1 == doctest::Approx(x0));
-    posicion_interpolada(m, s, medio + DURACION_PASO_MS, x1, y1);
+    // Unos ms después de terminar el primer paso, el encolado empieza en ese fin, sin pausa.
+    const u64 fin = 1000 + DURACION_PASO_MS;
+    avanzar_colas(m, fin + 5);
+    CHECK(m.objetos.col<O_X>()[s] == 12);
+    CHECK(m.objetos.col<O_TMOV>()[s] == fin);
+    posicion_interpolada(m, s, fin + DURACION_PASO_MS, x1, y1);
     CHECK(x1 == doctest::Approx(12.0));
     // La animación de caminar sigue un cuarto de paso más (el próximo paquete suele llegar tarde).
-    CHECK(caminando(m, s, medio + DURACION_PASO_MS + DURACION_PASO_MS / 8));
-    CHECK_FALSE(moviendose(m, s, medio + DURACION_PASO_MS + DURACION_PASO_MS / 8));
-    CHECK_FALSE(caminando(m, s, medio + DURACION_PASO_MS * 2));
+    CHECK(caminando(m, s, fin + DURACION_PASO_MS + DURACION_PASO_MS / 8));
+    CHECK_FALSE(moviendose(m, s, fin + DURACION_PASO_MS + DURACION_PASO_MS / 8));
+    CHECK_FALSE(caminando(m, s, fin + DURACION_PASO_MS * 2));
+}
+
+TEST_CASE("Mundo: factores de cuadro de 0x4cda90 (haste, brave, wafer, Triple Arrow)") {
+    Mundo m;
+    Evento ev[] = {poner(7, 10, 10, "Orco")};
+    aplicar_eventos(m, ev, 0);
+    const Slot s = m.objetos.buscar(7);
+    auto f = [&](u8 accion) {
+        const Ritmo r = ritmo_accion(m, s, accion);
+        return static_cast<double>(r.num) / r.den;
+    };
+    CHECK(f(1) == doctest::Approx(1.0));
+    m.objetos.col<O_VEL>()[s] = 1;
+    CHECK(f(1) == doctest::Approx(0.75));
+    m.objetos.col<O_VEL>()[s] = 0;
+    m.objetos.col<O_BRAVE>()[s] = 3;
+    CHECK(f(1) == doctest::Approx(0.875));
+    m.objetos.col<O_BRAVE>()[s] = 4;  // Holy Walk: solo pasos
+    CHECK(f(1) == doctest::Approx(1.0));
+    m.objetos.col<O_BRAVE>()[s] = 0;
+    // Triple Arrow: 4 con el efecto, uno menos por ataque, un tercio del largo en la fila de ataque con arco (21).
+    Evento efecto{};
+    efecto.tipo = Ev::EFECTO;
+    efecto.id = 7;
+    efecto.v[EF_GFX] = 4394;
+    Evento lote[] = {efecto};
+    aplicar_eventos(m, lote, 100);
+    CHECK(m.objetos.col<O_RAFAGA>()[s] == 4);
+    CHECK(f(21) == doctest::Approx(1.0 / 3));
+    CHECK(f(1) == doctest::Approx(1.0));
+}
+
+TEST_CASE("Mundo: el factor de una acción se fija al empezar y el daño de un golpe va a la mitad sin la fila del arma") {
+    Mundo m;
+    Evento ev[] = {poner(7, 10, 10, "Orco")};
+    aplicar_eventos(m, ev, 0);
+    const Slot s = m.objetos.buscar(7);
+    auto& o = m.objetos;
+    // Daño de un golpe sin tabla de sprites: accion_con_arma vuelve a la fila de daño sola (2), que también va a la mitad.
+    o.col<O_ESTADO>()[s] = 20;
+    o.col<O_ACCION>()[s] = ACC_DANADO;
+    o.col<O_TACCION>()[s] = 100;
+    o.col<O_DANO_RAPIDO>()[s] = 1;
+    fijar_ritmo(m, s);
+    Ritmo r = ritmo_de(m, s, ACC_DANADO);
+    CHECK(static_cast<double>(r.num) / r.den == doctest::Approx(0.5));
+    // Un haste que llega a mitad de la acción no cambia su factor (la animación no salta); la próxima acción sí lo usa.
+    o.col<O_VEL>()[s] = 1;
+    r = ritmo_de(m, s, accion_con_arma(m, s, ACC_DANADO));  // la acción que se dibuja
+    CHECK(static_cast<double>(r.num) / r.den == doctest::Approx(0.5));
+    o.col<O_DANO_RAPIDO>()[s] = 0;
+    o.col<O_ACCION>()[s] = ACC_ATACAR;
+    fijar_ritmo(m, s);
+    r = ritmo_de(m, s, ACC_ATACAR);
+    CHECK(static_cast<double>(r.num) / r.den == doctest::Approx(0.75));
+    // Brave 5 acorta también el paso.
+    const u16 paso = duracion_paso_objeto(m, s);
+    o.col<O_BRAVE>()[s] = 5;
+    CHECK(duracion_paso_objeto(m, s) == paso * 3 / 8);
+}
+
+TEST_CASE("Mundo: el eco de un ataque propio predicho no vuelve a gastar Triple Arrow") {
+    Mundo m;
+    m.jugador.id = 7;
+    Evento ev[] = {poner(7, 10, 10, "Yo")};
+    aplicar_eventos(m, ev, 0);
+    const Slot s = m.objetos.buscar(7);
+    auto& o = m.objetos;
+    o.col<O_RAFAGA>()[s] = 4;
+    // Predicción (atacar, pantalla_juego.cpp): gasta uno al empezar.
+    o.col<O_ACCION>()[s] = ACC_ATACAR;
+    o.col<O_TACCION>()[s] = 1000;
+    gastar_rafaga(o, s, ACC_ATACAR);
+    CHECK(o.col<O_RAFAGA>()[s] == 3);
+    Evento at{};
+    at.tipo = Ev::ATAQUE;
+    at.id = 7;
+    at.v[AT_ACCION] = ACC_ATACAR;
+    Evento lote[] = {at};
+    aplicar_eventos(m, lote, 1100);  // el eco llega 100 ms después: es el mismo ataque
+    CHECK(o.col<O_RAFAGA>()[s] == 3);
+    aplicar_eventos(m, lote, 3000);  // un ataque nuevo (no predicho) sí gasta
+    CHECK(o.col<O_RAFAGA>()[s] == 2);
 }
 
 TEST_CASE("Mundo: el sprite se dibuja desde la celda de origen y el frame aporta el avance") {

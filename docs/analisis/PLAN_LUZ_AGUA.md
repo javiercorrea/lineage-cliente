@@ -77,6 +77,10 @@ nivel 1 (hasta 4), que no se usa. **No hace falta copiar la tabla.**
 - **Búfer:** 1 byte por celda a media resolución (320×204 en el original), en 0 al empezar cada frame.
 - **Fuentes:** objetos a ±35 × ±15 celdas del jugador, con `luz > 0`. Se corta cuando la suma de radios llega
   a 700.
+- **Luces fijas del mapa [V]:** la capa 8 del `.s32` (`EfectoMapa`, ver `src/recursos/mapa.h`) crea un objeto por
+  entrada al cargar el segmento (`0x460580` -> `0x45f840` -> `FUN_004cc980`) con una luz que depende solo del gfx:
+  `luz_efecto_mapa` (`src/mundo/luz.cpp`). Los "dot range" 3442–3446 (radios 5–13) son fuentes de luz sin imagen;
+  braseros, fuegos, chispas y lava traen su luz; el resto (algas, vapor de 0x7c4 en adelante) solo se dibuja.
 - **Centro:** posición en pantalla de la celda + (24, 6) + el desplazamiento de movimiento.
 - **Combinación:** **máximo**, no suma. Dos antorchas juntas no brillan más que una.
 - **Máscaras:** archivo **`source.lmp`** de `Sprite.pak`: 16 offsets `u32`, 16 pares `(w, h)` `i32` y los datos.

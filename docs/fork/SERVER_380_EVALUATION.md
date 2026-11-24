@@ -70,7 +70,7 @@ emblem id (0 without emblem), so the fork also checks the own rank (0xb = no ple
 - NPC names and dialogs are **not** server text: names come as `$N` ids resolved by `desc-e.tbl`, dialogs
   are client `Text.pak` html. With L1Justice both are English.
 
-## TW 3.81C client as data (`/home/fx/work/l1/ref/tw2013/.../休閒天堂381/`)
+## TW 3.81C client as data (a local `休閒天堂381/` install)
 
 - The loader opens it unchanged: `Sprite*.pak/idx`, `Tile`, encrypted `Text.idx/pak`, `map/` all read; login,
   enter-world and render of the same scene work (screenshot compared with Justice: same terrain, same

@@ -32,9 +32,9 @@ struct Anterior {
 
 Servidor leer_servidor(std::string_view v) {
     Servidor sv;
-    std::string_view campos[5];
-    for (int i = 0; i < 5 && !v.empty(); ++i) {
-        const size_t b = v.find('|');
+    std::string_view campos[6];
+    for (int i = 0; i < 6 && !v.empty(); ++i) {
+        const size_t b = i == 5 ? std::string_view::npos : v.find('|');  // el comando del lanzador se lleva el resto
         campos[i] = v.substr(0, b);
         v = b == std::string_view::npos ? std::string_view{} : v.substr(b + 1);
     }
@@ -43,6 +43,7 @@ Servidor leer_servidor(std::string_view v) {
     if (!campos[2].empty()) sv.puerto = static_cast<u16>(std::atoi(std::string(campos[2]).c_str()));
     if (!campos[3].empty()) sv.protocolo = campos[3];
     sv.usuario = campos[4];
+    sv.lanzador = campos[5];
     return sv;
 }
 
@@ -232,9 +233,10 @@ std::string escribir_config(const Config& c) {
     linea("juego", c.carpeta_juego);
     for (const std::string& e : c.carpetas_extra) linea("juego_extra", e);
     if (!c.carpeta_hd.empty()) linea("hd", c.carpeta_hd);
-    // Servidores: nombre|host|puerto|protocolo|cuenta (la última usada en ese servidor).
+    // Servidores: nombre|host|puerto|protocolo|cuenta (la última usada en ese servidor)[|lanzador].
     for (const Servidor& sv : c.servidores)
-        linea("servidor", sv.nombre + '|' + sv.host + '|' + std::to_string(sv.puerto) + '|' + sv.protocolo + '|' + sv.usuario);
+        linea("servidor", sv.nombre + '|' + sv.host + '|' + std::to_string(sv.puerto) + '|' + sv.protocolo + '|' + sv.usuario +
+                              (sv.lanzador.empty() ? "" : '|' + sv.lanzador));
     linea("servidor_elegido", servidor_elegido(c).nombre);
     linea("zoom", std::to_string(c.zoom));
     linea("escalado", c.escalado);

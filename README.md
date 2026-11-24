@@ -185,7 +185,7 @@ texto_hd=1
 |---|---|
 | `juego` | Main game folder |
 | `juego_extra` | Fallback game folder, repeatable, tried in order |
-| `servidor`, `servidor_elegido` | One line per server: `name\|host\|port\|profile\|last account`; profile is `jp363`, `tw380` or `s3ep1`. The chosen one is `servidor_elegido` |
+| `servidor`, `servidor_elegido` | One line per server: `name\|host\|port\|profile\|last account[\|launcher]`; profile is `jp363`, `tw380` or `s3ep1`. The chosen one is `servidor_elegido`. The optional launcher is a command (rest of the line) for servers reached through a local proxy that their own launcher opens: on login the client runs it and connects to `host` at the port it prints (the number after `port`, else after an address like `127.0.0.1:`, else the last number; 30 s limit). Before another launcher and on exit it runs the previous one again with `stop`; `port` then only names the server. The command runs through the system shell, so only use a `settings.ini` you trust |
 | `ui_simple` | `0` (default): original 2009 UI; `1`: the simple text UI (F2 toggles) |
 | `texto_hd` | `1` (default): HD text pass; `0`: pixel text in the 640x480 frame |
 | `fuente_original` | `1` (default): game's `eng.fnt` for ASCII; `0`: Departure Mono |

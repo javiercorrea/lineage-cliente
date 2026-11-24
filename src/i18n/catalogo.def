@@ -24,6 +24,10 @@ X(LOGIN_ERR_EN_USO, "La cuenta ya está en uso.", "The account is already in use
   "Das Konto wird bereits verwendet.", "Le compte est déjà utilisé.")
 X(LOGIN_ERR_RECHAZO, "El servidor rechazó el ingreso.", "The server rejected the login.",
   "O servidor recusou o acesso.", "Der Server hat die Anmeldung abgelehnt.", "Le serveur a refusé la connexion.")
+X(LOGIN_ERR_LANZADOR, "El lanzador del servidor no dio un puerto (o tardó más de 30 s).",
+  "The server launcher gave no port (or took over 30 s).", "O lançador do servidor não deu uma porta (ou levou mais de 30 s).",
+  "Der Server-Launcher hat keinen Port geliefert (oder brauchte über 30 s).",
+  "Le lanceur du serveur n'a donné aucun port (ou a pris plus de 30 s).")
 X(LOGIN_ERR_PROTOCOLO, "Versión de protocolo desconocida: ", "Unknown protocol version: ",
   "Versão de protocolo desconhecida: ", "Unbekannte Protokollversion: ", "Version de protocole inconnue : ")
 
@@ -176,6 +180,8 @@ X(AJ_PUERTO, "Puerto", "Port", "Porta", "Port", "Port")
 X(AJ_PROTOCOLO, "Protocolo", "Protocol", "Protocolo", "Protokoll", "Protocole")
 X(AJ_CUENTA, "Cuenta (la última usada)", "Account (last used)", "Conta (a última usada)",
   "Konto (zuletzt verwendet)", "Compte (dernier utilisé)")
+X(AJ_LANZADOR, "Lanzador (opcional)", "Launcher (optional)", "Lançador (opcional)", "Launcher (optional)",
+  "Lanceur (optionnel)")
 X(AJ_SERVIDOR_ENTRAR, "Servidor al entrar", "Server on login", "Servidor ao entrar", "Server beim Anmelden",
   "Serveur à la connexion")
 X(AJ_SIN_DATOS, "Todavía no hay datos guardados por personaje.", "No character data saved yet.",

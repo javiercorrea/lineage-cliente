@@ -7,13 +7,19 @@
 
 namespace lin {
 
-// Un servidor del menú del login: "servidor=Nombre|host|puerto|protocolo|cuenta" en settings.ini
+// Un servidor del menú del login: "servidor=Nombre|host|puerto|protocolo|cuenta|lanzador" en settings.ini
 // (la cuenta es la última usada en ese servidor; opcional).
+// lanzador (opcional, el resto de la línea): un comando que se corre antes de conectar, para servidores a los que se
+// llega por un proxy local que abre su propio lanzador. El cliente se conecta a host en el puerto que imprime el comando
+// (ver puerto_en_salida); "puerto" pasa a solo nombrar al servidor (caché de emblemas). Al salir, o antes de correr otro
+// lanzador, se corre otra vez con el argumento "stop". Corre por la shell del sistema: un settings.ini ajeno puede
+// ejecutar cualquier cosa.
 struct Servidor {
     std::string nombre, host;
     u16 puerto = 2000;
     std::string protocolo = "jp363";
     std::string usuario;
+    std::string lanzador;
 };
 
 constexpr int PAGINAS_BARRA_MAX = 9;  // páginas de la barra de atajos

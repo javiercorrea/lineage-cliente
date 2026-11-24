@@ -111,6 +111,21 @@ int radio_de_luz(bool es_jugador, int luz) {
     return std::min(es_jugador ? std::max(luz, 5) : luz, 14);
 }
 
+int luz_efecto_mapa(GfxId g) {
+    static constexpr GfxId RADIO_8[] = {3552, 3737, 3601, 3604, 3607, 3610, 3613, 3616, 3619, 3622, 3625, 3628};
+    static constexpr GfxId RADIO_11[] = {1992, 1993, 2088, 2094, 2097, 2214, 2215, 2217, 2219, 2221, 2223, 3550, 3580, 3736};
+    if (std::find(std::begin(RADIO_8), std::end(RADIO_8), g) != std::end(RADIO_8)) return 8;
+    if (std::find(std::begin(RADIO_11), std::end(RADIO_11), g) != std::end(RADIO_11)) return 11;
+    if (g == 1884 || g == 1885 || g == 1886) return 14;
+    if (g >= 1892 && g <= 1897) return 7;
+    if (g >= 1901 && g <= 1987) return 5;
+    if (g == 2195 || (g >= 2197 && g <= 2202)) return 9;
+    if (g == 2209) return 5;
+    if (g == 149 || g == 1522) return 13;
+    if (g >= 3442 && g <= 3446) return 2 * g - 6879;
+    return 0;
+}
+
 int nivel_con_luz_hechizo(int nivel) { return std::min(nivel + 5, 15); }
 
 int desplazamiento_borracho(int fila, int fase) {

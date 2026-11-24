@@ -62,7 +62,23 @@ void iniciar_login(App& a) {
     }
     a.aviso.clear();
     a.esperando = true;
+    if (!sv.lanzador.empty()) {  // primero el lanzador del servidor, que imprime el puerto de su proxy local
+        a.lanzador.iniciar(sv.lanzador);
+        return;
+    }
     a.red.iniciar(sv.host, sv.puerto, a.op);  // al conectar se envían versión y login
+    a.estado_red_previo = EstadoRed::CONECTANDO;
+}
+
+void atender_lanzador(App& a) {
+    u16 puerto = 0;
+    if (!a.lanzador.terminado(puerto)) return;
+    if (puerto == 0) {
+        a.aviso = tr(Tx::LOGIN_ERR_LANZADOR);
+        a.esperando = false;
+        return;
+    }
+    a.red.iniciar(servidor_elegido(a.cfg).host, puerto, a.op);
     a.estado_red_previo = EstadoRed::CONECTANDO;
 }
 

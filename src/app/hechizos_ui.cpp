@@ -338,6 +338,7 @@ int paso_hechizo_pendiente(App& a, Slot yo, u64 ahora) {
     const u8 accion = h.de_ataque ? ACC_HECHIZO_ATAQUE : ACC_HECHIZO;
     o.col<O_ACCION>()[yo] = accion;
     o.col<O_TACCION>()[yo] = ahora;
+    fijar_ritmo(a.mundo, yo);
     u32 ms = a.sprites.duracion_ms(o.col<O_GFX>()[yo], accion);
     a.fin_ataque = ahora + intervalo_propio(a.mundo.jugador, Intervalo::HECHIZO, ms ? ms : 1000);
     a.fin_demora_hechizo = ahora + h.demora_ms;

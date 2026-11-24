@@ -220,6 +220,173 @@ static void efecto_subida_nivel(Mundo& m, i32 previo, u64 ahora) {
     agregar_efecto(m, ef);
 }
 
+// Largo del paso de un objeto: la animación de caminar (duracion_paso) con los factores de 0x4cda90 para pasos: brave 1 y 4 x3/4,
+// elven wafer (3) x7/8, brave 5 x3/8, tercer acelerador x29/32, y la mitad mientras esperan dos o más pasos en la cola.
+u16 duracion_paso_objeto(const Mundo& m, Slot s) {
+    const TablaObjetos& o = m.objetos;
+    u32 ms = duracion_paso(m, o.col<O_GFX>()[s], o.col<O_ESTADO>()[s], o.col<O_VEL>()[s]);
+    const u8 brave = o.col<O_BRAVE>()[s];
+    if (brave == 1 || brave == 4) ms = ms * 3 / 4;
+    else if (brave == 3) ms = ms * 7 / 8;
+    else if (brave == 5) ms = ms * 3 / 8;  // 0x4cda90 lo aplica a toda acción, también a los pasos
+    if (o.col<O_TERCERA>()[s]) ms = ms * 29 / 32;
+    if (o.col<O_COLA>()[s].n >= 2) ms /= 2;
+    return static_cast<u16>(std::max<u32>(ms, 1));
+}
+
+void gastar_rafaga(TablaObjetos& o, Slot s, i32 accion) {
+    if (accion == ACC_ATACAR && o.col<O_RAFAGA>()[s] > 0) --o.col<O_RAFAGA>()[s];
+}
+
+void mover_objeto(Mundo& m, const Evento& e, u64 ahora);
+void accion_objeto(Mundo& m, const Evento& e, u64 ahora);
+void ataque_objeto(Mundo& m, const Evento& e, u64 ahora);
+
+// El exe encola un paso, una acción o un ataque de un objeto ocupado (S_MoveCharPacket 0x484397, S_AttackPacket 0x487d80...)
+// en vez de cortar la animación en curso. El personaje propio no se encola: sus pasos y ataques se predicen localmente.
+bool encolar(Mundo& m, const Evento& e, u64 ahora) {
+    TablaObjetos& o = m.objetos;
+    const Slot s = o.buscar(e.id);
+    if (s == SIN_SLOT || e.id == m.jugador.id || !ocupado(m, s, ahora)) return false;
+    ColaObjeto& c = o.col<O_COLA>()[s];
+    if (c.n == MAX_COLA) {  // muy atrasado: el más viejo se reproduce ya para hacer lugar
+        const Evento primero = c.e[0];
+        std::copy(c.e + 1, c.e + c.n, c.e);
+        --c.n;
+        switch (primero.tipo) {
+        case Ev::MOVER_OBJETO: mover_objeto(m, primero, ahora); break;
+        case Ev::ACCION_OBJETO: accion_objeto(m, primero, ahora); break;
+        default: ataque_objeto(m, primero, ahora); break;
+        }
+    }
+    Evento& q = o.col<O_COLA>()[s].e[o.col<O_COLA>()[s].n++];
+    q = e;
+    q.s[0] = q.s[1] = {};  // estos eventos no traen texto; la arena del cuadro tampoco sobreviviría a la cola
+    return true;
+}
+
+void mover_objeto(Mundo& m, const Evento& e, u64 ahora) {
+    TablaObjetos& o = m.objetos;
+    Slot s = o.buscar(e.id);
+    if (s == SIN_SLOT) return;
+    // Desde donde se lo ve ahora: si el paso anterior no terminó (el servidor adelantó el
+    // siguiente), se sigue desde la posición interpolada y no hay salto.
+    double x, y;
+    posicion_interpolada(m, s, ahora, x, y);
+    o.col<O_XANT>()[s] = x;
+    o.col<O_YANT>()[s] = y;
+    o.col<O_DURMOV>()[s] = duracion_paso_objeto(m, s);
+    o.col<O_X>()[s] = static_cast<u16>(e.v[0]);
+    o.col<O_Y>()[s] = static_cast<u16>(e.v[1]);
+    o.col<O_DIR>()[s] = static_cast<u8>(e.v[2]);
+    o.col<O_TMOV>()[s] = ahora;
+    o.col<O_ZANCADA>()[s] ^= 1;
+    return;
+}
+
+void accion_objeto(Mundo& m, const Evento& e, u64 ahora) {
+    TablaObjetos& o = m.objetos;
+    Slot s = o.buscar(e.id);
+    if (s == SIN_SLOT || o.col<O_ESTADO>()[s] == ESTADO_MUERTO) return;  // un cadáver no actúa
+    if (e.v[0] == ACC_MORIR) {
+        o.col<O_ESTADO>()[s] = ESTADO_MUERTO;
+        if (e.id == m.jugador.id) m.jugador.muerto = true;
+    }
+    // El propio hechizo ya se mostró al pedirlo (predicción): el eco no lo reinicia.
+    if (e.id == m.jugador.id && o.col<O_ACCION>()[s] == e.v[0] && ahora - o.col<O_TACCION>()[s] < 500) return;
+    o.col<O_ACCION>()[s] = static_cast<u8>(e.v[0]);
+    o.col<O_TACCION>()[s] = ahora;
+    o.col<O_DANO_RAPIDO>()[s] = 0;  // S_DoActionGFX(2) reproduce el daño con su largo completo
+    gastar_rafaga(o, s, e.v[0]);
+    fijar_ritmo(m, s);
+    // Una puerta queda abierta o cerrada (un portón o una torre, dañados): el estado guarda la
+    // última (ver elegir_accion).
+    if (m.sprites && accion_fija(m.sprites->tipo(o.col<O_GFX>()[s]), static_cast<u8>(e.v[0]))) {
+        o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
+        o.col<O_ACCION>()[s] = 0xFF;
+    }
+    return;
+}
+
+void ataque_objeto(Mundo& m, const Evento& e, u64 ahora) {
+    TablaObjetos& o = m.objetos;
+    Slot sa = o.buscar(e.id);
+    u64 inicio = ahora;
+    if (sa != SIN_SLOT && o.col<O_ESTADO>()[sa] != ESTADO_MUERTO) {
+        u8 accion = static_cast<u8>(e.v[AT_ACCION]);
+        // El propio ataque ya se mostró al pedirlo (predicción): no se reinicia con el eco.
+        bool previsto = e.id == m.jugador.id && o.col<O_ACCION>()[sa] == accion && ahora - o.col<O_TACCION>()[sa] < 500;
+        if (previsto) {
+            inicio = o.col<O_TACCION>()[sa];
+        } else {
+            o.col<O_ACCION>()[sa] = accion;
+            o.col<O_TACCION>()[sa] = ahora;
+            o.col<O_DANO_RAPIDO>()[sa] = 0;
+            gastar_rafaga(o, sa, e.v[AT_ACCION]);  // el ataque predicho ya lo gastó (atacar, pantalla_juego.cpp)
+            fijar_ritmo(m, sa);
+            // El atacante gira hacia su objetivo cuando se lo conoce (0x4c64d0 -> 0x4cc6c0); si no, solo el rumbo
+            // del paquete (S_AttackPacketForNpc trae el rumbo del objetivo).
+            o.col<O_DIR>()[sa] = static_cast<u8>(e.v[AT_DIR]);
+            if (const Slot st = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO])); st != SIN_SLOT && st != sa) {
+                const int dx = (o.col<O_X>()[st] > o.col<O_X>()[sa]) - (o.col<O_X>()[st] < o.col<O_X>()[sa]);
+                const int dy = (o.col<O_Y>()[st] > o.col<O_Y>()[sa]) - (o.col<O_Y>()[st] < o.col<O_Y>()[sa]);
+                for (int d = 0; d < 8; ++d)
+                    if ((dx || dy) && DIR_DX[d] == dx && DIR_DY[d] == dy) o.col<O_DIR>()[sa] = static_cast<u8>(d);
+            }
+        }
+    }
+    // El golpe sale en el frame "!" del ataque. Un hechizo o una flecha sale ahí y vuela
+    // hasta el objetivo.
+    u64 impacto = 0;
+    if (sa != SIN_SLOT && m.sprites) {
+        // Solo el ataque (1) y el daño (2) suman la postura del arma (SetAction 0x4c96c0); si falta la fila del arma se usa
+        // la acción sola.
+        GfxId g = o.col<O_GFX>()[sa];
+        const u8 base = static_cast<u8>(e.v[AT_ACCION]);
+        u8 accion = base == ACC_ATACAR || base == ACC_DANADO ? static_cast<u8>(base + o.col<O_ESTADO>()[sa]) : base;
+        if (!m.sprites->accion(g, accion)) accion = base;
+        impacto = m.sprites->ms_hasta_impacto(g, accion);
+        if (impacto != TablaSprites::SIN_IMPACTO) {  // haste, brave... también corren el cuadro "!"
+            const Ritmo rt = ritmo_de(m, sa, accion);
+            impacto = static_cast<u32>(u64{impacto} * rt.num / rt.den);
+        }
+    }
+    const bool con_impacto = impacto != TablaSprites::SIN_IMPACTO;
+    if (!con_impacto) impacto = 0;
+    if (e.v[AT_GFX] > 0) {
+        EfectoVisual ef;
+        ef.gfx = static_cast<GfxId>(e.v[AT_GFX]);
+        ef.dir = static_cast<u8>(e.v[AT_DIR]);
+        ef.x0 = e.v[AT_X0];
+        ef.y0 = e.v[AT_Y0];
+        ef.x1 = e.v[AT_X1];
+        ef.y1 = e.v[AT_Y1];
+        int celdas = std::max(std::abs(e.v[AT_X1] - e.v[AT_X0]), std::abs(e.v[AT_Y1] - e.v[AT_Y0]));
+        ef.vuelo_ms = static_cast<u32>(std::max(1, celdas)) * MS_VUELO_CELDA;
+        ef.inicio = inicio + impacto;
+        if (m.sprites && m.sprites->flash_de_luz(ef.gfx)) ef.flash = 1;
+        agregar_efecto(m, ef);
+        impacto += ef.vuelo_ms;
+    }
+    // Si acertó, el objetivo muestra el daño cuando lo alcanza el golpe.
+    Slot so = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO]));
+    // El estremecimiento ocurre solo en el cuadro "!" del atacante (0x4c8950 -> 0x4cbef0): un ataque sin "!" nunca estremece
+    // (un hechizo o una flecha estremece cuando llega su gráfico).
+    if (e.v[AT_GOLPE] && (con_impacto || e.v[AT_GFX] > 0) && so != SIN_SLOT && o.col<O_ESTADO>()[so] != ESTADO_MUERTO) {
+        // Si el flinch ya se está mostrando (p. ej. predicho por la compensación de ataque, con
+        // su t de impacto todavía en el futuro), no reiniciarlo con el eco del servidor.
+        const u64 t = o.col<O_TACCION>()[so];
+        const bool ya = o.col<O_ACCION>()[so] == ACC_DANADO && (t >= ahora || ahora - t < 300);
+        if (!ya) {
+            o.col<O_ACCION>()[so] = ACC_DANADO;
+            o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
+            o.col<O_DANO_RAPIDO>()[so] = 1;  // [+0x11d]: a la mitad de largo
+            fijar_ritmo(m, so);
+        }
+    }
+    return;
+}
+
 void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
     TablaObjetos& o = m.objetos;
     for (const Evento& e : eventos) {
@@ -274,13 +441,18 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             o.col<O_XANT>()[s] = o.col<O_X>()[s];
             o.col<O_YANT>()[s] = o.col<O_Y>()[s];
             o.col<O_TMOV>()[s] = 0;
-            o.col<O_VEL>()[s] = static_cast<u8>(e.v[OB_VEL]);
+            // El byte de velocidad 8 es el tercer acelerador, no una velocidad de paso (0x4843fb).
+            o.col<O_VEL>()[s] = e.v[OB_VEL] == 8 ? u8{0} : static_cast<u8>(e.v[OB_VEL]);
+            o.col<O_TERCERA>()[s] = e.v[OB_VEL] == 8;
+            o.col<O_BRAVE>()[s] = static_cast<u8>(e.v[OB_FLAGS] >> 4 & 7);  // 0x4cceff
+            o.col<O_COLA>()[s].n = 0;  // un objeto reenviado (teletransporte, aspecto nuevo) descarta lo que esperaba
+            if (!existia) o.col<O_RAFAGA>()[s] = 0;
             o.col<O_CANTIDAD>()[s] = static_cast<u32>(e.v[OB_CANTIDAD]);
             o.col<O_CLAN>()[s] = static_cast<u32>(e.v[OB_CLAN]);
             if (e.id == m.jugador.id) m.jugador.rango_clan = e.v[OB_RANGO];
             o.col<O_LEGAL>()[s] = static_cast<i16>(e.v[OB_LEGAL]);
             o.col<O_DURMOV>()[s] = duracion_paso(m, static_cast<GfxId>(e.v[OB_GFX]), static_cast<u8>(e.v[OB_ESTADO]),
-                                                 static_cast<u8>(e.v[OB_VEL]));
+                                                 o.col<O_VEL>()[s]);
             o.col<O_DIR>()[s] = static_cast<u8>(e.v[OB_DIR]);
             o.col<O_GFX>()[s] = static_cast<u16>(e.v[OB_GFX]);
             o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[OB_ESTADO]);
@@ -293,6 +465,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
                 o.col<O_ACCION>()[s] = accion_previa;
                 o.col<O_TACCION>()[s] = t_previa;
             }
+            fijar_ritmo(m, s);
             if (e.id == m.jugador.id) m.jugador.muerto = e.v[OB_ESTADO] == ESTADO_MUERTO;
             // Tres gfx traen siempre luz 14, mande lo que mande el servidor (4ccf04 del original).
             const i32 gfx_luz = e.v[OB_GFX];
@@ -306,6 +479,8 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             break;
         }
         case Ev::LICOR: {
+            if (const Slot sl = o.buscar(e.id); sl != SIN_SLOT && (e.v[0] == 8 || e.v[0] == 0))
+                o.col<O_TERCERA>()[sl] = e.v[0] == 8;  // 0x4894a7
             if (e.id != m.jugador.id) break;
             EstadoJugador& j = m.jugador;
             if (e.v[0] == 8 || e.v[0] == 0) j.tercera = e.v[0] == 8;
@@ -326,23 +501,9 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             if (s != SIN_SLOT) o.col<O_ROSA>()[s] = e.v[0] > 0 ? ahora + static_cast<u64>(e.v[0]) * 1000 : 0;
             break;
         }
-        case Ev::MOVER_OBJETO: {
-            Slot s = o.buscar(e.id);
-            if (s == SIN_SLOT) break;
-            // Desde donde se lo ve ahora: si el paso anterior no terminó (el servidor adelantó el
-            // siguiente), se sigue desde la posición interpolada y no hay salto.
-            double x, y;
-            posicion_interpolada(m, s, ahora, x, y);
-            o.col<O_XANT>()[s] = x;
-            o.col<O_YANT>()[s] = y;
-            o.col<O_DURMOV>()[s] = duracion_paso(m, o.col<O_GFX>()[s], o.col<O_ESTADO>()[s], o.col<O_VEL>()[s]);
-            o.col<O_X>()[s] = static_cast<u16>(e.v[0]);
-            o.col<O_Y>()[s] = static_cast<u16>(e.v[1]);
-            o.col<O_DIR>()[s] = static_cast<u8>(e.v[2]);
-            o.col<O_TMOV>()[s] = ahora;
-            o.col<O_ZANCADA>()[s] ^= 1;
+        case Ev::MOVER_OBJETO:
+            if (!encolar(m, e, ahora)) mover_objeto(m, e, ahora);
             break;
-        }
         case Ev::QUITAR_OBJETO: o.quitar(e.id); break;
         case Ev::CAMBIAR_DIRECCION: {
             Slot s = o.buscar(e.id);
@@ -375,96 +536,12 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             if (s != SIN_SLOT) o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
             break;
         }
-        case Ev::ACCION_OBJETO: {
-            Slot s = o.buscar(e.id);
-            if (s == SIN_SLOT || o.col<O_ESTADO>()[s] == ESTADO_MUERTO) break;  // un cadáver no actúa
-            if (e.v[0] == ACC_MORIR) {
-                o.col<O_ESTADO>()[s] = ESTADO_MUERTO;
-                if (e.id == m.jugador.id) m.jugador.muerto = true;
-            }
-            // El propio hechizo ya se mostró al pedirlo (predicción): el eco no lo reinicia.
-            if (e.id == m.jugador.id && o.col<O_ACCION>()[s] == e.v[0] && ahora - o.col<O_TACCION>()[s] < 500) break;
-            o.col<O_ACCION>()[s] = static_cast<u8>(e.v[0]);
-            o.col<O_TACCION>()[s] = ahora;
-            o.col<O_DANO_RAPIDO>()[s] = 0;  // S_DoActionGFX(2) plays the damage at its full length
-            // Una puerta queda abierta o cerrada (un portón o una torre, dañados): el estado guarda la
-            // última (ver elegir_accion).
-            if (m.sprites && accion_fija(m.sprites->tipo(o.col<O_GFX>()[s]), static_cast<u8>(e.v[0]))) {
-                o.col<O_ESTADO>()[s] = static_cast<u8>(e.v[0]);
-                o.col<O_ACCION>()[s] = 0xFF;
-            }
+        case Ev::ACCION_OBJETO:
+            if (!encolar(m, e, ahora)) accion_objeto(m, e, ahora);
             break;
-        }
-        case Ev::ATAQUE: {
-            Slot sa = o.buscar(e.id);
-            u64 inicio = ahora;
-            if (sa != SIN_SLOT && o.col<O_ESTADO>()[sa] != ESTADO_MUERTO) {
-                u8 accion = static_cast<u8>(e.v[AT_ACCION]);
-                // El propio ataque ya se mostró al pedirlo (predicción): no se reinicia con el eco.
-                bool previsto = e.id == m.jugador.id && o.col<O_ACCION>()[sa] == accion && ahora - o.col<O_TACCION>()[sa] < 500;
-                if (previsto) {
-                    inicio = o.col<O_TACCION>()[sa];
-                } else {
-                    o.col<O_ACCION>()[sa] = accion;
-                    o.col<O_TACCION>()[sa] = ahora;
-                    o.col<O_DANO_RAPIDO>()[sa] = 0;
-                    // El atacante gira hacia su objetivo cuando se lo conoce (0x4c64d0 -> 0x4cc6c0); si no, solo el rumbo
-                    // del paquete (S_AttackPacketForNpc trae el rumbo del objetivo).
-                    o.col<O_DIR>()[sa] = static_cast<u8>(e.v[AT_DIR]);
-                    if (const Slot st = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO])); st != SIN_SLOT && st != sa) {
-                        const int dx = (o.col<O_X>()[st] > o.col<O_X>()[sa]) - (o.col<O_X>()[st] < o.col<O_X>()[sa]);
-                        const int dy = (o.col<O_Y>()[st] > o.col<O_Y>()[sa]) - (o.col<O_Y>()[st] < o.col<O_Y>()[sa]);
-                        for (int d = 0; d < 8; ++d)
-                            if ((dx || dy) && DIR_DX[d] == dx && DIR_DY[d] == dy) o.col<O_DIR>()[sa] = static_cast<u8>(d);
-                    }
-                }
-            }
-            // El golpe sale en el frame "!" del ataque. Un hechizo o una flecha sale ahí y vuela
-            // hasta el objetivo.
-            u64 impacto = 0;
-            if (sa != SIN_SLOT && m.sprites) {
-                // Solo el ataque (1) y el daño (2) suman la postura del arma (SetAction 0x4c96c0); si falta la fila del arma se usa
-                // la acción sola.
-                GfxId g = o.col<O_GFX>()[sa];
-                const u8 base = static_cast<u8>(e.v[AT_ACCION]);
-                u8 accion = base == ACC_ATACAR || base == ACC_DANADO ? static_cast<u8>(base + o.col<O_ESTADO>()[sa]) : base;
-                if (!m.sprites->accion(g, accion)) accion = base;
-                impacto = m.sprites->ms_hasta_impacto(g, accion);
-            }
-            const bool con_impacto = impacto != TablaSprites::SIN_IMPACTO;
-            if (!con_impacto) impacto = 0;
-            if (e.v[AT_GFX] > 0) {
-                EfectoVisual ef;
-                ef.gfx = static_cast<GfxId>(e.v[AT_GFX]);
-                ef.dir = static_cast<u8>(e.v[AT_DIR]);
-                ef.x0 = e.v[AT_X0];
-                ef.y0 = e.v[AT_Y0];
-                ef.x1 = e.v[AT_X1];
-                ef.y1 = e.v[AT_Y1];
-                int celdas = std::max(std::abs(e.v[AT_X1] - e.v[AT_X0]), std::abs(e.v[AT_Y1] - e.v[AT_Y0]));
-                ef.vuelo_ms = static_cast<u32>(std::max(1, celdas)) * MS_VUELO_CELDA;
-                ef.inicio = inicio + impacto;
-                if (m.sprites && m.sprites->flash_de_luz(ef.gfx)) ef.flash = 1;
-                agregar_efecto(m, ef);
-                impacto += ef.vuelo_ms;
-            }
-            // Si acertó, el objetivo muestra el daño cuando lo alcanza el golpe.
-            Slot so = o.buscar(static_cast<ObjId>(e.v[AT_OBJETIVO]));
-            // El estremecimiento ocurre solo en el cuadro "!" del atacante (0x4c8950 -> 0x4cbef0): un ataque sin "!" nunca estremece
-            // (un hechizo o una flecha estremece cuando llega su gráfico).
-            if (e.v[AT_GOLPE] && (con_impacto || e.v[AT_GFX] > 0) && so != SIN_SLOT && o.col<O_ESTADO>()[so] != ESTADO_MUERTO) {
-                // Si el flinch ya se está mostrando (p. ej. predicho por la compensación de ataque, con
-                // su t de impacto todavía en el futuro), no reiniciarlo con el eco del servidor.
-                const u64 t = o.col<O_TACCION>()[so];
-                const bool ya = o.col<O_ACCION>()[so] == ACC_DANADO && (t >= ahora || ahora - t < 300);
-                if (!ya) {
-                    o.col<O_ACCION>()[so] = ACC_DANADO;
-                    o.col<O_TACCION>()[so] = std::max(ahora, inicio + impacto);
-                    o.col<O_DANO_RAPIDO>()[so] = 1;  // [+0x11d]: half length
-                }
-            }
+        case Ev::ATAQUE:
+            if (!encolar(m, e, ahora)) ataque_objeto(m, e, ahora);
             break;
-        }
         case Ev::HECHIZOS:
             for (int i = 0; i < FILAS_HECHIZOS; ++i) {
                 u8 bits = static_cast<u8>(static_cast<u32>(e.v[HZ_FILAS + i / 4]) >> (8 * (i % 4)));
@@ -481,6 +558,9 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             ef.inicio = ahora;
             if (gfx_con_flash(ef.gfx)) ef.flash = 2;
             if (ef.gfx > 0 && !e.v[EF_AREA]) agregar_efecto(m, ef);  // los de área los reparte la app
+            // Triple Arrow (4394) y Foe Slayer (7020) sobre un objeto: sus próximos ataques duran un tercio (0x48babd).
+            if (ef.gfx == 0x112a || ef.gfx == 0x1b6c)
+                if (const Slot sr = o.buscar(e.id); sr != SIN_SLOT) o.col<O_RAFAGA>()[sr] = ef.gfx == 0x112a ? 4 : 3;
             if (ef.gfx > 0 && !e.v[EF_AREA] && e.id == m.jugador.id && m.jugador.id != 0) {
                 // S_SkillSound propio: algunos gráficos inician una casilla de buff que dura el tiempo de la tabla (exe 0x48a5c0).
                 if (ef.gfx == 0xbe) {
@@ -525,6 +605,7 @@ void aplicar_eventos(Mundo& m, std::span<const Evento> eventos, u64 ahora) {
             // Los pasos de los demás: rápido o lento (los de brave llegan antes y se encadenan solos).
             Slot s = o.buscar(e.id);
             if (s != SIN_SLOT && e.v[VE_CLASE] == VE_HASTE) o.col<O_VEL>()[s] = tipo <= 2 ? tipo : 0;
+            if (s != SIN_SLOT && e.v[VE_CLASE] == VE_BRAVE) o.col<O_BRAVE>()[s] = tipo;
             break;
         }
         case Ev::ICONO_EFECTO: {
@@ -827,6 +908,103 @@ u16 duracion_paso(const Mundo& m, GfxId gfx, u8 arma, u8 velocidad) {
     if (velocidad == 1) ms = ms * 3 / 4;
     else if (velocidad == 2) ms = ms * 4 / 3;
     return static_cast<u16>(ms < 0xFFFF ? ms : 0xFFFF);
+}
+
+u8 accion_con_arma(const Mundo& m, Slot s, u8 base) {
+    const TablaObjetos& o = m.objetos;
+    const u8 estado = o.col<O_ESTADO>()[s];
+    if ((base != ACC_ATACAR && base != ACC_DANADO) || estado == ESTADO_MUERTO) return base;
+    const u8 a = static_cast<u8>(base + estado);
+    return !m.sprites || m.sprites->accion(o.col<O_GFX>()[s], a) ? a : base;
+}
+
+Ritmo ritmo_accion(const Mundo& m, Slot s, u8 accion) {
+    const TablaObjetos& o = m.objetos;
+    Ritmo r;
+    auto por = [&r](u32 num, u32 den) { r.num *= num, r.den *= den; };
+    if (o.col<O_COLA>()[s].n >= 2) por(1, 2);  // recuperando una cola
+    // [+0x11d]: el daño de un golpe va a la mitad, con la fila del arma o, si falta, la de daño sola (accion_con_arma).
+    if (o.col<O_DANO_RAPIDO>()[s] && o.col<O_ACCION>()[s] == ACC_DANADO &&
+        (accion == static_cast<u8>(o.col<O_ESTADO>()[s] + ACC_DANADO) || accion == ACC_DANADO))
+        por(1, 2);
+    // Ataques rápidos de Triple Arrow / Foe Slayer: las filas de ataque de espada, hacha, arco, lanza y espada a dos manos.
+    if (o.col<O_RAFAGA>()[s] > 0 && (accion == 5 || accion == 12 || accion == 21 || accion == 25 || accion == 51)) por(1, 3);
+    if (o.col<O_TERCERA>()[s]) por(29, 32);
+    if (o.col<O_VEL>()[s] == 1) por(3, 4);
+    else if (o.col<O_VEL>()[s] == 2) por(2, 1);
+    // Brave: poción (1) x3/4, elven wafer (3) x7/8, blood lust (6) x3/4 en acciones; Holy Walk (4) solo acelera los pasos.
+    switch (o.col<O_BRAVE>()[s]) {
+    case 1: case 6: por(3, 4); break;
+    case 3: por(7, 8); break;
+    case 5: por(3, 8); break;
+    default: break;
+    }
+    return r;
+}
+
+void fijar_ritmo(Mundo& m, Slot s) {
+    TablaObjetos& o = m.objetos;
+    const u8 base = o.col<O_ACCION>()[s];
+    if (base == 0xFF) {
+        o.col<O_RITMO>()[s] = 0;
+        return;
+    }
+    const Ritmo r = ritmo_accion(m, s, accion_con_arma(m, s, base));
+    o.col<O_RITMO>()[s] = (r.num << 16) | (r.den & 0xFFFF);  // num <= 29·2·7 = 406, den <= 2·2·3·32·4·8 = 12288: entran en 16 bits
+}
+
+Ritmo ritmo_de(const Mundo& m, Slot s, u8 accion) {
+    const TablaObjetos& o = m.objetos;
+    const u32 fijo = o.col<O_RITMO>()[s];
+    const u8 base = o.col<O_ACCION>()[s];
+    if (fijo && base != 0xFF && accion == accion_con_arma(m, s, base)) return {fijo >> 16, fijo & 0xFFFF};
+    return ritmo_accion(m, s, accion);
+}
+
+namespace {
+// Fin de la acción puntual en curso (0 si no hay o no se sabe), con sus factores de cuadro.
+u64 fin_accion(const Mundo& m, Slot s) {
+    const TablaObjetos& o = m.objetos;
+    const u8 base = o.col<O_ACCION>()[s];
+    if (base == 0xFF || !m.sprites || o.col<O_ESTADO>()[s] == ESTADO_MUERTO) return 0;
+    const u8 accion = accion_con_arma(m, s, base);
+    const RangoAccion* r = m.sprites->accion(o.col<O_GFX>()[s], accion);
+    if (!r || r->velocidad == 0) return 0;
+    const Ritmo rt = ritmo_de(m, s, accion);
+    return o.col<O_TACCION>()[s] + u64{m.sprites->ticks(*r)} * 1000 * rt.num / (u64{r->velocidad} * rt.den);
+}
+}  // namespace
+
+bool ocupado(const Mundo& m, Slot s, u64 ahora) {
+    const TablaObjetos& o = m.objetos;
+    if (o.col<O_COLA>()[s].n > 0 || moviendose(m, s, ahora)) return true;
+    // Una acción que todavía no empezó (un estremecimiento esperando el "!" del atacante) no ocupa al objeto.
+    return o.col<O_TACCION>()[s] <= ahora && ahora < fin_accion(m, s);
+}
+
+void avanzar_colas(Mundo& m, u64 ahora) {
+    TablaObjetos& o = m.objetos;
+    for (Slot s = 0; s < o.tamano(); ++s) {
+        while (o.col<O_COLA>()[s].n > 0) {
+            // La siguiente empieza donde terminó la actual, así los pasos se encadenan sin pausa.
+            const u64 fin_paso = o.col<O_TMOV>()[s] + o.col<O_DURMOV>()[s];
+            const u64 fa = o.col<O_TACCION>()[s] <= ahora ? fin_accion(m, s) : 0;
+            const u64 fin = std::max(fin_paso, fa);
+            if (fin > ahora) break;
+            ColaObjeto& c = o.col<O_COLA>()[s];
+            const Evento e = c.e[0];
+            std::copy(c.e + 1, c.e + c.n, c.e);
+            --c.n;
+            const u64 t = std::max(fin, ahora > 1000 ? ahora - 1000 : u64{0});
+            const ObjId id = o.ids()[s];
+            switch (e.tipo) {
+            case Ev::MOVER_OBJETO: mover_objeto(m, e, t); break;
+            case Ev::ACCION_OBJETO: accion_objeto(m, e, t); break;
+            default: ataque_objeto(m, e, t); break;
+            }
+            if (o.buscar(id) != s) break;  // los manejadores nunca quitan objetos, pero por las dudas
+        }
+    }
 }
 
 bool caminando(const Mundo& m, Slot s, u64 ahora) {

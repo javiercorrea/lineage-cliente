@@ -145,7 +145,7 @@ struct AccionVisible {
     u64 inicio = 0;
     bool puntual = false;  // al terminar se vuelve a caminar/quieto
     bool bucle = true;
-    u32 ritmo_num = 1, ritmo_den = 1;  // escala del tiempo transcurrido (los largos de cuadro se dividen por num / den)
+    u8 accion = 0;  // acción que se dibuja (con el arma), para sus factores de cuadro (ritmo_de)
 };
 AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
     const TablaObjetos& o = a.mundo.objetos;
@@ -181,8 +181,6 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
         // Solo el ataque y el daño suman la postura del arma; todo otro id de acción es absoluto (SetAction 0x4c96c0): un hechizo
         // (18, 19) o un gesto no debe volverse la fila de otra arma.
         if (base != ACC_ATACAR && base != ACC_DANADO) arma = 0;
-        // Un daño por el golpe de un paquete de ataque se reproduce a la mitad de largo ([+0x11d], 0x4cda90).
-        if (base == ACC_DANADO && o.col<O_DANO_RAPIDO>()[s]) v.ritmo_num *= 2;
     } else if (caminando(a.mundo, s, ahora)) {
         base = ACC_CAMINAR;
         v.inicio = o.col<O_TMOV>()[s];
@@ -195,6 +193,7 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
         base = ACC_QUIETO;
     }
     v.rango = a.sprites.accion(gfx, static_cast<u8>(base + arma));
+    v.accion = v.rango ? static_cast<u8>(base + arma) : base;
     // El byte de estado de un monstruo (S_NPCPack) es la acción en la que reposa: el exe la guarda como acción actual
     // y, cuando estado + 3 (quieto) no tiene tabla, sigue mostrando la primera entrada de esa acción (la pose oculta, p. ej.
     // Antharas 20, no muerto hundido 13). Sin esto un monstruo hundido dibujaba la pose quieta de pie.
@@ -207,8 +206,8 @@ AccionVisible elegir_accion(const App& a, Slot s, u64 ahora) {
         }
     }
     if (!v.rango) v.rango = a.sprites.accion(gfx, base);
-    // TODO(PARCHE PROVISIONAL): la tabla que tenemos no trae el "quieto" de estas formas; la real (list.spz,
-    // ver TablaSprites::copiar_filas_faltantes) diría qué cuadros y tiempos usar.
+    // TODO(PARCHE PROVISIONAL): sprite_table.txt no trae el "quieto" de estas formas. El list.spz de Text.pak sí
+    // (las 75/80 ya lo usan), pero no reemplaza las filas que sprite_table.txt ya tiene (ver fusionar_lista).
     // Un personaje transformado en una forma sin "quieto" (los dark elf 52-80): el quieto de otra arma y,
     // si no hay, parado en el primer cuadro de caminar, no dando pasos en el lugar. Los objetos sin
     // quieto (los braseros, por ejemplo) sí se animan con caminar.
@@ -813,14 +812,12 @@ void dibujar_personajes(App& a, u64 ahora, double ox, double oy) {
         if (r) {
             bool termino = false;
             bool camina = !acc.puntual && acc.bucle && caminando(a.mundo, s, ahora);
-            // Modificadores del largo de cuadro de 0x4cda90 (no en la caminata, que sigue el tiempo del paso): haste x3/4, slow x2, y el
-            // daño de media duración de un golpe de ataque.
+            // Factores de largo de cuadro de 0x4cda90 (no al caminar, que sigue el tiempo del paso): haste, lentitud, brave, wafer,
+            // tercer acelerador, Triple Arrow, el daño a la mitad de un golpe y la recuperación de una cola (ritmo_de).
             u64 transcurrido = ahora - acc.inicio;
             if (!camina) {
-                u32 num = acc.ritmo_num, den = acc.ritmo_den;
-                if (o.col<O_VEL>()[s] == 1) num *= 4, den *= 3;
-                else if (o.col<O_VEL>()[s] == 2) den *= 2;
-                transcurrido = transcurrido * num / den;
+                const Ritmo rt = ritmo_de(a.mundo, s, acc.accion);
+                transcurrido = transcurrido * rt.den / rt.num;
             }
             const FrameAccion* f =
                 &a.sprites.frame_en(*r, transcurrido, termino, camina ? o.col<O_DURMOV>()[s] : 0, acc.bucle);
@@ -1186,6 +1183,32 @@ void dibujar_efectos(App& a, u64 ahora, double ox, double oy) {
     }
 }
 
+// Efectos fijos del mapa (capa 8 del .s32, SegmentoMapa::efectos): el sprite en bucle en su celda, ordenado como un personaje parado
+// ahí, y su luz (luz_efecto_mapa) desde el centro del rombo, como la de un objeto. Va después de dibujar_personajes, que vacía a.luces.
+void dibujar_efectos_mapa(App& a, u64 ahora, double ox, double oy) {
+    Graficos& g = *a.g;
+    const Vista vi = vista_mundo(a);
+    for (const SegmentoMapa& seg : a.mundo.segmentos)
+        for (const EfectoMapa& e : seg.efectos) {
+            const float px = static_cast<float>(mundo_px(e.x, e.y) + ox), py = static_cast<float>(mundo_py(e.x, e.y) + oy);
+            auto fuera = [&](float mx, float my) { return px < -mx || px > vi.w + mx || py < -my || py > vi.h + my; };
+            if (const int radio = luz_efecto_mapa(e.gfx); radio > 0 && !fuera(360, 200)) a.luces.push_back({radio, px + 24, py + 12});
+            if (fuera(150, 150)) continue;
+            const RangoAccion* r = a.sprites.accion(e.gfx, ACC_QUIETO);
+            if (!r) r = a.sprites.accion(e.gfx, ACC_CAMINAR);
+            if (!r) continue;
+            bool termino = false;
+            const FrameAccion& f = a.sprites.frame_en(*r, ahora, termino, 0, true);
+            u32 color = BLANCO;
+            Mezcla mezcla = Mezcla::NORMAL;
+            if (!preparar_mezcla(a.sprites, e.gfx, color, mezcla)) continue;
+            const RegionAtlas& rg = g.frame_sprite(a.sprites.gfx_archivos(e.gfx), f.sub, f.frame);
+            const u32 prof = a.cfg.ui_simple ? profundidad(static_cast<float>(mundo_py(e.x, e.y)) + 12.0f, ORDEN_PERSONAJE, 6)
+                                             : clave_celda(px, py, CAPA_CUERPO_ORIGINAL, 6);
+            g.gpu().dibujar_en(rg, px, py, clave_orden(CAPA_MUNDO, prof), color, mezcla);
+        }
+}
+
 }  // namespace
 
 // El corcho de pesca propio (pesca_ui.cpp): gfx 6299, la picada 6385, en bucle sobre su celda.
@@ -1248,12 +1271,20 @@ void atacar(App& a, Slot yo, Slot obj, u64 ahora) {
     if (a.cfg.compensar_ataque && !sobrecargado(a.mundo.jugador.peso) && !pvp_seguro) {
         o.col<O_ACCION>()[yo] = ACC_ATACAR;
         o.col<O_TACCION>()[yo] = ahora;
+        o.col<O_DANO_RAPIDO>()[yo] = 0;
+        // El SetAction(1) del original pasa acá: el eco ya no gasta (mundo.cpp, ataque_objeto con `previsto`).
+        gastar_rafaga(o, yo, ACC_ATACAR);
+        fijar_ritmo(a.mundo, yo);
         if (o.col<O_ESTADO>()[obj] != ESTADO_MUERTO) {
-            u64 impacto = a.sprites.ms_hasta_impacto(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
-            if (impacto == TablaSprites::SIN_IMPACTO) impacto = a.sprites.ms_hasta_impacto(gfx, ACC_ATACAR);
+            const u8 acc_ataque = accion_con_arma(a.mundo, yo, ACC_ATACAR);
+            u64 impacto = a.sprites.ms_hasta_impacto(gfx, acc_ataque);
             if (impacto == TablaSprites::SIN_IMPACTO) impacto = 0;
+            const Ritmo rt = ritmo_de(a.mundo, yo, acc_ataque);  // el "!" se corre con haste, brave... como en el eco
+            impacto = impacto * rt.num / rt.den;
             o.col<O_ACCION>()[obj] = ACC_DANADO;
             o.col<O_TACCION>()[obj] = ahora + impacto;
+            o.col<O_DANO_RAPIDO>()[obj] = 1;
+            fijar_ritmo(a.mundo, obj);
         }
     }
     u32 ms = a.sprites.duracion_ms(gfx, static_cast<u8>(ACC_ATACAR + o.col<O_ESTADO>()[yo]));
@@ -2637,6 +2668,7 @@ void frame_juego(App& a) {
     dibujar_suelo(a, cam_x, cam_y, ox, oy);
     dibujar_objetos_mapa(a, cam_x, cam_y, ox, oy);
     dibujar_personajes(a, ahora, ox, oy);
+    dibujar_efectos_mapa(a, ahora, ox, oy);
     dibujar_efectos(a, ahora, ox, oy);
     dibujar_pesca(a, ahora, ox, oy);
     aplicar_luz(a, ahora);

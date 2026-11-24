@@ -13,7 +13,7 @@ TEST_CASE("ajustes: las etiquetas caben en 210 px en los cinco idiomas") {
                             Tx::AJ_TEXTO_DANO, Tx::AJ_BARRA_PJ, Tx::AJ_UI_SIMPLE, Tx::AJ_OPACIDAD, Tx::AJ_LOGO,
                             Tx::AJ_VENTANA_ANCHO, Tx::AJ_VENTANA_ALTO, Tx::AJ_ZOOM, Tx::AJ_IDIOMA, Tx::AJ_MUSICA,
                             Tx::AJ_EFECTOS, Tx::AJ_SERVIDOR_EDITAR, Tx::AJ_NOMBRE, Tx::AJ_HOST, Tx::AJ_PUERTO,
-                            Tx::AJ_PROTOCOLO, Tx::AJ_CUENTA, Tx::AJ_SERVIDOR_ENTRAR, Tx::AJ_PERSONAJE, Tx::AJ_TEXTO_HD,
+                            Tx::AJ_PROTOCOLO, Tx::AJ_CUENTA, Tx::AJ_LANZADOR, Tx::AJ_SERVIDOR_ENTRAR, Tx::AJ_PERSONAJE, Tx::AJ_TEXTO_HD,
                             Tx::AJ_GLOBOS, Tx::AJ_LISTA_SPRITES, Tx::AJ_PANTALLA_COMPLETA,
                             Tx::AJ_CARPETAS_EXTRA, Tx::AJ_PACK_HD, Tx::AJ_FUENTE_ORIGINAL, Tx::AJ_ESCALADO, Tx::AJ_VISTA,
                             Tx::AJ_ALPHA_ORIG};

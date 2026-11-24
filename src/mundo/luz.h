@@ -48,6 +48,10 @@ int dia_del_anio(i64 segundos);
 // y el tope es 14, la última máscara de source.lmp con datos.
 int radio_de_luz(bool es_jugador, int luz);
 
+// Radio de luz de un efecto fijo del mapa (capa 8 del .s32) según su gfx; 0 = no alumbra. Tabla del cargador de segmentos
+// del original (0x460580, con las listas de 0x6de0ac y 0x6de0c4); los "dot range" 3442-3446 dan 5, 7, 9, 11 y 13.
+int luz_efecto_mapa(GfxId gfx);
+
 // Hechizo LIGHT: suma 5 al nivel, con tope 15.
 int nivel_con_luz_hechizo(int nivel);
 

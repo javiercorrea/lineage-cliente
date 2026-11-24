@@ -148,7 +148,8 @@ std::string volcar(EstadoAjustes& f) {
     c.volumen_musica = n;
     if (!entero(f.efectos, 0, 100, n)) return tr(Tx::AJ_ERR_EFECTOS);
     c.volumen_efectos = n;
-    if (!entero(f.puerto, 1, 65535, n)) return tr(Tx::AJ_ERR_PUERTO);
+    // Con lanzador el puerto solo nombra al servidor: ahí vale 0.
+    if (!entero(f.puerto, c.servidores[f.sv].lanzador.empty() ? 1 : 0, 65535, n)) return tr(Tx::AJ_ERR_PUERTO);
     c.servidores[f.sv].puerto = static_cast<u16>(n);
     return "";
 }
@@ -156,7 +157,8 @@ std::string volcar(EstadoAjustes& f) {
 // Guarda el puerto del servidor que se editaba y pasa a otro.
 void cambiar_servidor(EstadoAjustes& f, size_t nuevo) {
     int n = 0;
-    if (entero(f.puerto, 1, 65535, n)) f.cfg.servidores[f.sv].puerto = static_cast<u16>(n);
+    // El mismo mínimo que volcar: un servidor sin lanzador no se queda con puerto 0 al cambiar a otro antes de guardar.
+    if (entero(f.puerto, f.cfg.servidores[f.sv].lanzador.empty() ? 1 : 0, 65535, n)) f.cfg.servidores[f.sv].puerto = static_cast<u16>(n);
     f.sv = nuevo;
     f.puerto = std::to_string(f.cfg.servidores[f.sv].puerto);
 }
@@ -318,8 +320,9 @@ void pestana_servidores(Formulario& p) {
     size_t proto = posicion(f.protocolos, sv.protocolo);
     if (lista(p, fila(p, 5), tr(Tx::AJ_PROTOCOLO), f.protocolos, proto, f.abre_proto)) sv.protocolo = f.protocolos[proto];
     campo(p, fila(p, 6), tr(Tx::AJ_CUENTA), sv.usuario, 32);
+    campo(p, fila(p, 7), tr(Tx::AJ_LANZADOR), sv.lanzador, 256);  // comando que abre un proxy local (Servidor::lanzador)
     size_t entrar = c.servidor;
-    if (lista(p, fila(p, 7), tr(Tx::AJ_SERVIDOR_ENTRAR), nombres, entrar, f.abre_ini)) c.servidor = entrar;
+    if (lista(p, fila(p, 8), tr(Tx::AJ_SERVIDOR_ENTRAR), nombres, entrar, f.abre_ini)) c.servidor = entrar;
 }
 
 void pestana_personajes(Formulario& p) {

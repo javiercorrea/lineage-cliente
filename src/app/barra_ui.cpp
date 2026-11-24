@@ -263,6 +263,7 @@ void procesar_barra(App& a) {
                 enviar(a, cmd::emote(a.op, static_cast<u8>(accion)));
                 a.mundo.objetos.col<O_ACCION>()[yo] = static_cast<u8>(accion);
                 a.mundo.objetos.col<O_TACCION>()[yo] = a.entrada.ahora_ms;
+                fijar_ritmo(a.mundo, yo);
             }
         }
         return mantener_numero(a);

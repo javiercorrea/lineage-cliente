@@ -131,6 +131,14 @@ static bool decodificar_s32_o_seg(Bytes datos, int base_x, int base_y, SegmentoM
         l.saltar(4);
         if (!l.error) s.portales.push_back({static_cast<u8>(x / 2), y, mapa});
     }
+    s.efectos.clear();
+    const u16 nefectos = !l.error && l.quedan(2) ? l.u16_() : 0;
+    const size_t extra = (nefectos & 0x8000) ? 4 : 0;
+    for (u16 i = 0; i < (nefectos & 0x7FFF) && l.quedan(6 + extra); ++i) {
+        const u16 gfx = l.u16_(), x = l.u16_(), y = l.u16_();
+        l.saltar(extra);
+        s.efectos.push_back({gfx, x, y});
+    }
     return true;  // los objetos son opcionales: un error ahí no invalida el suelo
 }
 

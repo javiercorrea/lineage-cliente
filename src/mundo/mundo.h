@@ -19,6 +19,14 @@
 
 namespace lin {
 
+// Cola de ocupado de un objeto (exe 0x4cb080 / 0x4cb8a0 IsBusy): los S_MoveCharPacket, S_DoActionGFX y S_AttackPacket que
+// llegan mientras el objeto todavía hace una acción o un paso esperan acá y corren cuando termina.
+constexpr u32 MAX_COLA = 8;
+struct ColaObjeto {
+    u8 n = 0;
+    Evento e[MAX_COLA];
+};
+
 // Columnas de la tabla de objetos (personajes, NPCs, monstruos, puertas...).
 enum ColObjeto : size_t {
     O_X, O_Y,            // celda actual (destino si se está moviendo)
@@ -39,9 +47,14 @@ enum ColObjeto : size_t {
     O_ROSA,              // nombre rosa (S_PinkName: atacó a otro jugador) hasta este momento (ms)
     O_ZANCADA,           // step parity: sprites with list.spz attribute 111 (stride) alternate walk actions 0 and 4
     O_DANO_RAPIDO,       // 1: esta acción de daño vino del golpe de un paquete de ataque, se reproduce a la mitad de largo (exe [+0x11d])
+    O_BRAVE,             // estado de brave (exe [+0x25]): estado de S_CharPack >> 4 & 7, o el tipo de S_SkillBrave
+    O_TERCERA,           // tercer acelerador (exe [+0x127]): velocidad 8 de S_CharPack o S_Liquor 8
+    O_RAFAGA,            // ataques rápidos que quedan (exe [+0x120]): Triple Arrow 4, Foe Slayer 3; -1 en cada ataque
+    O_COLA,              // acciones, ataques y pasos que esperan a que termine el actual (cola de ocupado del exe)
+    O_RITMO,             // factor de la acción puntual en curso, fijado al empezar (num << 16 | den; 0 = sin fijar): ver fijar_ritmo
 };
 using TablaObjetos = TablaSoa<u16, u16, double, double, u64, u16, u8, u16, u8, u8, u64, u8, u8, u8, u8, u32, u32, i16, u32,
-                              TextoRef, TextoRef, u8, u8, u64, u8, u8>;
+                              TextoRef, TextoRef, u8, u8, u64, u8, u8, u8, u8, u8, ColaObjeto, u32>;
 
 // Efecto con duración sobre el propio personaje (módulo "Buffs" del plan): haste, brave, escudos...
 // Clase EA_* y tipo según el paquete que lo informó (ver ICONO_EFECTO y VELOCIDAD en eventos.h).
@@ -297,5 +310,27 @@ bool caminando(const Mundo& m, Slot s, u64 ahora);
 // Duración de un paso: la animación de caminar del sprite (con el arma), como el servidor
 // (spr_actions); × 3/4 rápido (haste), × 4/3 lento.
 u16 duracion_paso(const Mundo& m, GfxId gfx, u8 arma, u8 velocidad);
+// Duración del paso de un objeto: duracion_paso con brave, el tercer acelerador y la cola (0x4cda90).
+u16 duracion_paso_objeto(const Mundo& m, Slot s);
+// Factor de largo de cuadro de una acción que no es caminar (exe 0x4cda90): los cuadros duran num / den de su largo en la
+// tabla. `accion` es la acción con el arma ya sumada. Para dibujar, ritmo_de (que usa el factor fijado al empezar).
+struct Ritmo {
+    u32 num = 1, den = 1;
+};
+Ritmo ritmo_accion(const Mundo& m, Slot s, u8 accion);
+// Fija el factor de la acción puntual que acaba de empezar (O_ACCION / O_TACCION): el original recalcula el largo de cada
+// cuadro al llegar a él, así que un cambio de factor no mueve lo ya reproducido; con el tiempo total escalado, fijarlo al
+// empezar evita que la animación salte. Llamar después de poner O_ACCION, O_TACCION y O_DANO_RAPIDO.
+void fijar_ritmo(Mundo& m, Slot s);
+// Factor con el que se dibuja `accion`: el fijado si es la acción puntual en curso, si no el de ahora (bucles).
+Ritmo ritmo_de(const Mundo& m, Slot s, u8 accion);
+// SetAction(1) gasta uno de los ataques rápidos de Triple Arrow / Foe Slayer (0x4c96e3).
+void gastar_rafaga(TablaObjetos& o, Slot s, i32 accion);
+// Acción con la postura del arma, como se dibuja (solo atacar y daño la suman, SetAction 0x4c96c0).
+u8 accion_con_arma(const Mundo& m, Slot s, u8 base);
+// True mientras el objeto hace una acción o un paso, o tiene encolados (exe IsBusy 0x4cb8a0).
+bool ocupado(const Mundo& m, Slot s, u64 ahora);
+// Arranca lo encolado de los objetos que ya no están ocupados. Una vez por cuadro, después de aplicar_eventos.
+void avanzar_colas(Mundo& m, u64 ahora);
 
 }  // namespace lin

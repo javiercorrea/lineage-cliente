@@ -11,6 +11,7 @@
 #include "mundo/autopocion.h"
 #include "mundo/chat.h"
 #include "mundo/mundo.h"
+#include "plataforma/lanzador.h"
 #include "plataforma/rutas.h"
 #include "proto/comandos.h"
 #include "proto/decodificar.h"
@@ -325,6 +326,7 @@ struct App {
 
     TablaOpcodes op{};
     HiloRed red;
+    Lanzador lanzador;  // el lanzador del servidor elegido, si tiene (Servidor::lanzador)
     EstadoRed estado_red_previo = EstadoRed::INACTIVA;
     std::vector<u8> paquete;
     std::vector<Evento> eventos;
@@ -793,6 +795,7 @@ size_t nombre_efecto_activo(const App& a, const EfectoActivo& ef, char* buf, siz
 std::string_view nombre_personaje(const App& a);
 // Acciones de la interfaz que también usa el control en vivo (control.cpp).
 void iniciar_login(App& a);                        // pantalla_login.cpp: conectar con cuenta y clave
+void atender_lanzador(App& a);                     // pantalla_login.cpp: conectar cuando el lanzador da su puerto
 void entrar_juego(App& a);                         // pantalla_personajes.cpp: con a.pj_sel
 void enviar_chat(App& a, std::string_view linea);  // pantalla_juego.cpp: como escrita en el chat (comandos "/" incluidos)
 ObjId buscar_item(const App& a, std::string_view texto);    // inventario_ui.cpp: el primero cuyo nombre lo contenga

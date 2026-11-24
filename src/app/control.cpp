@@ -240,6 +240,11 @@ void objetos(App& a, Conexion& c, int radio) {
             const size_t usado = std::strlen(l);
             std::snprintf(l + usado, sizeof l - usado, " clase=%u", static_cast<unsigned>(clase_objeto(a, s)));
         }
+        if (const u8 n_cola = o.col<O_COLA>()[s].n; n_cola || o.col<O_BRAVE>()[s] || o.col<O_RAFAGA>()[s]) {
+            const size_t usado = std::strlen(l);
+            std::snprintf(l + usado, sizeof l - usado, " cola=%u brave=%u rafaga=%u", static_cast<unsigned>(n_cola),
+                          static_cast<unsigned>(o.col<O_BRAVE>()[s]), static_cast<unsigned>(o.col<O_RAFAGA>()[s]));
+        }
         std::string_view ti = texto(a.mundo, o.col<O_TITULO>()[s]);
         for (const Vendedor& v : a.tienda_pj.vendedores)
             if (v.id == id && !v.titulo.empty()) ti = v.titulo;  // private shop sign

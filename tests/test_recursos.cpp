@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include "comun.h"
+#include "recursos/aes.h"
 #include "recursos/fuente.h"
 #include "recursos/mapa.h"
 #include "recursos/pak.h"
@@ -65,14 +66,6 @@ TEST_CASE("Recursos del juego: .pak, imágenes, textos, tiles y sprites" * docte
 TEST_CASE("Tabla de sprites (datos/sprite_table.txt)") {
     TablaSprites t;
     if (!t.cargar_archivo("datos/sprite_table.txt") && !t.cargar_archivo("../../datos/sprite_table.txt")) return;
-    // Filas agregadas a mano: los dark elf 75 y 80 usan los archivos de los otros dark elf.
-    CHECK(t.gfx_archivos(9225) == t.gfx_archivos(6160));
-    CHECK(t.gfx_archivos(9226) == t.gfx_archivos(6160));
-    CHECK(t.gfx_archivos(9206) == t.gfx_archivos(6157));
-    CHECK(t.gfx_archivos(9012) == t.gfx_archivos(7341));
-    CHECK(t.accion(9225, ACC_CAMINAR) != nullptr);
-    CHECK(t.accion(9226, 8) != nullptr);
-    CHECK(t.gfx_archivos(9224) == 9224);
     CHECK(t.cantidad_gfx() > 1000);
     CHECK(t.gfx_archivos(0) == 3225);  // "312=3225"
     const RangoAccion* caminar = t.accion(0, ACC_CAMINAR);
@@ -83,6 +76,24 @@ TEST_CASE("Tabla de sprites (datos/sprite_table.txt)") {
     const RangoAccion* quieto = t.accion(0, ACC_QUIETO);
     REQUIRE(quieto);
     CHECK(t.frame(quieto->primer).sub == 8);
+}
+
+TEST_CASE("Tabla de sprites: list.spz cifrado de Text.pak" * doctest::skip(carpeta_juego().empty())) {
+    Recursos r;
+    REQUIRE(r.abrir(carpeta_juego()));
+    std::vector<u8> d;
+    if (!r.texto("list.spz", d)) return;  // instalaciones sin la tabla cifrada
+    REQUIRE(d.size() > 5);
+    CHECK(d[0] == 'S');
+    descifrar_aes_lineage(d.data() + 5, d.size() - 5);
+    TablaSprites t;
+    if (!t.cargar_archivo("datos/sprite_table.txt") && !t.cargar_archivo("../../datos/sprite_table.txt")) return;
+    CHECK(!t.accion(9225, ACC_CAMINAR));  // sprite_table.txt (l1j-client) llega al 8682
+    ResumenLista res;
+    REQUIRE(t.fusionar_lista({reinterpret_cast<const char*>(d.data()), d.size()}, res));
+    CHECK(res.nuevos > 1000);
+    CHECK(t.accion(9225, ACC_CAMINAR) != nullptr);  // ancient platinum darkelf polymorph
+    CHECK(t.gfx_archivos(9225) == 1125);            // "#9225 48=1125"
 }
 
 TEST_CASE("Tabla de sprites: sufijos sueltos y pegados") {
@@ -196,6 +207,18 @@ TEST_CASE("Mapa generado .mg: cabecera inválida") {
     std::vector<u8> malo = {'X', 'X', 'X', 'X', 0, 0, 0, 0};
     SegmentoMapa s;
     CHECK_FALSE(decodificar_mg(malo, 0, 0, s));  // magic equivocado
+}
+
+TEST_CASE("Mapa 4: efectos fijos de la capa 8 del .s32" * doctest::skip(carpeta_juego().empty())) {
+    std::vector<u8> d;
+    REQUIRE(leer_archivo(carpeta_juego() + nombre_segmento(4, 32623, 32830), d));  // map/4/7ffd8000.s32
+    SegmentoMapa s;
+    REQUIRE(decodificar_s32(d, 32623 & ~63, 32830 & ~63, s));
+    REQUIRE(s.efectos.size() == 10);
+    CHECK(s.efectos[0].gfx == 1630);
+    CHECK(s.efectos[0].x == 32623);  // celdas absolutas, dentro del segmento
+    CHECK(s.efectos[0].y == 32830);
+    CHECK(s.efectos[2].gfx == 3443);  // "dot range seven": una luz
 }
 
 TEST_CASE("Mapa 2005: la copa de un árbol se ordena con el pie del tronco" * doctest::skip(carpeta_juego().empty())) {

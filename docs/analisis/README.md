@@ -3,7 +3,8 @@
 - `PROTOCOLO_RED.md`: descripción del protocolo de red (entramado, cifrado, opcodes).
 - `opcodes/CATALOGO_2009.md`: **catálogo de todos los opcodes del cliente 2009** (`S3EP1U.bin`) con formato, nombre L1J, certeza y evidencia.
 - `opcodes/`: archivos `opcodes.txt` para l1j-client (cliente 2009 y familias públicas), sus fuentes y la **homologación con el cliente 2014** (`opcodes/README.md`).
-- `COMPATIBILIDAD_L1J_WANTED.md`: compatibilidad con el servidor coreano L1J-Wanted (era Remastered): el protobuf dentro de L1J y en qué difiere del formato clásico, el login por connector, qué paquetes van en cada formato y el plan por fases.
+- `COMPATIBILIDAD_L1J_WANTED.md`: compatibilidad con los servidores de la era Remastered L1J-Wanted (coreano) y L1J-Remastered-KLD (la misma base, en Big5 y con login directo): el protobuf dentro de L1J y en qué difiere del formato clásico, el login, qué paquetes van en cada formato y el plan por fases.
+- `FORMATOS_PAK.md`: formatos de `.idx`/`.pak` (clásico, `_EXT`, `_RMS`, `IDXC`), el AES de `list.spz` y los `.xml`, y los tiles Remastered; qué está implementado y el plan para el resto.
 - `COMPARACION_L1J_CLIENT.md`: cruce con https://github.com/uglyoldbob/l1j-client (commit `83052f6`). Incluye la tabla de opcodes en tres numeraciones y los errores encontrados en l1j-client.
 - Note: `ENTREGABLES.md` and the upstream README now live in `../upstream/`.
 - `PLAN_CLIENTE.md`: plan para completar l1j-client como cliente multiplataforma: C++20 orientado a datos sobre SDL3, módulos, presupuestos de rendimiento y 11 entregables jugables. Los entregables 1–3 están implementados en `../cliente/` (ver `cliente/ENTREGABLES.md`).

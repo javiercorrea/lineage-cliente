@@ -7,6 +7,27 @@ con su verificación y lo pendiente, está en [docs/upstream/ENTREGABLES.md](doc
 Al hacer una versión nueva: agregar su sección arriba de todo, con los PRs mergeados desde el tag
 anterior (`git log --first-parent <tag anterior>..main`).
 
+## v0.2.3 (2026-11-23)
+
+### Agregado
+- **Tabla de sprites real del juego:** el cliente descifra solo el `list.spz` de `Text.pak` (AES propio, sin
+  dependencias) y lo usa cuando no hay una lista en texto plano: 13.540 entradas, con las filas reales de los
+  polymorphs 75/80 y de muchos gfx que antes no tenían fila (#59).
+- **Efectos fijos de los mapas:** fuegos, braseros, chispas, vapor y algas de la capa 8 de los `.s32` se dibujan en
+  bucle, y las luces fijas del mapa (y las de los fuegos) alumbran de noche y en las mazmorras, con los radios del
+  juego original (#60).
+- **Lanzador por servidor (opcional):** un comando en la línea del servidor que abre un proxy local e imprime su
+  puerto; el cliente lo corre al entrar, se conecta a ese puerto y lo detiene al salir o antes de otro lanzador.
+  Plazo de 30 s (#61, #62).
+
+### Cambiado
+- **Animaciones como el exe:** las acciones, ataques y pasos que llegan mientras un objeto está ocupado esperan en
+  una cola en vez de cortar la animación, y los cuadros duran según haste, brave, wafer, tercer acelerador y Triple
+  Arrow / Foe Slayer. El factor se fija al empezar cada acción (#61, #62).
+- **README al día:** Windows hecho, paquetes, ajustes en el juego e issues de este repo (#57).
+- **Formatos de pak documentados:** `docs/analisis/FORMATOS_PAK.md` (índices clásico, `_EXT`, `_RMS` y `IDXC`, el
+  AES de `list.spz`, tiles Remastered y la capa 8) (#59, #60).
+
 ## v0.2.2 (2026-11-22)
 
 ### Agregado

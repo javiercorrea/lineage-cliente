@@ -161,6 +161,17 @@ There is no `1516.img` / `1518.img` in this installation (only unrelated monster
 - The target's damage starts at the attacker's "!" frame (frame byte +0x12 bit 0); an attack with no "!" never flinches.
   That damage plays at half length ([+0x11d]); S_DoActionGFX(2) plays it at full length.
 - A frame of n ticks lasts n * 1000 / rate ms (list.spz loader 0x440ba8), not 960.
-- Frame length modifiers (0x4cda90): haste x3/4, slow x2 (fork: O_VEL), brave factors, queue catch-up (not modelled).
-- Not modelled: the busy queue (0x4cb8a0 IsBusy / 0x4cb080 / 0x4ce630): actions, attacks and moves arriving while an
-  object is mid-action are queued and run when it ends, instead of restarting the current one.
+- Frame length modifiers (0x4cda90, `ritmo_accion`), multiplied together:
+  - queue of 2+ waiting entries ([+0x78]) x1/2; damage from an attack hit ([+0x11d], action == weapon + 2) x1/2;
+  - Triple Arrow / Foe Slayer ([+0x120], set to 4 / 3 by S_SkillSound gfx 4394 / 7020 at 0x48babd, -1 on each SetAction(1)):
+    attack rows 5, 12, 21, 25, 51 at (t+2)/3;
+  - third accelerator ([+0x127], S_CharPack speed byte 8 or S_Liquor 8) x29/32;
+  - haste [+0x20]: 1 x3/4, 2 x2 (17 / 18 the same but only on steps);
+  - brave [+0x25] (S_CharPack status >> 4 & 7, or S_SkillBrave type): 1 x3/4, 3 x7/8, 4 x3/4 on steps only, 6 x3/4 on
+    non-step actions only, 5 x3/8 (when the global 0x8168a5 is clear);
+  - not modelled: [+0x124] (S_PacketBox 44, x2 on actions; l1j-en never sends it) and the global 0x8168a5.
+  "Step" means the current action is a walk stance ([+0x10] in {0, 4, 11, 20, 24, 40, 46, 50, 54, 58, 62}, 0x4cd970).
+- Busy queue (0x4cb080 push, 0x4cb8a0 IsBusy): S_MoveCharPacket, S_DoActionGFX and S_AttackPacket for an object that is
+  mid-step, mid-action or already has queued entries are queued and start when the current one ends (fork: `encolar` /
+  `avanzar_colas`, started at the exact end time so steps chain). The own character is not queued (local prediction).
+  The attack's projectile and the target's flinch are deferred with it.

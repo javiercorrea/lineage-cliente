@@ -1,9 +1,11 @@
-# Compatibilidad con L1J-Wanted (servidor coreano de la era Remastered)
+# Compatibilidad con L1J-Wanted y L1J-Remastered-KLD (servidores de la era Remastered)
 
-**Estado:** análisis y plan; nada implementado. Fuente: el código de
+**Estado:** análisis y plan; nada implementado. Fuentes: el código de
 [baboqoo/L1J-Wanted](https://github.com/baboqoo/L1J-Wanted) (Java + MySQL, opcodes del cliente
-coreano del 2022-04-08). Solo se leyó el código: no se ejecutó el servidor ni sus herramientas.
-Regla de siempre: si se prueba, solo contra una copia local del servidor.
+coreano del 2022-04-08) y de [KnowLedgeDomain/L1J-Remastered-KLD](https://github.com/KnowLedgeDomain/L1J-Remastered-KLD)
+(`f778366`, la misma base con texto en Big5 y login directo: §8). Solo se leyó el código: no se ejecutaron los servidores
+ni sus herramientas, ni se bajó el cliente que enlaza KLD. Regla de siempre: si se prueba, solo contra una copia local del
+servidor.
 
 ## 1. Resumen
 
@@ -12,7 +14,7 @@ Regla de siempre: si se prueba, solo contra una copia local del servidor.
 | Cifrado | Igual al nuestro (XOR L1J, constante `0x930FD7E2`). No hay que tocar `cifrado.cpp`. |
 | Opcodes | Tabla nueva (`Opcodes.java`, 271 opcodes): un perfil más, `wanted`. |
 | Formato de los cuerpos | **Mixto:** un núcleo binario clásico (como el nuestro) y un **segundo formato, protobuf**, dentro de un solo opcode. |
-| Login | Distinto: login HTTP en un "connector" (el launcher), y después un token en el mensaje protobuf `A_NpLogin`. `C_LOGIN` no se usa. |
+| Login | Distinto: login HTTP en un "connector" (el launcher), y después un token en el mensaje protobuf `A_NpLogin`. `C_LOGIN` no se usa. **En KLD, sin connector:** `A_NpLogin` trae `cuenta\nclave` en claro (§8). |
 | Datos del cliente | Hace falta una instalación Remastered: con los paks de 2009 faltan 3340 de los gfx que define su `list.spz`. |
 
 Lo importante: **el protobuf no es opcional ni se puede dejar para después**. Los objetos del
@@ -221,3 +223,46 @@ Lo más incierto, para verificar en la fase 0 con capturas:
 2. La cola `00 00` de los `S_EXTENDED_PROTOBUF`.
 3. Qué espera el servidor en los campos de `A_ClientVersion`.
 4. Los atributos 114–120 del `list.spz`, para la parte gráfica.
+
+## 8. L1J-Remastered-KLD: la misma base, más fácil de usar como primer objetivo
+
+[KnowLedgeDomain/L1J-Remastered-KLD](https://github.com/KnowLedgeDomain/L1J-Remastered-KLD) (`f778366`, 2026-01-01)
+publica "la versión original sin traducir" de un servidor coreano que circulaba por internet. Es **la misma base que
+Wanted**: `Opcodes.java` (2022-04-08), el cifrado (`LineageEncryption.java`), `PacketHandler.java`,
+`ProtoPacketExecutor`, `ProtoHandler`, `A_ClientVersion` y `WorldPutObjectStream` son idénticos. Todo lo de las
+secciones 2 a 4 vale igual. Tiene 2756 archivos Java contra 3031 de Wanted, y cambian unos 50. Los que importan:
+
+| Tema | Wanted | KLD | Para nosotros |
+|---|---|---|---|
+| Login | HTTP del connector + token AES en el campo 4 de `A_NpLogin` (§5) | Sin parte web (no existe `l1j/server/web`). El campo 4 de `A_NpLogin` es el texto `cuenta\nclave` en Big5 (un tercer renglón opcional, el disco, para bans). `Authorization` crea la cuenta si no existe | **El login sale directo:** ni HTTP, ni AES, ni parche en el servidor. Las fases 3 y 5 del plan se reducen a armar `A_NpLogin` |
+| Texto | EUC-KR (CP949) | **Big5**: `writeS`, `readS` y `writeStringWithLength` (también dentro del protobuf) | Ya existe el dato de perfil `texto_big5` (tw380): el perfil `kld` lo prende |
+| `A_NpLogin` | Campos desde el byte 5 | Lee 2 bytes más ("total length") antes del campo 1 | **A verificar con captura:** o su cliente manda ese largo de más, o el sobre de §3.1 cambia en ese mensaje |
+| Versión del cliente | `CLIENT_VERSION` de `config/version.properties` | `2211231701`; el binario del cliente sería `Linbin2303281701.bin` (`connector.properties`) | `A_ClientVersion` solo compara la versión si la conexión **no** viene de `LOGIN_SERVER_ADDRESS` o localhost: en local no hace falta acertarla |
+
+### `A_ClientVersion` (código `0x0334`)
+
+Es el primer mensaje protobuf del cliente, y en los dos servidores se lee por etiquetas (protobuf de verdad, no por
+posición). Campos: 1 `protocol_version` (varint), 2 `active_code_page`, 3 `check_seed`, 4 `client_version` (entero
+largo), 5 `client_instance_count` (byte), 6 semilla de recursos (bytes con largo), 7 `is_streaming` (bool),
+8 `client_specific_value`. Es válido si `protocol_version > 0`, `active_code_page > 0`, `check_seed != 0` y
+`client_instance_count > 0`. Con más instancias que `ALLOW_2PC_IP_COUNT`, el servidor rechaza.
+
+### Saludo
+
+`config/version.properties` trae `FIRST_KEY = e7, 62, 25, 04, 62, 19, dd, d3, 7f`: el paquete inicial `S_KEY` (opcode
+`0xe7`) con la semilla del cifrado, igual que en los perfiles que ya tenemos. Hay que confirmar con una captura qué parte
+es la semilla.
+
+### Cliente
+
+El README de KLD enlaza un cliente "Lineage 1 Java Client" para bajar. Son datos de NCsoft, y no lo bajé. Si se consigue
+uno de esa versión, es un buen candidato para probar los índices `_EXT`/`_RMS` (PR #64, `FORMATOS_PAK.md`), porque ningún
+cliente que tengamos los usa.
+
+### Qué cambia en el plan (§7)
+
+- **Empezar por KLD**, no por Wanted: un perfil `kld` (la tabla de `Opcodes.java`, que es la misma, más `texto_big5`) y
+  `A_NpLogin` con `cuenta\nclave` permiten llegar a la lista de personajes sin connector ni parches en el servidor.
+- Las fases 1, 2 y 4 no cambian: el protobuf y los paquetes son los mismos.
+- La fase 5 (login por connector) queda solo para Wanted.
+
