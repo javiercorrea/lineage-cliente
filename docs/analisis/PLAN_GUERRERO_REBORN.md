@@ -20,6 +20,12 @@ Hallazgos (revisión estática, sin ejecutar nada):
 | Lógica extra del cliente | `reborn_client.dll`: barras de MP del grupo (hook DirectDraw + paquete de grupo), "darkness patch", paquete "visual settings" | No: son extras, no hacen falta para el Guerrero |
 | UI de creación | `xml/CreateUI.xml` cifrado | No (y no hace falta: dibujamos la pantalla nosotros) |
 
+Los `.pak` de Reborn son del **formato clásico** que ya leemos (verificado 2026-11-24): índices de
+`u32 cantidad` + entradas de 28 bytes en Sprite, Sprite00–15, Tile y Text (Text con DES), contenido en
+claro, y 158.200 de 158.203 entradas de los SpriteNN cumplen la regla `NN = suma de bytes del nombre & 15`
+de `pak.h`. 4.079 archivos están en Sprite.pak y en un SpriteNN; gana el SpriteNN (más nuevo), que es
+lo que ya hace el lector. Lo propio de Reborn es solo cómo los arma (archivos sueltos + `eat.exe`).
+
 Desconocido (lo resuelve la fase 1): el **número de clase** que usa el servidor (en los servidores
 coreanos L1J el Guerrero es la clase 7, después del ilusionista 6), la **versión de protocolo**
 (TW13032701 hace pensar en `tw380`, sin confirmar), si hay **opcodes propios** de Reborn y el
