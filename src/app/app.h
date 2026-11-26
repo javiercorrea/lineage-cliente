@@ -10,6 +10,7 @@
 #include "mundo/autobuffs.h"
 #include "mundo/autopocion.h"
 #include "mundo/chat.h"
+#include "mundo/clases.h"
 #include "mundo/mundo.h"
 #include "plataforma/lanzador.h"
 #include "plataforma/rutas.h"
@@ -358,6 +359,7 @@ struct App {
     // Creación
     std::string nombre_nuevo;
     int clase_nueva = 0, sexo_nuevo = 0;
+    TablaClases clases = clases_estandar();  // la del servidor elegido (con su extensión, si tiene; ver iniciar_login)
     int extra[6] = {};  // puntos agregados a fue, des, con, sab, car, int
 
     // Juego
@@ -897,8 +899,8 @@ void eventos_cantidad(App& a, const Evento& e);
 void eventos_reinicio(App& a, const Evento& e);
 void dibujar_reinicio(App& a);
 // Atributos base de cada clase (pantalla_crear.cpp): fue, des, con, sab, car, int; y sus puntos libres.
-const u8* stats_base_clase(int clase);
-int bonus_clase(int clase);
+const u8* stats_base_clase(const App& a, int clase);
+int bonus_clase(const App& a, int clase);
 // Dar un ítem del inventario a un NPC o una mascota; de una pila, pregunta cuántos.
 void dar_item(App& a, ObjId objetivo, ObjId item);
 // Varios a la vez: la pila entera de cada uno, sin preguntar.

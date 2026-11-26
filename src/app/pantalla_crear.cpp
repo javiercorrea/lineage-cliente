@@ -9,46 +9,27 @@ namespace lin {
 
 namespace {
 
-// Orden de stats en el paquete: fue, des, con, sab, car, int.
-constexpr u8 BASE[7][6] = {
-    {13, 10, 10, 11, 13, 10},  // príncipe
-    {16, 12, 14, 9, 12, 8},    // caballero
-    {11, 12, 12, 12, 9, 12},   // elfo
-    {8, 7, 12, 12, 8, 12},     // mago
-    {12, 15, 8, 10, 9, 11},    // elfo oscuro
-    {13, 11, 14, 12, 8, 11},   // caballero dragón
-    {11, 10, 12, 12, 8, 12},   // ilusionista
-};
-constexpr int BONUS[7] = {8, 4, 7, 16, 10, 6, 10};
+// Atributos, topes, botones y animaciones de cada clase: a.clases (mundo/clases.h). Stats en el orden del
+// paquete: fue, des, con, sab, car, int.
 constexpr int TOTAL_STATS = 75;
-// Máximo absoluto por stat y clase (maxFixedStats del servidor; estándar del juego, igual entre
-// versiones). Orden Str, Dex, Con, Wis, Cha, Int, como BASE.
-constexpr u8 MAX[7][6] = {
-    {20, 18, 18, 18, 18, 18},  // príncipe
-    {20, 16, 18, 13, 16, 12},  // caballero
-    {18, 18, 18, 18, 16, 18},  // elfo
-    {20, 18, 18, 18, 18, 18},  // mago
-    {18, 18, 18, 18, 18, 18},  // elfo oscuro
-    {19, 16, 18, 17, 14, 17},  // caballero dragón
-    {19, 16, 18, 18, 18, 18},  // ilusionista
-};
-// Puntos que se le pueden sumar a un stat: los flotantes de la clase, sin pasar el máximo absoluto.
-inline int tope_extra(int clase, int i) { return std::min<int>(BONUS[clase], MAX[clase][i] - BASE[clase][i]); }
-
-constexpr u32 IMG_CLASE[7] = {1753, 1755, 1757, 1759, 1761, 1749, 1751};
-constexpr int POS_CLASE[7][2] = {{332, 11}, {542, 11}, {332, 67}, {542, 67}, {332, 118}, {542, 118}, {332, 166}};
-// Animación de vista previa por clase × 2 + sexo (las mismas que en la selección).
-constexpr u16 PREVIA[14][2] = {{714, 86}, {629, 82}, {378, 71}, {315, 60}, {245, 67}, {166, 76}, {531, 95},
-                               {452, 76}, {90, 73},  {25, 62},  {841, 65}, {908, 58}, {969, 68}, {1039, 87}};
 constexpr int POS_STAT[6][2] = {{406, 317}, {406, 332}, {406, 347}, {525, 317}, {525, 332}, {525, 347}};
 constexpr int POS_BAJAR[6][2] = {{424, 317}, {424, 332}, {424, 347}, {498, 317}, {498, 332}, {498, 347}};
 
+const Clase& clase_elegida(const App& a) { return a.clases.de(a.clase_nueva); }
+
+// Puntos que se le pueden sumar a un stat: los flotantes de la clase, sin pasar el máximo absoluto.
+int tope_extra(const Clase& k, int i) { return std::min<int>(k.bonus, k.tope[i] - k.base[i]); }
+
 int puntos_libres(const App& a) {
     int usados = 0;
-    for (int i = 0; i < 6; ++i) usados += a.extra[i];
-    int base = 0;
-    for (int i = 0; i < 6; ++i) base += BASE[a.clase_nueva][i];
-    return TOTAL_STATS - base - usados;
+    for (int i = 0; i < 6; ++i) usados += a.extra[i] + clase_elegida(a).base[i];
+    return TOTAL_STATS - usados;
+}
+
+// Cuadro de la animación de vista previa (las mismas que en la selección); 0 si la clase no tiene.
+u32 cuadro_previa(const App& a) {
+    const AnimClase& an = clase_elegida(a).anim[a.sexo_nuevo];
+    return an.cantidad ? an.primero + static_cast<u32>((a.entrada.ahora_ms - a.t_anim) / 67 % an.cantidad) : 0;
 }
 
 const char* motivo_crear(int c) {
@@ -84,7 +65,7 @@ void bajar_stat(App& a, int i) {
 }
 
 void subir_stat(App& a, int i) {
-    if (puntos_libres(a) > 0 && a.extra[i] < tope_extra(a.clase_nueva, i)) ++a.extra[i];
+    if (puntos_libres(a) > 0 && a.extra[i] < tope_extra(clase_elegida(a), i)) ++a.extra[i];
 }
 
 // Pantalla original (draw_new_char.cpp). Igual que crear_simple.
@@ -93,19 +74,19 @@ bool crear_original(App& a, bool& volver) {
     Gpu& gpu = g.gpu();
     const EntradaFrame& e = a.entrada;
     gpu.dibujar(g.img(824), 0, 0, clave_orden(CAPA_FONDO, 0));
-    for (int c = 0; c < 7; ++c) {
-        if (radio(g, e, IMG_CLASE[c], POS_CLASE[c][0], POS_CLASE[c][1], a.clase_nueva == c)) elegir_clase(a, c);
+    for (int c = 0; c < a.clases.n; ++c) {
+        const Clase& k = a.clases.c[c];
+        if (k.boton && radio(g, e, k.boton, k.x, k.y, a.clase_nueva == c)) elegir_clase(a, c);
     }
     if (radio(g, e, 306, 348, 248, a.sexo_nuevo == 0)) elegir_sexo(a, 0);
     if (radio(g, e, 304, 533, 248, a.sexo_nuevo == 1)) elegir_sexo(a, 1);
 
-    const u16* prev = PREVIA[a.clase_nueva * 2 + a.sexo_nuevo];
-    gpu.dibujar(g.png(prev[0] + static_cast<u32>(((e.ahora_ms - a.t_anim) / 67) % prev[1])), 410, 0, clave_orden(CAPA_UI, 0));
+    if (const u32 cuadro = cuadro_previa(a)) gpu.dibujar(g.png(cuadro), 410, 0, clave_orden(CAPA_UI, 0));
 
     // Stats con botones de bajar (556) y subir (554).
     char t[16];
     for (int i = 0; i < 6; ++i) {
-        int base = BASE[a.clase_nueva][i];
+        int base = clase_elegida(a).base[i];
         if (ui::boton(g, e, 556, POS_BAJAR[i][0], POS_BAJAR[i][1])) bajar_stat(a, i);
         if (ui::boton(g, e, 554, POS_BAJAR[i][0] + 11, POS_BAJAR[i][1])) subir_stat(a, i);
         std::snprintf(t, sizeof t, "%2d", base + a.extra[i]);
@@ -134,8 +115,9 @@ bool crear_simple(App& a, bool& volver) {
 
     ui::recuadro(g, 20, 38, 180, 384);
     g.texto(tr(Tx::CREAR_CLASE), 32, 48, kt, ui::COLOR_TITULO);
-    for (int c = 0; c < 7; ++c) {
-        const int y = 66 + c * 26;
+    const int paso = a.clases.n > 7 ? 24 : 26;  // con 8 clases la lista llega justo antes de "Sexo"
+    for (int c = 0; c < a.clases.n; ++c) {
+        const int y = 66 + c * paso;
         const bool encima = ui::sobre(e, 26, y, 168, 22);
         if (c == a.clase_nueva || encima)
             g.gpu().rectangulo(26, y, 168, 22, clave_orden(CAPA_UI, 3), c == a.clase_nueva ? rgba(90, 70, 40, 230) : rgba(50, 40, 28, 230));
@@ -154,8 +136,7 @@ bool crear_simple(App& a, bool& volver) {
     }
 
     ui::recuadro(g, 214, 38, 406, 384);
-    const u16* prev = PREVIA[a.clase_nueva * 2 + a.sexo_nuevo];
-    g.gpu().dibujar(g.png(prev[0] + static_cast<u32>(((e.ahora_ms - a.t_anim) / 67) % prev[1])), 450, 30, clave_orden(CAPA_UI, 4));
+    if (const u32 cuadro = cuadro_previa(a)) g.gpu().dibujar(g.png(cuadro), 450, 30, clave_orden(CAPA_UI, 4));
 
     // Atributos en el orden del paquete: fue, des, con, sab, car, int.
     const char* nombres[6] = {"STR", "DEX", "CON", "WIS", "CHA", "INT"};
@@ -164,7 +145,7 @@ bool crear_simple(App& a, bool& volver) {
         const int y = 70 + i * 28;
         g.texto(nombres[i], 232, y + 4, kt, tenue);
         if (ui::boton_texto(g, e, "-", 280, y, 22, 20)) bajar_stat(a, i);
-        std::snprintf(t, sizeof t, "%2d", BASE[a.clase_nueva][i] + a.extra[i]);
+        std::snprintf(t, sizeof t, "%2d", clase_elegida(a).base[i] + a.extra[i]);
         g.texto(t, 312, y + 4, kt, a.extra[i] ? rgba(255, 230, 150) : ui::COLOR_TEXTO);
         if (ui::boton_texto(g, e, "+", 336, y, 22, 20)) subir_stat(a, i);
     }
@@ -196,7 +177,7 @@ void frame_crear(App& a) {
             a.aviso = tr(Tx::CREAR_FALTA_NOMBRE);
         } else {
             u8 stats[6];
-            for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(BASE[a.clase_nueva][i] + a.extra[i]);
+            for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(clase_elegida(a).base[i] + a.extra[i]);
             enviar(a, cmd::crear_personaje(a.op, a.nombre_nuevo, static_cast<u8>(a.clase_nueva),
                                            static_cast<u8>(a.sexo_nuevo), stats));
             a.aviso.clear();
@@ -216,16 +197,16 @@ void frame_crear(App& a) {
 // y el pedido al servidor. El resultado llega como en la pantalla (PERSONAJE_NUEVO o RESULTADO_CREAR).
 void crear_personaje_rapido(App& a, std::string_view nombre, int clase) {
     a.nombre_nuevo = nombre;
-    a.clase_nueva = std::clamp(clase, 0, 6);
+    a.clase_nueva = std::clamp(clase, 0, a.clases.n - 1);
     for (int i = 0; i < 6; ++i) a.extra[i] = 0;
     for (int i = 0; i < 6 && puntos_libres(a) > 0; ++i)
-        while (puntos_libres(a) > 0 && a.extra[i] < tope_extra(a.clase_nueva, i)) ++a.extra[i];
+        while (puntos_libres(a) > 0 && a.extra[i] < tope_extra(clase_elegida(a), i)) ++a.extra[i];
     u8 stats[6];
-    for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(BASE[a.clase_nueva][i] + a.extra[i]);
+    for (int i = 0; i < 6; ++i) stats[i] = static_cast<u8>(clase_elegida(a).base[i] + a.extra[i]);
     enviar(a, cmd::crear_personaje(a.op, a.nombre_nuevo, static_cast<u8>(a.clase_nueva), static_cast<u8>(a.sexo_nuevo), stats));
 }
 
-const u8* stats_base_clase(int clase) { return BASE[std::clamp(clase, 0, 6)]; }
-int bonus_clase(int clase) { return BONUS[std::clamp(clase, 0, 6)]; }
+const u8* stats_base_clase(const App& a, int clase) { return a.clases.de(clase).base; }
+int bonus_clase(const App& a, int clase) { return a.clases.de(clase).bonus; }
 
 }  // namespace lin

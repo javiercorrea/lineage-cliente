@@ -22,7 +22,8 @@ constexpr int ANCHO = 640, ALTO = 480;  // el formulario mide lo que medía la v
 constexpr int X_ETIQUETA = 32, X_CAMPO = 250, ANCHO_CAMPO = 340, Y_PRIMERA = 78, PASO = 28;
 constexpr int CAJA_X = 12, CAJA_Y = 62, CAJA_ANCHO = 616, CAJA_ALTO = 340;  // recuadro del contenido
 const u32 COLOR_ERROR = rgba(255, 120, 100), COLOR_OK = rgba(170, 230, 150);
-const std::vector<std::string> PROTOCOLOS = {"jp363", "tw380"};  // los que entiende el cliente (opcodes.cpp)
+// Los que entiende el cliente (opcodes.cpp); "+nombre" agrega una extensión de servidor (datos/extensiones/).
+const std::vector<std::string> PROTOCOLOS = {"jp363", "tw380", "tw380+reborn"};
 // Idiomas del juego: el código que va a settings.ini ("" = el del sistema). El nombre de cada uno se
 // escribe en su propio idioma, salvo la primera opción, que sigue el idioma activo.
 const std::vector<std::string> IDIOMAS_CODIGOS = {"", "es", "en", "pt", "de", "fr"};

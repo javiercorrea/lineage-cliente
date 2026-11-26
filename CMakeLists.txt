@@ -113,6 +113,7 @@ add_library(lin_mundo STATIC
     src/mundo/autopocion.cpp
     src/mundo/cargador_segmentos.cpp
     src/mundo/chat.cpp
+    src/mundo/clases.cpp
     src/mundo/luz.cpp
     src/mundo/mundo.cpp
     src/mundo/inventario.cpp)
@@ -253,6 +254,7 @@ if(LIN_TESTS)
         tests/test_pe_resources.cpp
         tests/test_mundo.cpp
         tests/test_chat.cpp
+        tests/test_clases.cpp
         tests/test_atlas.cpp
         tests/test_icon_aura.cpp
         tests/test_hd_pack.cpp

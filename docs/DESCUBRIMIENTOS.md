@@ -393,6 +393,30 @@ Visto al probar la barra de atajos, los auto-buffs y la auto-poción en los dos:
 - **Whale no guarda lo que da `.allskill`:** al volver a entrar, `S_AddSkill` trae solo las magias
   iniciales. Hay que repetirlo en cada sesión de prueba.
 
+### Lineage 1 Reborn: el Guerrero (extensión `reborn`)
+
+Visto en los datos de su cliente (TW13032701 con archivos propios; sin conectarse a su servidor):
+
+- **Los `.pak` son del formato clásico** (Sprite, Sprite00–15, Tile, Text con DES): los lee el cliente sin
+  cambios. Su actualizador baja archivos sueltos y los empaqueta con `eat.exe`; los de los SpriteNN, más
+  nuevos, ganan sobre Sprite.pak, que es lo que ya hace `pak.h`.
+- **El Guerrero es la clase 7:** lo dice `text/charattrtype.tbl` ("7:warrior"), que trae tres repartos
+  sugeridos por clase (`clase tipo fue des con int sab car`). La base de cada stat es el mínimo de los tres y
+  el bonus lo que falta para 75; con las clases del juego da exactamente las bases de `C_CreateChar`.
+- **Imágenes:** botón `2257.img` (2258 marcado), cuya cabecera dice transparente `0x421` pero el fondo es
+  `0x422`, así que se ve como un recuadro oscuro, igual que en sus datos. Selección: los quietos y
+  resaltados en gris van intercalados con las animaciones: `1132` hombre quieto, `1133` mujer quieta, `1134`
+  hombre resaltado, `1135..1218` animación del hombre, `1219` mujer resaltada, `1220..1302` animación de la
+  mujer (brillo medio de quieto ≈ 5 y resaltado ≈ 11, como el 906/907 del caballero dragón). En el juego:
+  gfx 12490 y 12494, con las acciones en `list.spz`.
+- **Dos listas de sprites:** el `TW13032701.txt` de su carpeta (2013) llega al gfx 12413 y el `list.spz` de su
+  Text.pak al 15438. Por eso el list.spz de Text.pak se fusiona también cuando hay una lista en texto plano, después de
+  ella (suma unos 2.950 gfx). Los gfx 12490/12494 figuran ahí como `dummy`, sin acciones: la animación del
+  Guerrero en el juego no está en los datos. Unos 570 gfx (15528..30103) no están en ninguna lista.
+- **Cómo se activa:** protocolo `<versión>+reborn` en `servidor=`; los números están en
+  `datos/extensiones/reborn.ini` (`mundo/clases.h`). Un servidor estándar nunca manda la clase 7 y su tabla es
+  la de siempre.
+
 ---
 
 ## 6. Decisiones de interfaz

@@ -30,6 +30,9 @@ X(LOGIN_ERR_LANZADOR, "El lanzador del servidor no dio un puerto (o tardó más 
   "Le lanceur du serveur n'a donné aucun port (ou a pris plus de 30 s).")
 X(LOGIN_ERR_PROTOCOLO, "Versión de protocolo desconocida: ", "Unknown protocol version: ",
   "Versão de protocolo desconhecida: ", "Unbekannte Protokollversion: ", "Version de protocole inconnue : ")
+X(LOGIN_ERR_EXTENSION, "Extensión de servidor no encontrada o inválida: ", "Server extension missing or invalid: ",
+  "Extensão de servidor ausente ou inválida: ", "Server-Erweiterung fehlt oder ist ungültig: ",
+  "Extension de serveur introuvable ou invalide : ")
 
 // --- Crear personaje -----------------------------------------------------------------------
 X(CREAR_TITULO, "Nuevo personaje", "New character", "Novo personagem", "Neuer Charakter", "Nouveau personnage")
@@ -82,6 +85,7 @@ X(CLASE_ELFO_OSCURO, "Elfo oscuro", "Dark Elf", "Elfo sombrio", "Dunkelelf", "El
 X(CLASE_CABALLERO_DRAGON, "Caballero dragón", "Dragon Knight", "Cavaleiro dragão", "Drachenritter",
   "Chevalier dragon")
 X(CLASE_ILUSIONISTA, "Ilusionista", "Illusionist", "Ilusionista", "Illusionist", "Illusionniste")
+X(CLASE_GUERRERO, "Guerrero", "Warrior", "Guerreiro", "Krieger", "Guerrier")
 
 // --- Ventana de ajustes (app/ajustes_ui.cpp) ------------------------------------------------
 X(AJ_TITULO, "AJUSTES DEL CLIENTE", "CLIENT SETTINGS", "AJUSTES DO CLIENTE", "CLIENT-EINSTELLUNGEN",

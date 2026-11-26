@@ -9,28 +9,18 @@ namespace lin {
 
 namespace {
 
-// Animación de ranura por (clase × 2 + sexo): primer PNG, cantidad, PNG quieto y resaltado.
-struct AnimRanura {
-    u16 primero, cantidad, quieto, resaltado;
-};
-constexpr AnimRanura ANIM[] = {
-    {714, 86, 799, 801},  {629, 82, 711, 713},   // príncipe / princesa
-    {378, 71, 449, 451},  {315, 60, 375, 377},   // caballero
-    {245, 67, 312, 314},  {166, 76, 242, 244},   // elfo
-    {531, 95, 626, 628},  {452, 76, 528, 530},   // mago
-    {90, 73, 163, 165},   {25, 62, 87, 89},      // elfo oscuro
-    {841, 65, 906, 907},  {908, 58, 966, 967},   // caballero dragón
-    {969, 68, 1037, 1038}, {1039, 87, 1126, 1127},  // ilusionista
-};
-constexpr AnimRanura ANIM_VACIA = {1, 24, 0, 0};  // "nuevo personaje"
+// Animación de ranura por clase y sexo (a.clases): primer PNG, cantidad, PNG quieto y resaltado.
+constexpr AnimClase ANIM_VACIA = {1, 24, 0, 0};  // "nuevo personaje"
 constexpr int X_RANURA[4] = {0x013, 0x0b0, 0x14d, 0x1ea};
 constexpr int ANCHO_RANURA = 150, ALTO_RANURA = 250;
 constexpr int MS_FRAME_RANURA = 67;
 
-const AnimRanura& anim_de(const PersonajeLista* p) {
+const AnimClase& anim_de(const App& a, const PersonajeLista* p) {
     if (!p) return ANIM_VACIA;
-    int i = p->v[PJ_CLASE] * 2 + p->v[PJ_SEXO];
-    return (i >= 0 && i < 14) ? ANIM[i] : ANIM_VACIA;
+    const int clase = p->v[PJ_CLASE], sexo = p->v[PJ_SEXO];
+    if (clase < 0 || clase >= a.clases.n || (sexo != 0 && sexo != 1)) return ANIM_VACIA;
+    const AnimClase& an = a.clases.c[clase].anim[sexo];
+    return an.cantidad ? an : ANIM_VACIA;
 }
 
 bool hay_elegido(const App& a) { return a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()); }
@@ -105,7 +95,7 @@ void seleccion_simple(App& a) {
 
     if (hay_elegido(a)) {
         const PersonajeLista& p = a.pjs[a.pj_sel];
-        const AnimRanura& an = anim_de(&p);
+        const AnimClase& an = anim_de(a, &p);
         const u32 imagen = an.primero + static_cast<u32>((e.ahora_ms - a.t_anim) / MS_FRAME_RANURA % an.cantidad);
         g.gpu().dibujar(g.png(imagen), DATOS_X + (DATOS_W - ANCHO_RANURA) / 2, LISTA_Y - 20, clave_orden(CAPA_UI, 4));
         ui::texto_centrado(g, p.nombre, DATOS_X, LISTA_Y + 226, DATOS_W, ui::COLOR_TITULO);
@@ -154,10 +144,11 @@ void volver_a_personajes(App& a) {
 }  // namespace
 
 const char* nombre_clase(int c) {
-    // El orden es el de las clases del paquete (príncipe a ilusionista).
-    static const Tx n[] = {Tx::CLASE_PRINCIPE, Tx::CLASE_CABALLERO, Tx::CLASE_ELFO, Tx::CLASE_MAGO,
-                           Tx::CLASE_ELFO_OSCURO, Tx::CLASE_CABALLERO_DRAGON, Tx::CLASE_ILUSIONISTA};
-    return (c >= 0 && c < 7) ? tr(n[c]) : "?";
+    // El orden es el de las clases del paquete (príncipe a ilusionista, y el guerrero de los servidores que lo
+    // tienen: un servidor estándar nunca manda la clase 7).
+    static const Tx n[] = {Tx::CLASE_PRINCIPE, Tx::CLASE_CABALLERO, Tx::CLASE_ELFO,          Tx::CLASE_MAGO,
+                           Tx::CLASE_ELFO_OSCURO, Tx::CLASE_CABALLERO_DRAGON, Tx::CLASE_ILUSIONISTA, Tx::CLASE_GUERRERO};
+    return (c >= 0 && c < CLASES_MAX) ? tr(n[c]) : "?";
 }
 
 void eventos_personajes(App& a, const Evento& e) {
@@ -221,7 +212,7 @@ void frame_personajes(App& a) {
         const PersonajeLista* p = idx < static_cast<int>(a.pjs.size()) ? &a.pjs[idx] : nullptr;
         bool disponible = p || idx < a.max_pj;
         if (!disponible) continue;
-        const AnimRanura& an = anim_de(p);
+        const AnimClase& an = anim_de(a, p);
         bool encima = ui::sobre(e, X_RANURA[i], 0, ANCHO_RANURA, ALTO_RANURA);
         bool seleccionado = (idx == a.pj_sel);
         u32 imagen;

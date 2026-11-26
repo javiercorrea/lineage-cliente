@@ -104,17 +104,22 @@ static void cargar_lista_sprites(App& a) {
         else
             LIN_LOG("Sprite table: %s has no usable entry", origen);
     };
-    // Sin lista en texto plano, la del juego: list.spz de Text.pak, con 5 bytes en claro ("S1354") y el resto en AES
-    // (docs/analisis/FORMATOS_PAK.md).
-    if (std::vector<u8> t; p.empty() && a.rec.texto("list.spz", t) && t.size() > 5) {
-        descifrar_aes_lineage(t.data() + 5, t.size() - 5);
-        ResumenLista r;
-        informar(a.sprites.fusionar_lista({reinterpret_cast<const char*>(t.data()), t.size()}, r, &contador), r, "Text.pak list.spz");
-    }
+    // La lista del juego: list.spz de Text.pak, con 5 bytes en claro ("S1354") y el resto en AES (docs/analisis/FORMATOS_PAK.md).
+    // Sin lista en texto plano va primero; con una, después, y solo agrega los gfx que esa no tiene: el TW13032701.txt de
+    // Lineage 1 Reborn llega al gfx 12413 y su list.spz al 15438.
+    auto lista_text_pak = [&] {
+        if (std::vector<u8> t; a.rec.texto("list.spz", t) && t.size() > 5) {
+            descifrar_aes_lineage(t.data() + 5, t.size() - 5);
+            ResumenLista r;
+            informar(a.sprites.fusionar_lista({reinterpret_cast<const char*>(t.data()), t.size()}, r, &contador), r, "Text.pak list.spz");
+        }
+    };
+    if (p.empty()) lista_text_pak();
     for (const std::string& ruta : rutas) {
         ResumenLista r;
         informar(a.sprites.fusionar_lista_archivo(ruta, r, &contador), r, ruta.c_str());
     }
+    if (!p.empty()) lista_text_pak();
 }
 
 bool cargar_recursos(App& a) {

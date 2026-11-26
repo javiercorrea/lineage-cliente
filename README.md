@@ -123,7 +123,9 @@ The game itself is not included: the first time, the client asks for the folder 
   sharp at any scale with identical layout ([docs/fork/hd_text.md](docs/fork/hd_text.md)). Optional 4x HD UI
   image pack (`hd=<dir>`, not distributed).
 - **Protocol profiles:** `jp363` (L1J-JP 3.63c), `tw380` (Taiwan 3.80C, with Big5 server text decoded to UTF-8)
-  and `s3ep1` (US 2009).
+  and `s3ep1` (US 2009). A `+name` suffix (`tw380+reborn`) adds a server extension from
+  `datos/extensiones/<name>.ini`: `reborn` enables the Warrior class (class 7) of Lineage 1 Reborn on the select
+  and create screens, read from Reborn's own game folder.
 - **Multi-folder game data:** `juego_extra=` fallback folders for sprites, tiles, maps, sounds, HTML pages and
   sprite lists missing from the main install; `lista_sprites=` / `list.spz` support for newer gfx.
 - **Gameplay and social:** clan emblems (upload, cache, overhead draw), alliances (`C_Rank`), ship arrival
@@ -185,7 +187,7 @@ texto_hd=1
 |---|---|
 | `juego` | Main game folder |
 | `juego_extra` | Fallback game folder, repeatable, tried in order |
-| `servidor`, `servidor_elegido` | One line per server: `name\|host\|port\|profile\|last account[\|launcher]`; profile is `jp363`, `tw380` or `s3ep1`. The chosen one is `servidor_elegido`. The optional launcher is a command (rest of the line) for servers reached through a local proxy that their own launcher opens: on login the client runs it and connects to `host` at the port it prints (the number after `port`, else after an address like `127.0.0.1:`, else the last number; 30 s limit). Before another launcher and on exit it runs the previous one again with `stop`; `port` then only names the server. The command runs through the system shell, so only use a `settings.ini` you trust |
+| `servidor`, `servidor_elegido` | One line per server: `name\|host\|port\|profile\|last account[\|launcher]`; profile is `jp363`, `tw380` or `s3ep1`, optionally with a `+extension` suffix (`tw380+reborn`). The chosen one is `servidor_elegido`. The optional launcher is a command (rest of the line) for servers reached through a local proxy that their own launcher opens: on login the client runs it and connects to `host` at the port it prints (the number after `port`, else after an address like `127.0.0.1:`, else the last number; 30 s limit). Before another launcher and on exit it runs the previous one again with `stop`; `port` then only names the server. The command runs through the system shell, so only use a `settings.ini` you trust |
 | `ui_simple` | `0` (default): original 2009 UI; `1`: the simple text UI (F2 toggles) |
 | `texto_hd` | `1` (default): HD text pass; `0`: pixel text in the 640x480 frame |
 | `fuente_original` | `1` (default): game's `eng.fnt` for ASCII; `0`: Departure Mono |

@@ -20,7 +20,7 @@ constexpr const char* NOMBRES[6] = {"STR", "INT", "WIS", "DEX", "CON", "CHA"};
 constexpr int A_CREAR[6] = {0, 5, 3, 1, 2, 4};
 
 int clase(const App& a) { return a.pj_sel >= 0 && a.pj_sel < static_cast<int>(a.pjs.size()) ? a.pjs[a.pj_sel].v[PJ_CLASE] : 0; }
-int base_de(const App& a, int i) { return stats_base_clase(clase(a))[A_CREAR[i]]; }
+int base_de(const App& a, int i) { return stats_base_clase(a, clase(a))[A_CREAR[i]]; }
 
 int libres_inicial(const App& a) {
     int suma = 0;
@@ -86,7 +86,7 @@ void dibujar_reinicio(App& a) {
         std::snprintf(t, sizeof t, "%s  %2d", NOMBRES[i], valor);
         g.texto(t, static_cast<float>(x + 16), static_cast<float>(fy + 3), kt, ui::COLOR_TEXTO);
         if (inicial || elixir) {
-            const int tope = inicial ? bonus_clase(clase(a)) : 255;
+            const int tope = inicial ? bonus_clase(a, clase(a)) : 255;
             if (ui::boton_texto(g, e, "-", x + 100, fy, 22, 18) && r.extra[i] > 0) --r.extra[i];
             if (ui::boton_texto(g, e, "+", x + 126, fy, 22, 18) && libres > 0 && r.extra[i] < tope) ++r.extra[i];
         }
